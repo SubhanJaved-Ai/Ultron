@@ -53,8 +53,8 @@ def create_security_middleware() -> Any:
             # media-src blob: lets the UI play synthesized speech, which arrives
             # as a blob URL; default-src alone refused it.
             response.headers["Content-Security-Policy"] = (
-                "default-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-                "media-src 'self' blob:"
+                "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: blob: data:; "
+                "media-src 'self' blob: data:; font-src 'self' https: data:; connect-src 'self' ws: wss: http: https:;"
             )
             return response
 
@@ -70,6 +70,7 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(self), geolocation=()",
     "Content-Security-Policy": (
-        "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' blob:"
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: blob: data:; "
+        "media-src 'self' blob: data:; font-src 'self' https: data:; connect-src 'self' ws: wss: http: https:;"
     ),
 }

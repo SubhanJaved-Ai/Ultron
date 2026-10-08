@@ -151,7 +151,7 @@ class WhatsAppBaileysChannel(BaseChannel):
 
         try:
             bridge_js = self._ensure_bridge()
-        except RuntimeError as exc:
+        except (RuntimeError, FileNotFoundError, subprocess.SubprocessError) as exc:
             logger.error("Bridge setup failed: %s", exc)
             self._status = ChannelStatus.ERROR
             return

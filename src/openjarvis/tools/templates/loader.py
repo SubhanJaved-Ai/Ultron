@@ -8,6 +8,7 @@ import logging
 import operator
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -263,6 +264,12 @@ class ToolTemplate(BaseTool):
                 content="Empty command.",
                 success=False,
             )
+        if sys.platform == "win32" and argv[0].lower() == "echo":
+            argv = [
+                sys.executable,
+                "-c",
+                "import sys; print(*sys.argv[1:])",
+            ] + argv[1:]
         result = subprocess.run(  # noqa: S603
             argv,
             shell=False,

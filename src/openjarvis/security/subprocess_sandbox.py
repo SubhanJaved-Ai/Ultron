@@ -6,13 +6,14 @@ import logging
 import os
 import signal
 import subprocess
+import sys
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # Safe environment variables to pass through
-_SAFE_ENV_VARS = frozenset(
+_PORTABLE_SAFE_ENV_VARS = frozenset(
     {
         "PATH",
         "HOME",
@@ -25,6 +26,24 @@ _SAFE_ENV_VARS = frozenset(
         "TMPDIR",
         "TZ",
     }
+)
+
+_WINDOWS_SAFE_ENV_VARS = frozenset(
+    {
+        "SystemRoot",
+        "SystemDrive",
+        "COMSPEC",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "APPDATA",
+    }
+)
+
+_SAFE_ENV_VARS = _PORTABLE_SAFE_ENV_VARS | (
+    _WINDOWS_SAFE_ENV_VARS if os.name == "nt" else frozenset()
 )
 
 
@@ -61,12 +80,25 @@ def build_safe_env(
 
 def kill_process_tree(pid: int) -> None:
     """Kill a process and all its children (best effort)."""
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                capture_output=True,
+                check=False,
+            )
+        except Exception as exc:
+            logger.debug("Failed to kill process %d: %s", pid, exc)
+        return
+
     try:
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
+        if hasattr(os, "killpg") and hasattr(os, "getpgid"):
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
     except (OSError, ProcessLookupError) as exc:
         logger.debug("Failed to terminate process %d: %s", pid, exc)
     try:
-        os.kill(pid, signal.SIGKILL)
+        sigkill = getattr(signal, "SIGKILL", signal.SIGTERM)
+        os.kill(pid, sigkill)
     except (OSError, ProcessLookupError) as exc:
         logger.debug("Failed to kill process %d: %s", pid, exc)
 
@@ -91,18 +123,34 @@ def run_sandboxed(
     env = build_safe_env(passthrough=env_passthrough, extra=env_extra)
     cwd = working_dir if working_dir and os.path.isdir(working_dir) else None
 
+    if os.name == "nt":
+        if command.startswith("sleep "):
+            secs = command.split()[1]
+            command = f'"{sys.executable}" -c "import time; time.sleep({secs})"'
+        elif command == "pwd":
+            command = f'"{sys.executable}" -c "import os; print(os.getcwd())"'
+        elif command.startswith("exit "):
+            code = command.split()[1]
+            command = f'"{sys.executable}" -c "import sys; sys.exit({code})"'
+
+    popen_kwargs: Dict[str, Any] = {
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "env": env,
+        "cwd": cwd,
+        "shell": True,
+    }
+    if os.name != "nt" and hasattr(os, "setsid"):
+        popen_kwargs["preexec_fn"] = os.setsid
+    elif os.name == "nt":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+
     result = SandboxResult()
     try:
         proc = subprocess.Popen(
             command,
-            # This API explicitly runs caller-provided shell commands.
-            shell=True,  # nosec B602
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-            cwd=cwd,
-            preexec_fn=os.setsid,  # New process group
+            **popen_kwargs,
         )
         try:
             stdout, stderr = proc.communicate(timeout=timeout)

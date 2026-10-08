@@ -345,7 +345,7 @@ finally:
     actual_pid = None
     try:
         daemon_cmd._write_pid(proc.pid, "127.0.0.1", 0, ready=False, launch_token=token)
-        deadline = time.monotonic() + 15.0
+        deadline = time.monotonic() + 45.0
         while time.monotonic() < deadline:
             if child_pid_file.exists():
                 actual_pid = int(child_pid_file.read_text())

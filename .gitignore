@@ -71,7 +71,7 @@ frontend/dist/
 # Desktop
 desktop/node_modules/
 desktop/dist/
-src/openjarvis/server/static/
+# src/openjarvis/server/static/ (tracked for 3D Hologram PWA)
 
 # Desktop (Tauri)
 frontend/src-tauri/target/

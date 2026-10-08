@@ -7,9 +7,13 @@ import json
 import pytest
 
 
+from openjarvis._rust_bridge import RUST_AVAILABLE
+
+
 class TestGetRustModule:
     """Test get_rust_module() returns the Rust extension module."""
 
+    @pytest.mark.skipif(not RUST_AVAILABLE, reason="Rust extension not compiled")
     def test_returns_rust_module(self):
         """get_rust_module() returns the openjarvis_rust module."""
         from openjarvis._rust_bridge import get_rust_module
@@ -245,6 +249,7 @@ class TestConverterInvalidInputs:
             retrieval_results_from_json("42")
 
 
+@pytest.mark.skipif(not RUST_AVAILABLE, reason="Rust extension not compiled")
 class TestRustBackedModules:
     """Test that Rust-backed modules work correctly."""
 

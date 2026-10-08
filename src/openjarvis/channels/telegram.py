@@ -162,18 +162,30 @@ class TelegramChannel(BaseChannel):
             logger.warning("Cannot send: no Telegram bot token")
             return False
 
+        if metadata and metadata.get("voice_reply"):
+            try:
+                from openjarvis.speech.voice_channel_bridge import VoiceChannelBridge
+
+                bridge = VoiceChannelBridge()
+                voice_data = bridge.synthesize_voice(content)
+                if voice_data:
+                    return self.send_voice(
+                        channel,
+                        voice_data,
+                        conversation_id=conversation_id,
+                        caption=content[:1024],
+                    )
+            except Exception as exc:
+                logger.debug(
+                    "Telegram voice synthesis failed, falling back to text: %s",
+                    exc,
+                )
+
         try:
             import httpx
 
             _TELEGRAM_MAX_LEN = 4096
             url = f"https://api.telegram.org/bot{self._token}/sendMessage"
-            # Canonical channel send contract (see BaseChannel.send): the first
-            # positional ``channel`` arg is the DESTINATION (the Telegram chat
-            # id).  ``conversation_id`` is the inbound message id used as a
-            # reply/thread reference (``reply_to_message_id``).  We fall back to
-            # ``conversation_id`` as the chat id only when ``channel`` is empty,
-            # for backwards compatibility with legacy callers that passed the
-            # chat id via ``conversation_id``.
             chat_id = channel or conversation_id
             reply_to = conversation_id if (channel and conversation_id) else ""
             chunks = textwrap.wrap(
@@ -226,6 +238,47 @@ class TelegramChannel(BaseChannel):
             return True
         except Exception:
             logger.debug("Telegram send failed", exc_info=True)
+            return False
+
+    def send_voice(
+        self,
+        channel: str,
+        voice_bytes: bytes,
+        *,
+        conversation_id: str = "",
+        caption: str = "",
+    ) -> bool:
+        """Send an audio voice note to a Telegram chat via sendVoice API."""
+        if not self._token:
+            logger.warning("Cannot send voice: no Telegram bot token")
+            return False
+        if not voice_bytes:
+            return False
+
+        try:
+            import httpx
+
+            chat_id = channel or conversation_id
+            url = f"https://api.telegram.org/bot{self._token}/sendVoice"
+            files = {"voice": ("voice.ogg", voice_bytes, "audio/ogg")}
+            data: Dict[str, Any] = {"chat_id": chat_id}
+            if caption:
+                data["caption"] = caption[:1024]
+            if conversation_id and channel:
+                data["reply_to_message_id"] = conversation_id
+
+            resp = httpx.post(url, data=data, files=files, timeout=30.0)
+            if resp.status_code < 300:
+                self._publish_sent(channel, "[Voice Note]", conversation_id)
+                return True
+            logger.warning(
+                "Telegram sendVoice returned status %d: %s",
+                resp.status_code,
+                resp.text,
+            )
+            return False
+        except Exception:
+            logger.debug("Telegram sendVoice failed", exc_info=True)
             return False
 
     def status(self) -> ChannelStatus:
@@ -387,12 +440,47 @@ class TelegramChannel(BaseChannel):
                 msg = update.message
                 if msg is None:
                     return
+
+                content = msg.text or ""
+                metadata: Dict[str, Any] = {}
+
+                # Handle incoming voice note or audio file
+                voice_obj = getattr(msg, "voice", None) or getattr(msg, "audio", None)
+                if voice_obj:
+                    try:
+                        tg_file = await voice_obj.get_file()
+                        raw_bytes = await tg_file.download_as_bytearray()
+                        if raw_bytes:
+                            from openjarvis.speech.voice_channel_bridge import (
+                                VoiceChannelBridge,
+                            )
+
+                            bridge = VoiceChannelBridge()
+                            suffix = ".ogg" if getattr(msg, "voice", None) else ".mp3"
+                            transcribed = bridge.transcribe_audio(
+                                bytes(raw_bytes),
+                                suffix=suffix,
+                            )
+                            if transcribed:
+                                caption = (msg.caption or "").strip()
+                                content = f"{transcribed} {caption}".strip()
+                                metadata["is_voice"] = True
+                                metadata["transcribed"] = True
+                                metadata["voice_reply"] = True
+                    except Exception as exc:
+                        logger.warning(
+                            "Telegram voice transcription failed: %s", exc
+                        )
+                        if not content:
+                            content = (msg.caption or "").strip() or "[Voice Note]"
+
                 cm = ChannelMessage(
                     channel="telegram",
                     sender=str(msg.from_user.id) if msg.from_user else "",
-                    content=msg.text or "",
+                    content=content,
                     message_id=str(msg.message_id),
                     conversation_id=str(msg.chat.id),
+                    metadata=metadata,
                 )
                 # Enforce allow-list when configured
                 if self._allowed_chat_ids:
@@ -423,7 +511,15 @@ class TelegramChannel(BaseChannel):
                         },
                     )
 
-            app.add_handler(MessageHandler(filters.TEXT, _handle_msg))
+            base_filter = getattr(filters, "TEXT", None)
+            for attr in ("VOICE", "AUDIO"):
+                extra = getattr(filters, attr, None)
+                if extra is not None and base_filter is not None:
+                    try:
+                        base_filter = base_filter | extra
+                    except TypeError:
+                        pass
+            app.add_handler(MessageHandler(base_filter, _handle_msg))
             loop.run_until_complete(self._run_polling_lifecycle(app, async_stop_event))
         except Exception:
             logger.debug("Telegram poll loop error", exc_info=True)

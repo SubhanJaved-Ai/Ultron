@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#02050c">
+  <meta name="description" content="JARVIS 2.0 Autonomous AI — Marvel Cinematic 3D Holographic Core">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>JARVIS 2.0 — Mark VII Holographic Core</title>
+  <script>
+    // Force purge stale service workers and caches on load
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(r) { r.unregister(); });
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(keys) {
+        keys.forEach(function(k) { caches.delete(k); });
+      });
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <!-- Three.js for 3D Quantum Particle Cloud & Holographic Face Mesh (Served locally) -->
+  <script src="/three.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #02050c;
+      --cyan: #00f3ff;
+      --cyan-bright: #7df9ff;
+      --cyan-dim: rgba(0, 243, 255, 0.22);
+      --cyan-glow: 0 0 25px rgba(0, 243, 255, 0.7);
+      --blue: #0066ff;
+      --blue-glow: 0 0 35px rgba(0, 102, 255, 0.5);
+      --gold: #ffbe0b;
+      --text: #e0f8ff;
+      --muted: #416788;
+      --panel-bg: rgba(3, 10, 24, 0.65);
+      --panel-border: rgba(0, 243, 255, 0.2);
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 3D WebGL Canvas Layer */
+    #hologram-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      display: block;
+    }
+
+    /* Cinematic Hologram Scanlines & Vignette Overlay */
+    .crt-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 2;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at center, transparent 35%, rgba(2, 5, 12, 0.85) 100%),
+        repeating-linear-gradient(0deg, rgba(0, 243, 255, 0.015) 0px, rgba(0, 243, 255, 0.015) 1px, transparent 1px, transparent 2px),
+        linear-gradient(rgba(0, 243, 255, 0.02) 1px, transparent 1px) 0 0 / 60px 60px,
+        linear-gradient(90deg, rgba(0, 243, 255, 0.02) 1px, transparent 1px) 0 0 / 60px 60px;
+    }
+
+    /* Interactive Holographic HUD Grid */
+    .hud-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 32px;
+    }
+
+    /* Top Navigation & Status Bar */
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: auto;
+    }
+    .hud-branding {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .hud-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 0.25em;
+      color: var(--cyan);
+      text-shadow: var(--cyan-glow);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .hud-core-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border: 1px solid var(--cyan);
+      border-radius: 4px;
+      background: rgba(0, 243, 255, 0.12);
+      letter-spacing: 0.15em;
+      color: var(--cyan);
+      text-shadow: 0 0 10px var(--cyan);
+      animation: badge-glow 2.5s infinite alternate;
+    }
+    @keyframes badge-glow {
+      from { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 0 5px rgba(0, 243, 255, 0.2); }
+      to { border-color: var(--cyan); box-shadow: 0 0 15px rgba(0, 243, 255, 0.6); }
+    }
+
+    /* Mode Selector (Quantum Core vs Holographic Face) */
+    .mode-switch-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 4px 6px;
+      backdrop-filter: blur(12px);
+    }
+    .mode-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      padding: 6px 14px;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mode-btn:hover {
+      color: var(--cyan);
+      border-color: var(--cyan-dim);
+    }
+    .mode-btn.active {
+      color: #02050c;
+      background: var(--cyan);
+      border-color: var(--cyan);
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.8);
+    }
+    .upload-face-btn {
+      background: rgba(255, 190, 11, 0.1);
+      border: 1px dashed rgba(255, 190, 11, 0.5);
+      color: var(--gold);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 6px 12px;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-face-btn:hover {
+      background: rgba(255, 190, 11, 0.25);
+      border-color: var(--gold);
+      box-shadow: 0 0 12px rgba(255, 190, 11, 0.6);
+    }
+    #face-upload-input {
+      display: none;
+    }
+
+    /* Telemetry Diagnostics */
+    .hud-telemetry {
+      display: flex;
+      gap: 24px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .telemetry-item span { color: var(--cyan); font-weight: 700; }
+
+    /* Middle HUD Layer (Corner Diagnostics & Floating Transcript) */
+    .hud-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex: 1;
+      margin: 20px 0;
+      pointer-events: none;
+    }
+    .hud-card {
+      pointer-events: auto;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      backdrop-filter: blur(14px);
+      padding: 16px 20px;
+      width: 320px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+    }
+    .card-header {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--cyan);
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--cyan-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 8px;
+      color: var(--muted);
+    }
+    .stat-val { color: var(--text); font-weight: 600; }
+    .status-active { color: #00ffaa; text-shadow: 0 0 8px #00ffaa; }
+
+    /* Floating Subtitle / Transcript Log */
+    #transcript-feed {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    #transcript-feed::-webkit-scrollbar { width: 4px; }
+    #transcript-feed::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 2px; }
+    .feed-entry {
+      padding: 8px 12px;
+      border-radius: 8px;
+      animation: entry-fade 0.3s ease-out;
+    }
+    @keyframes entry-fade {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .entry-user {
+      background: rgba(0, 102, 255, 0.15);
+      border-left: 2px solid var(--blue);
+      color: #9ac2ff;
+    }
+    .entry-jarvis {
+      background: rgba(0, 243, 255, 0.12);
+      border-left: 2px solid var(--cyan);
+      color: var(--cyan-bright);
+    }
+
+    /* Real-Time Acoustic & Wake Status Center Display */
+    .center-hud-announcer {
+      position: absolute;
+      top: 18%;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-align: center;
+      pointer-events: none;
+    }
+    .jarvis-status-pill {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      padding: 6px 20px;
+      border-radius: 20px;
+      background: rgba(3, 10, 24, 0.75);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      text-shadow: var(--cyan-glow);
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.35);
+      transition: all 0.3s ease;
+    }
+    .jarvis-status-pill.listening {
+      border-color: #00ffaa;
+      color: #00ffaa;
+      text-shadow: 0 0 15px #00ffaa;
+      box-shadow: 0 0 30px rgba(0, 255, 170, 0.5);
+      animation: pulse-listen 1.2s infinite;
+    }
+    .jarvis-status-pill.speaking {
+      border-color: var(--gold);
+      color: var(--gold);
+      text-shadow: 0 0 15px var(--gold);
+      box-shadow: 0 0 30px rgba(255, 190, 11, 0.5);
+    }
+    @keyframes pulse-listen {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+    .wake-directive-hint {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .wake-directive-hint span {
+      color: var(--cyan);
+      font-weight: 700;
+    }
+
+    /* Live Audio Spectrum Equalizer */
+    .spectrum-bar-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 24px;
+      margin-top: 4px;
+    }
+    .spectrum-bar {
+      width: 3px;
+      height: 4px;
+      background: var(--cyan);
+      border-radius: 2px;
+      transition: height 0.08s ease;
+      box-shadow: 0 0 6px var(--cyan);
+    }
+
+    /* Bottom Directive Input (Clean Sci-Fi Command Line) */
+    .hud-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+    }
+    .directive-form {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 650px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 28px;
+      padding: 8px 20px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.7);
+      transition: border-color 0.25s;
+    }
+    .directive-form:focus-within {
+      border-color: var(--cyan);
+      box-shadow: 0 0 25px rgba(0, 243, 255, 0.4);
+    }
+    .prompt-prefix {
+      color: var(--cyan);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .directive-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 15px;
+      outline: none;
+    }
+    .directive-input::placeholder {
+      color: #3b5a7a;
+    }
+    .directive-send {
+      background: transparent;
+      border: 1px solid var(--cyan-dim);
+      color: var(--cyan);
+      border-radius: 14px;
+      padding: 5px 14px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      transition: all 0.2s;
+    }
+    .directive-send:hover {
+      background: var(--cyan);
+      color: #02050c;
+      box-shadow: 0 0 15px var(--cyan);
+    }
+
+    /* Permissions Audio Arm Banner */
+    #mic-arm-banner {
+      position: fixed;
+      bottom: 85px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 243, 255, 0.15);
+      border: 1px solid var(--cyan);
+      padding: 8px 24px;
+      border-radius: 20px;
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      color: var(--cyan-bright);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+      z-index: 20;
+      transition: all 0.3s;
+    }
+    #mic-arm-banner:hover {
+      background: rgba(0, 243, 255, 0.3);
+      transform: translateX(-50%) scale(1.03);
+    }
+
+    /* Mobile Adaptations */
+    @media (max-width: 860px) {
+      .hud-overlay { padding: 16px; }
+      .hud-telemetry { display: none; }
+      .hud-main { flex-direction: column; justify-content: flex-end; align-items: stretch; }
+      .hud-card { width: 100%; margin-bottom: 8px; }
+      .hud-card.desktop-only { display: none; }
+      .center-hud-announcer { top: 12%; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Three.js WebGL Hologram Viewport -->
+  <canvas id="hologram-canvas"></canvas>
+
+  <!-- Holographic CRT Scanline & Grid Effect -->
+  <div class="crt-overlay"></div>
+
+  <!-- HUD Interface Layer -->
+  <div class="hud-overlay">
+    <!-- Top Header -->
+    <header class="hud-header">
+      <div class="hud-branding">
+        <div class="hud-title">
+          JARVIS
+          <span class="hud-core-badge">MARK VII CORE</span>
+        </div>
+
+        <!-- Mode Switcher: Quantum Electron Core vs Holographic Face Mesh -->
+        <div class="mode-switch-group">
+          <button id="mode-core-btn" class="mode-btn active" onclick="setHologramMode('core')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+            ELECTRON CORE
+          </button>
+          <button id="mode-face-btn" class="mode-btn" onclick="setHologramMode('face')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+            HOLO FACE
+          </button>
+          <button class="upload-face-btn" onclick="document.getElementById('face-upload-input').click()" title="Upload any portrait photo to project as a 3D hologram">
+            + UPLOAD FACE
+          </button>
+          <input type="file" id="face-upload-input" accept="image/*" onchange="handleFaceUpload(event)">
+        </div>
+      </div>
+
+      <!-- Telemetry Stream -->
+      <div class="hud-telemetry">
+        <div class="telemetry-item">ACOUSTIC SENSOR: <span id="tele-mic">ARMED</span></div>
+        <div class="telemetry-item">WAKE PROTOCOL: <span>"JARVIS"</span></div>
+        <div class="telemetry-item">FPS: <span id="tele-fps">60</span></div>
+      </div>
+    </header>
+
+    <!-- Center HUD Status Indicator (Always Listening) -->
+    <div class="center-hud-announcer">
+      <div id="jarvis-status-badge" class="jarvis-status-pill">AWAITING DIRECTIVE</div>
+      <div class="wake-directive-hint">CONTINUOUS LISTENING — SAY <span>"JARVIS ..."</span> AT ANY TIME</div>
+      <!-- Spectrum Equalizer Bars -->
+      <div class="spectrum-bar-wrap" id="spectrum-bars">
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-bar"></div>
+      </div>
+    </div>
+
+    <!-- Side HUD Panels -->
+    <main class="hud-main">
+      <!-- Left Diagnostics Card -->
+      <div class="hud-card desktop-only">
+        <div class="card-header">
+          <span>SYSTEM TELEMETRY</span>
+          <span class="status-active">● ONLINE</span>
+        </div>
+        <div class="stat-row">
+          <span>CORE FREQUENCY</span>
+          <span class="stat-val" id="stat-freq">432.8 THz</span>
+        </div>
+        <div class="stat-row">
+          <span>QUANTUM ELECTRONS</span>
+          <span class="stat-val" id="stat-particles">3,800 ACTIVE</span>
+        </div>
+        <div class="stat-row">
+          <span>NEURAL SYNAPSE</span>
+          <span class="stat-val" id="stat-synapse">SYNCHRONIZED</span>
+        </div>
+        <div class="stat-row">
+          <span>VOICE MATRIX</span>
+          <span class="stat-val">CONTINUOUS STT</span>
+        </div>
+        <div class="stat-row">
+          <span>AVATAR PROJECTION</span>
+          <span class="stat-val" id="stat-avatar-mode">MCU ELECTRON CLOUD</span>
+        </div>
+      </div>
+
+      <!-- Right Subtitle / Directives Card -->
+      <div class="hud-card">
+        <div class="card-header">
+          <span>COMMUNICATION FEED</span>
+          <span id="comm-mode-text" style="color: var(--cyan);">STANDBY</span>
+        </div>
+        <div id="transcript-feed">
+          <div class="feed-entry entry-jarvis">
+            <strong>JARVIS:</strong> Systems operational. Microphones calibrated. Say "Jarvis" followed by your instruction.
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Command Line -->
+    <footer class="hud-footer">
+      <form class="directive-form" onsubmit="handleTextDirective(event)">
+        <span class="prompt-prefix">JARVIS &gt;</span>
+        <input type="text" id="directive-field" class="directive-input" placeholder="Say 'Jarvis ...' or type directive here..." autocomplete="off">
+        <button type="submit" class="directive-send">TRANSMIT</button>
+      </form>
+    </footer>
+  </div>
+
+  <!-- Browser Mic Initialization Helper Banner -->
+  <div id="mic-arm-banner" onclick="armMicrophoneListener()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+    </svg>
+    CLICK ONCE TO ACTIVATE CONTINUOUS "JARVIS" LISTENING
+  </div>
+
+  <script>
+    // ==========================================================================
+    // 1. THREE.JS 3D QUANTUM ELECTRON CLOUD & HOLOGRAPHIC FACE ENGINE
+    // ==========================================================================
+    const canvas = document.getElementById('hologram-canvas');
+    let scene, camera, renderer;
+    let electronGroup, faceGroup;
+    let electronParticles, electronGeometry, electronMaterial;
+    let orbitalRings = [];
+    let coreGlowMesh, nucleusMesh;
+    let facePoints, faceGeometry, faceMaterial;
+    let currentMode = 'core'; // 'core' | 'face'
+
+    // Quantum physics state
+    let particleCount = 3800;
+    let particlePositions, particleVelocities, particleOriginalRadii, particleAngles;
+    let audioReactiveScale = 1.0;
+    let jarvisState = 'STANDBY'; // 'STANDBY' | 'LISTENING' | 'THINKING' | 'SPEAKING'
+    let mouseX = 0, mouseY = 0;
+    let targetRotationX = 0, targetRotationY = 0;
+
+    function initThreeScene() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+      camera.position.z = 450;
+
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      // Build 3D MCU Quantum Electron Cloud
+      buildQuantumElectronCloud();
+
+      // Build Preset 3D Holographic Face Mesh
+      buildPresetHologramFace();
+
+      // Mouse Parallax Track
+      window.addEventListener('mousemove', (e) => {
+        mouseX = (e.clientX - window.innerWidth / 2) * 0.0008;
+        mouseY = (e.clientY - window.innerHeight / 2) * 0.0008;
+      });
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    // Helper: Generate circular glowing particle sprite texture
+    function createGlowTexture(colorStr, blurFactor) {
+      const pCanvas = document.createElement('canvas');
+      pCanvas.width = 128;
+      pCanvas.height = 128;
+      const pCtx = pCanvas.getContext('2d');
+      const grad = pCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      grad.addColorStop(0.2, colorStr);
+      grad.addColorStop(0.6, 'rgba(0, 102, 255, 0.4)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      pCtx.fillStyle = grad;
+      pCtx.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(pCanvas);
+    }
+
+    // 1A. Quantum Electron Core (Marvel Cinematic Iron Man Style)
+    function buildQuantumElectronCloud() {
+      electronGroup = new THREE.Group();
+      scene.add(electronGroup);
+
+      // A widely spread cloud of electrons
+      electronGeometry = new THREE.BufferGeometry();
+      particlePositions = new Float32Array(particleCount * 3);
+      particleVelocities = new Float32Array(particleCount * 3);
+      particleOriginalRadii = new Float32Array(particleCount);
+      particleAngles = new Float32Array(particleCount * 2); // theta, phi
+
+      const minRadius = 40;
+      const maxRadius = 320; // Widely spread as requested
+
+      for (let i = 0; i < particleCount; i++) {
+        const radius = minRadius + Math.pow(Math.random(), 1.6) * (maxRadius - minRadius);
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos((Math.random() * 2) - 1);
+
+        const x = radius * Math.sin(phi) * Math.cos(theta);
+        const y = radius * Math.sin(phi) * Math.sin(theta);
+        const z = radius * Math.cos(phi);
+
+        particlePositions[i * 3] = x;
+        particlePositions[i * 3 + 1] = y;
+        particlePositions[i * 3 + 2] = z;
+
+        particleOriginalRadii[i] = radius;
+        particleAngles[i * 2] = theta;
+        particleAngles[i * 2 + 1] = phi;
+
+        // Individual orbital velocity
+        particleVelocities[i * 3] = (Math.random() - 0.5) * 0.015;
+        particleVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.015;
+        particleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.015;
+      }
+
+      electronGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+
+      electronMaterial = new THREE.PointsMaterial({
+        size: 5.5,
+        map: createGlowTexture('rgba(0, 243, 255, 0.95)', 0.5),
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        color: 0x00f3ff,
+      });
+
+      electronParticles = new THREE.Points(electronGeometry, electronMaterial);
+      electronGroup.add(electronParticles);
+
+      // Central Luminous Singularity Core
+      const coreGeo = new THREE.SphereGeometry(14, 32, 32);
+      const coreMat = new THREE.MeshBasicMaterial({
+        color: 0x7df9ff,
+        transparent: true,
+        opacity: 0.85,
+        wireframe: true
+      });
+      nucleusMesh = new THREE.Mesh(coreGeo, coreMat);
+      electronGroup.add(nucleusMesh);
+
+      // Magnetic Flux Orbital Rings (MCU Gyro Rings)
+      const ringRadii = [60, 110, 170, 240];
+      ringRadii.forEach((r, idx) => {
+        const ringGeo = new THREE.BufferGeometry();
+        const pts = [];
+        const segs = 120;
+        for (let j = 0; j <= segs; j++) {
+          const a = (j / segs) * Math.PI * 2;
+          pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0));
+        }
+        ringGeo.setFromPoints(pts);
+        const ringMat = new THREE.LineBasicMaterial({
+          color: idx % 2 === 0 ? 0x00f3ff : 0x0066ff,
+          transparent: true,
+          opacity: 0.35,
+          blending: THREE.AdditiveBlending
+        });
+        const ring = new THREE.Line(ringGeo, ringMat);
+        ring.rotation.x = Math.random() * Math.PI;
+        ring.rotation.y = Math.random() * Math.PI;
+        ring.userData = { speedX: (idx + 1) * 0.003, speedY: (idx + 1) * -0.002 };
+        orbitalRings.push(ring);
+        electronGroup.add(ring);
+      });
+    }
+
+    // 1B. 3D Holographic Human / Iron Man Face Generator
+    function buildPresetHologramFace() {
+      faceGroup = new THREE.Group();
+      faceGroup.visible = false;
+      scene.add(faceGroup);
+
+      // Generate 3D Holographic Wireframe Portrait Point Cloud
+      const faceCount = 7000;
+      const fPositions = new Float32Array(faceCount * 3);
+      const fColors = new Float32Array(faceCount * 3);
+
+      let idx = 0;
+      // Head silhouette + cranial contour
+      for (let i = 0; i < faceCount; i++) {
+        const u = Math.random();
+        const v = Math.random();
+        const theta = u * Math.PI * 2;
+        const phi = (v - 0.5) * Math.PI;
+
+        // Ellipsoid face shape with jaw taper & nasal ridge
+        let rX = 85 * (1 - 0.25 * (phi < 0 ? -phi : 0));
+        let rY = 120;
+        let rZ = 75;
+
+        // Facial features perturbation
+        let x = rX * Math.cos(phi) * Math.sin(theta);
+        let y = rY * Math.sin(phi);
+        let z = rZ * Math.cos(phi) * Math.cos(theta);
+
+        // Clip to front face hemisphere mostly
+        if (z < -10) z *= 0.25;
+
+        // Eye socket depressions & cheekbones
+        if (y > 10 && y < 35 && Math.abs(x) > 15 && Math.abs(x) < 45 && z > 30) {
+          z -= 15; // Eye socket
+        }
+        if (y > -15 && y < 15 && Math.abs(x) < 12 && z > 35) {
+          z += 22; // Nose bridge
+        }
+        if (y > -45 && y < -25 && Math.abs(x) < 30 && z > 30) {
+          z += 6; // Lips
+        }
+
+        fPositions[idx * 3] = x;
+        fPositions[idx * 3 + 1] = y;
+        fPositions[idx * 3 + 2] = z;
+
+        // Holographic Cyan / Azure gradient
+        fColors[idx * 3] = 0.0;
+        fColors[idx * 3 + 1] = 0.85 + (Math.sin(y * 0.05) * 0.15);
+        fColors[idx * 3 + 2] = 1.0;
+        idx++;
+      }
+
+      faceGeometry = new THREE.BufferGeometry();
+      faceGeometry.setAttribute('position', new THREE.BufferAttribute(fPositions, 3));
+      faceGeometry.setAttribute('color', new THREE.BufferAttribute(fColors, 3));
+
+      faceMaterial = new THREE.PointsMaterial({
+        size: 4.0,
+        map: createGlowTexture('rgba(0, 243, 255, 0.9)', 0.4),
+        vertexColors: true,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      facePoints = new THREE.Points(faceGeometry, faceMaterial);
+      faceGroup.add(facePoints);
+    }
+
+    // 1C. Upload Real Human Photo -> Convert to 3D Holographic Particle Face!
+    function handleFaceUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          create3DHologramFromImage(img);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function create3DHologramFromImage(img) {
+      // Offscreen canvas processing to sample luminance and 3D depth
+      const sampleCanvas = document.createElement('canvas');
+      const w = 120;
+      const h = 140;
+      sampleCanvas.width = w;
+      sampleCanvas.height = h;
+      const sCtx = sampleCanvas.getContext('2d');
+      sCtx.drawImage(img, 0, 0, w, h);
+      const imgData = sCtx.getImageData(0, 0, w, h).data;
+
+      const points = [];
+      const colors = [];
+
+      for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+          const pixelIndex = (y * w + x) * 4;
+          const r = imgData[pixelIndex];
+          const g = imgData[pixelIndex + 1];
+          const b = imgData[pixelIndex + 2];
+          const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+
+          // Only sample features above threshold
+          if (brightness > 0.15) {
+            // Map 2D (x, y) to centered 3D coordinates
+            const posX = (x - w / 2) * 2.2;
+            const posY = -(y - h / 2) * 2.2;
+
+            // Compute depth: brighter areas (nose, forehead, cheeks) project forward
+            const radialDist = Math.sqrt(Math.pow((x - w / 2) / (w / 2), 2) + Math.pow((y - h / 2) / (h / 2), 2));
+            const curvature = Math.max(0, 1 - radialDist * radialDist) * 45;
+            const posZ = (brightness * 45) + curvature;
+
+            points.push(posX, posY, posZ);
+
+            // Sci-fi holographic coloring
+            colors.push(0.0, 0.75 + brightness * 0.25, 1.0);
+          }
+        }
+      }
+
+      // Rebuild faceGeometry
+      faceGeometry.dispose();
+      faceGeometry = new THREE.BufferGeometry();
+      faceGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(points), 3));
+      faceGeometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+      facePoints.geometry = faceGeometry;
+
+      // Switch to face mode automatically
+      setHologramMode('face');
+      addTranscriptEntry('JARVIS', 'Custom portrait matrix ingested. 3D holographic projection reconstructed.');
+      speakResponse('Custom portrait matrix ingested. Holographic projection reconstructed, sir.');
+    }
+
+    // Toggle Modes (Electron Core vs Hologram Face)
+    function setHologramMode(mode) {
+      currentMode = mode;
+      const coreBtn = document.getElementById('mode-core-btn');
+      const faceBtn = document.getElementById('mode-face-btn');
+      const statAvatar = document.getElementById('stat-avatar-mode');
+
+      if (mode === 'core') {
+        electronGroup.visible = true;
+        faceGroup.visible = false;
+        coreBtn.classList.add('active');
+        faceBtn.classList.remove('active');
+        statAvatar.innerText = 'MCU ELECTRON CLOUD';
+      } else {
+        electronGroup.visible = false;
+        faceGroup.visible = true;
+        coreBtn.classList.remove('active');
+        faceBtn.classList.add('active');
+        statAvatar.innerText = '3D HOLOGRAPHIC FACE';
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // 1D. Main Render Loop & State-Driven Particle Animation
+    let clock = new THREE.Clock();
+    let frameCount = 0;
+    let lastTime = performance.now();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      const time = clock.getElapsedTime();
+
+      // FPS Counter
+      frameCount++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        document.getElementById('tele-fps').innerText = Math.round((frameCount * 1000) / (now - lastTime));
+        frameCount = 0;
+        lastTime = now;
+      }
+
+      // 3D Mouse Parallax
+      targetRotationY += (mouseX - targetRotationY) * 0.05;
+      targetRotationX += (mouseY - targetRotationX) * 0.05;
+
+      // Mode A: MCU Quantum Electron Cloud Animation
+      if (currentMode === 'core') {
+        electronGroup.rotation.y = time * 0.15 + targetRotationY;
+        electronGroup.rotation.x = Math.sin(time * 0.1) * 0.1 + targetRotationX;
+
+        // Animate Orbital Rings
+        orbitalRings.forEach(ring => {
+          ring.rotation.x += ring.userData.speedX;
+          ring.rotation.y += ring.userData.speedY;
+        });
+
+        // Breathing Nucleus Pulse
+        const coreScale = 1.0 + (jarvisState === 'LISTENING' ? 0.35 : 0.12) * Math.sin(time * 4) + (audioReactiveScale - 1) * 0.4;
+        nucleusMesh.scale.set(coreScale, coreScale, coreScale);
+
+        // Particle Physics per State
+        const positions = electronGeometry.attributes.position.array;
+
+        // Dynamic State modifiers
+        let contractionTarget = 1.0;
+        let speedMultiplier = 1.0;
+        let blinkIntensity = 1.0;
+
+        if (jarvisState === 'LISTENING') {
+          // USER SAID "JARVIS" -> Particles blink & contract inwards attentively!
+          contractionTarget = 0.55;
+          speedMultiplier = 2.4;
+          blinkIntensity = 1.0 + Math.sin(time * 25) * 0.6; // Rapid electrical blink
+          electronMaterial.color.setHex(0x7df9ff);
+        } else if (jarvisState === 'THINKING') {
+          // High-speed vortex swirl
+          contractionTarget = 0.75;
+          speedMultiplier = 4.0;
+          electronMaterial.color.setHex(0x0066ff);
+        } else if (jarvisState === 'SPEAKING') {
+          // Audio frequency reactive explosion
+          contractionTarget = 1.1 + Math.sin(time * 12) * 0.25;
+          speedMultiplier = 1.8;
+          electronMaterial.color.setHex(0xffbe0b);
+        } else {
+          // Standby drift
+          contractionTarget = 1.0;
+          speedMultiplier = 1.0;
+          electronMaterial.color.setHex(0x00f3ff);
+        }
+
+        electronMaterial.size = (jarvisState === 'LISTENING' ? 7.0 : 5.5) * blinkIntensity;
+
+        for (let i = 0; i < particleCount; i++) {
+          const idx = i * 3;
+          let theta = particleAngles[i * 2];
+          let phi = particleAngles[i * 2 + 1];
+
+          // Orbit motion
+          theta += (0.2 + (i % 5) * 0.1) * delta * speedMultiplier;
+          particleAngles[i * 2] = theta;
+
+          // Target radius with smooth spring
+          const targetR = particleOriginalRadii[i] * contractionTarget;
+          const currentX = positions[idx];
+          const currentY = positions[idx + 1];
+          const currentZ = positions[idx + 2];
+          const currentR = Math.sqrt(currentX * currentX + currentY * currentY + currentZ * currentZ);
+
+          const newR = currentR + (targetR - currentR) * 0.08;
+
+          positions[idx] = newR * Math.sin(phi) * Math.cos(theta);
+          positions[idx + 1] = newR * Math.sin(phi) * Math.sin(theta);
+          positions[idx + 2] = newR * Math.cos(phi);
+        }
+        electronGeometry.attributes.position.needsUpdate = true;
+      }
+
+      // Mode B: 3D Holographic Face Mesh Animation
+      if (currentMode === 'face') {
+        faceGroup.rotation.y = Math.sin(time * 0.6) * 0.2 + targetRotationY * 1.5;
+        faceGroup.rotation.x = Math.sin(time * 0.4) * 0.1 + targetRotationX * 1.5;
+
+        // Scanline laser wave passing across face
+        const fPositions = faceGeometry.attributes.position.array;
+        const fColors = faceGeometry.attributes.color.array;
+
+        const scanlineY = Math.sin(time * 2.5) * 120;
+        const mouthModulation = jarvisState === 'SPEAKING' ? Math.sin(time * 20) * 8 : 0;
+
+        for (let i = 0; i < fPositions.length / 3; i++) {
+          const py = fPositions[i * 3 + 1];
+          const isNearScanline = Math.abs(py - scanlineY) < 18;
+
+          if (isNearScanline) {
+            fColors[i * 3] = 0.8;
+            fColors[i * 3 + 1] = 1.0;
+            fColors[i * 3 + 2] = 1.0;
+          } else {
+            fColors[i * 3] = 0.0;
+            fColors[i * 3 + 1] = 0.85;
+            fColors[i * 3 + 2] = 1.0;
+          }
+
+          // Mouth audio reaction when speaking
+          if (jarvisState === 'SPEAKING' && py > -45 && py < -25) {
+            fPositions[i * 3 + 2] += mouthModulation * 0.05;
+          }
+        }
+        faceGeometry.attributes.color.needsUpdate = true;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // ==========================================================================
+    // 2. CONTINUOUS "JARVIS" WAKE-WORD VOICE RECOGNITION (NO BUTTON REQUIRED)
+    // ==========================================================================
+    let recognition = null;
+    let isListeningActive = false;
+    let speechSynth = window.speechSynthesis;
+    let selectedVoice = null;
+
+    function initVoiceSynthesis() {
+      if (!speechSynth) return;
+      const setVoice = () => {
+        const voices = speechSynth.getVoices();
+        // Prefer British English ("Daniel" / "UK English" / "en-GB") for canonical Jarvis feel
+        selectedVoice = voices.find(v => v.lang === 'en-GB' || v.name.includes('UK') || v.name.includes('Daniel') || v.name.includes('British'))
+          || voices.find(v => v.lang.startsWith('en'))
+          || voices[0];
+      };
+      setVoice();
+      if (speechSynth.onvoiceschanged !== undefined) {
+        speechSynth.onvoiceschanged = setVoice;
+      }
+    }
+
+    function armMicrophoneListener() {
+      // Hide permission banner once user clicks once
+      const banner = document.getElementById('mic-arm-banner');
+      if (banner) banner.style.display = 'none';
+
+      initContinuousWakeWord();
+    }
+
+    function initContinuousWakeWord() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        updateJarvisStatus('STT NOT SUPPORTED', '');
+        addTranscriptEntry('JARVIS', 'Web Speech API is not supported in this browser. Please use Google Chrome or Edge.');
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        isListeningActive = true;
+        document.getElementById('tele-mic').innerText = 'ACTIVE [CONTINUOUS]';
+        document.getElementById('tele-mic').style.color = '#00ffaa';
+        updateJarvisStatus('AWAITING DIRECTIVE', 'listening');
+      };
+
+      let wakeWordTimeout = null;
+      let heardCommand = '';
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        const heardText = (finalTranscript || interimTranscript).trim();
+        pulseEqualizer(true);
+
+        // Check for Wake Word: "JARVIS" (case-insensitive)
+        const match = heardText.match(/(?:hey |ok |hello )?jarvis[\s,.]*(.*)/i);
+        if (match) {
+          const command = match[1] ? match[1].trim() : '';
+          heardCommand = command;
+
+          // Transition to LISTENING state immediately
+          setJarvisState('LISTENING');
+          updateJarvisStatus('JARVIS LISTENING...', 'listening');
+
+          // If speech is final, process immediately
+          if (event.results[event.results.length - 1].isFinal) {
+            clearTimeout(wakeWordTimeout);
+            if (command.length > 0) {
+              processJarvisDirective(command);
+            } else {
+              // User said just "Jarvis"
+              speakResponse("Yes sir? I am listening. How can I assist you?");
+            }
+            heardCommand = '';
+          } else {
+            // Debounce for interim pause
+            clearTimeout(wakeWordTimeout);
+            wakeWordTimeout = setTimeout(() => {
+              if (heardCommand.length > 0) {
+                processJarvisDirective(heardCommand);
+              } else if (jarvisState === 'LISTENING') {
+                speakResponse("Yes sir? I am listening. How can I assist you?");
+              }
+              heardCommand = '';
+            }, 1400);
+          }
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition warning:', event.error);
+        if (event.error === 'not-allowed') {
+          document.getElementById('tele-mic').innerText = 'PERMISSION DENIED';
+          document.getElementById('tele-mic').style.color = '#ff3366';
+        }
+      };
+
+      recognition.onend = () => {
+        // Continuous loop: Auto-restart silently on disconnect or timeout
+        if (isListeningActive) {
+          try {
+            recognition.start();
+          } catch (e) {
+            setTimeout(() => { if (isListeningActive) recognition.start(); }, 300);
+          }
+        }
+      };
+
+      try {
+        recognition.start();
+      } catch (err) {
+        console.log('Voice start deferred to user gesture:', err);
+      }
+    }
+
+    // Process and dispatch user directive
+    async function processJarvisDirective(directive) {
+      if (!directive || directive.trim().length === 0) return;
+
+      // Add to HUD communication feed
+      addTranscriptEntry('USER', directive);
+      setJarvisState('THINKING');
+      updateJarvisStatus('PROCESSING DIRECTIVE...', 'listening');
+
+      try {
+        // Post directive to backend API
+        const response = await fetch('/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'default',
+            messages: [{ role: 'user', content: directive }],
+            temperature: 0.7,
+            max_tokens: 300
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const reply = data.choices?.[0]?.message?.content || "Directive received and executing, sir.";
+          addTranscriptEntry('JARVIS', reply);
+          speakResponse(reply);
+        } else {
+          // Smart offline fallback response
+          const fallback = generateSmartFallbackReply(directive);
+          addTranscriptEntry('JARVIS', fallback);
+          speakResponse(fallback);
+        }
+      } catch (error) {
+        const fallback = generateSmartFallbackReply(directive);
+        addTranscriptEntry('JARVIS', fallback);
+        speakResponse(fallback);
+      }
+    }
+
+    function generateSmartFallbackReply(query) {
+      const q = query.toLowerCase().trim();
+      if (q === 'jarvis' || q === 'hey jarvis' || q === '') return "Yes sir? I am listening. How can I help?";
+      if (q.includes('time')) return `The current time is ${new Date().toLocaleTimeString()}, sir.`;
+      if (q.includes('date') || q.includes('day')) return `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+      if (q.includes('who are you') || q.includes('your name')) return "I am JARVIS, your Autonomous Intelligence System. Operating at peak quantum capacity.";
+      if (q.includes('status') || q.includes('systems')) return "All core telemetry systems are nominal. 3D holographic matrix online, microphones calibrated.";
+      if (q.includes('hello') || q.includes('hi')) return "Greetings, sir. How may I assist you today?";
+      return `Processing directive: "${query}". All system modules synchronized.`;
+    }
+
+    // Speak response using voice synthesis
+    function speakResponse(text) {
+      if (!speechSynth) {
+        setJarvisState('STANDBY');
+        return;
+      }
+
+      speechSynth.cancel(); // Cancel any ongoing speech
+      setJarvisState('SPEAKING');
+      updateJarvisStatus('JARVIS RESPONDING', 'speaking');
+
+      const cleanText = text.replace(/[*_#`]/g, '');
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      if (selectedVoice) utterance.voice = selectedVoice;
+      utterance.rate = 1.05;
+      utterance.pitch = 0.95;
+
+      utterance.onboundary = () => {
+        pulseEqualizer(true);
+      };
+
+      utterance.onend = () => {
+        pulseEqualizer(false);
+        setJarvisState('STANDBY');
+        updateJarvisStatus('AWAITING DIRECTIVE', '');
+      };
+
+      utterance.onerror = () => {
+        pulseEqualizer(false);
+        setJarvisState('STANDBY');
+        updateJarvisStatus('AWAITING DIRECTIVE', '');
+      };
+
+      speechSynth.speak(utterance);
+    }
+
+    function setJarvisState(state) {
+      jarvisState = state;
+      const el = document.getElementById('comm-mode-text');
+      if (el) el.innerText = state;
+    }
+
+    function updateJarvisStatus(text, cssClass) {
+      const badge = document.getElementById('jarvis-status-badge');
+      if (!badge) return;
+      badge.innerText = text;
+      badge.className = 'jarvis-status-pill ' + (cssClass || '');
+    }
+
+    function addTranscriptEntry(speaker, text) {
+      const feed = document.getElementById('transcript-feed');
+      if (!feed) return;
+      const div = document.createElement('div');
+      div.className = 'feed-entry ' + (speaker === 'USER' ? 'entry-user' : 'entry-jarvis');
+      div.innerHTML = `<strong>${speaker}:</strong> ${text}`;
+      feed.appendChild(div);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    function handleTextDirective(event) {
+      event.preventDefault();
+      const input = document.getElementById('directive-field');
+      const val = input.value.trim();
+      if (!val) return;
+      input.value = '';
+      processJarvisDirective(val);
+    }
+
+    // Audio Equalizer Spectrum Pulse Animation
+    function pulseEqualizer(active) {
+      const bars = document.querySelectorAll('.spectrum-bar');
+      bars.forEach(bar => {
+        if (active) {
+          const h = Math.floor(Math.random() * 22) + 4;
+          bar.style.height = h + 'px';
+        } else {
+          bar.style.height = '4px';
+        }
+      });
+    }
+
+    // Global click/key handler to arm microphone on any user interaction
+    document.addEventListener('click', () => {
+      if (!isListeningActive) armMicrophoneListener();
+    });
+    document.addEventListener('keydown', () => {
+      if (!isListeningActive) armMicrophoneListener();
+    });
+
+    // Auto-init on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        initThreeScene();
+      } catch (err) {
+        console.error('Three.js scene init error:', err);
+      }
+      try {
+        initVoiceSynthesis();
+      } catch (err) {
+        console.error('Voice synth init error:', err);
+      }
+      try {
+        animate();
+      } catch (err) {
+        console.error('Animation loop error:', err);
+      }
+
+      // Initialize wake-word listener
+      initContinuousWakeWord();
+    });
+  </script>
+</body>
+</html>

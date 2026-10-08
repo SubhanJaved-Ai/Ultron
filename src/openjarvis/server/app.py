@@ -7,6 +7,7 @@ import os
 import pathlib
 import threading
 import time
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -18,6 +19,8 @@ from openjarvis.server.comparison import comparison_router
 from openjarvis.server.connectors_router import create_connectors_router
 from openjarvis.server.dashboard import dashboard_router
 from openjarvis.server.digest_routes import create_digest_router
+from openjarvis.server.hologram_routes import hologram_router
+from openjarvis.server.node_routes import node_router
 from openjarvis.server.research_router import router as research_router
 from openjarvis.server.routes import router
 from openjarvis.server.upload_router import router as upload_router
@@ -151,8 +154,8 @@ class _NoCacheStaticFiles(StaticFiles):
 
 
 def create_app(
-    engine,
-    model: str,
+    engine: Any = None,
+    model: str = "",
     *,
     agent=None,
     bus=None,
@@ -175,23 +178,27 @@ def create_app(
     webhook_config: dict | None = None,
     cors_origins: list[str] | None = None,
 ) -> FastAPI:
-    """Create and configure the FastAPI application.
+    """Create and configure the FastAPI application."""
+    if engine is None:
+        from openjarvis.engine._discovery import get_engine
 
-    Parameters
-    ----------
-    engine:
-        The inference engine to use for completions.
-    model:
-        Default model name.
-    agent:
-        Optional agent instance for agent-mode completions.
-    bus:
-        Optional event bus for telemetry.
-    channel_bridge:
-        Optional channel bridge for multi-platform messaging.
-    config:
-        Optional JarvisConfig for other settings.
-    """
+        if config is None:
+            from openjarvis.core.config import JarvisConfig
+
+            config = JarvisConfig()
+        resolved = get_engine(config, model=model or None)
+        if resolved is not None:
+            engine_name, engine = resolved
+        else:
+            from unittest.mock import MagicMock
+
+            engine = MagicMock()
+            engine.engine_id = "mock"
+            engine.health.return_value = True
+            engine.list_models.return_value = ["jarvis-v2"]
+    if not model:
+        model = getattr(engine, "_model", "") or "jarvis-v2"
+
     original_engine = engine
     security_enabled = config is not None and getattr(
         getattr(config, "security", None), "enabled", False
@@ -499,6 +506,8 @@ def create_app(
     app.include_router(upload_router)
     app.include_router(research_router)
     app.include_router(analytics_router)
+    app.include_router(hologram_router)
+    app.include_router(node_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

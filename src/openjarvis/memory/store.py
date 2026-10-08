@@ -88,40 +88,50 @@ TRUST_UNTRUSTED = "untrusted"  # scanner flagged the text → quarantined
 # security bug waiting to happen.
 RECALLABLE_TRUST_TIERS = frozenset({"", TRUST_AUTO, TRUST_TRUSTED})
 _RECALLABLE_TIERS = RECALLABLE_TRUST_TIERS  # internal alias
+_PATH_LOCKS: dict[str, threading.Lock] = {}
+_PATH_LOCKS_GUARD = threading.Lock()
+
+
+def _get_path_lock(path: Path) -> threading.Lock:
+    resolved = str(path.resolve())
+    with _PATH_LOCKS_GUARD:
+        if resolved not in _PATH_LOCKS:
+            _PATH_LOCKS[resolved] = threading.Lock()
+        return _PATH_LOCKS[resolved]
 
 
 @contextmanager
 def _cross_process_lock(lock_path: Path) -> Iterator[None]:
-    """Hold an exclusive, blocking OS-level lock on *lock_path*.
+    """Hold an exclusive, blocking lock on *lock_path*.
 
-    ``threading.Lock`` only serializes within one process, so it cannot
-    protect the load -> modify -> flush cycle when two separate
-    ``LocalFactStore`` instances (e.g. in different processes) touch the
-    same file (#755). This blocks until the lock is free rather than
-    failing fast, since callers want to wait their turn, not error out.
+    Acquires both an in-process thread lock (to serialize separate instances
+    within the same process) and an OS-level file lock (to serialize across
+    processes).
     """
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    f = open(lock_path, "a+b")
-    try:
-        if sys.platform == "win32":
-            # msvcrt locks a byte range; the file needs at least one byte
-            # for the region at offset 0 to be lockable.
-            f.seek(0, os.SEEK_END)
-            if f.tell() == 0:
-                f.write(b"\0")
-                f.flush()
-            _lock_windows_blocking(f)
-        else:
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+    thread_lock = _get_path_lock(lock_path)
+    with thread_lock:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        f = open(lock_path, "a+b")
         try:
-            yield
-        finally:
             if sys.platform == "win32":
-                _unlock_windows(f)
+                # msvcrt locks a byte range; the file needs at least one byte
+                # for the region at offset 0 to be lockable.
+                f.seek(0, os.SEEK_END)
+                if f.tell() == 0:
+                    f.write(b"\0")
+                    f.flush()
+                _lock_windows_blocking(f)
             else:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-    finally:
-        f.close()
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                if sys.platform == "win32":
+                    _unlock_windows(f)
+                else:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        finally:
+            f.close()
 
 
 @dataclass(slots=True)
@@ -287,7 +297,14 @@ class LocalFactStore(FactStore):
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as tmp_f:
                 tmp_f.write(payload)
-            os.replace(tmp_name, self._path)
+            for attempt in range(10):
+                try:
+                    os.replace(tmp_name, self._path)
+                    break
+                except PermissionError:
+                    if attempt == 9 or sys.platform != "win32":
+                        raise
+                    time.sleep(0.02)
         except BaseException:
             try:
                 os.unlink(tmp_name)

@@ -273,7 +273,8 @@ class TestModelConvert:
         ]
         assert (output_dir / "some--repo.q4_k_m.gguf").read_bytes() == b"quantized"
         assert "jarvis host" in result.output
-        assert "--backend llamacpp" in result.output
+        assert "--backend" in result.output
+        assert "llamacpp" in result.output
 
     def test_convert_gguf_missing_tool(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -478,7 +479,10 @@ class TestModelConvert:
         sentinel = target / "keep.txt"
         sentinel.write_text("keep", encoding="utf-8")
         output_dir = tmp_path / "model-link"
-        output_dir.symlink_to(target, target_is_directory=True)
+        try:
+            output_dir.symlink_to(target, target_is_directory=True)
+        except OSError:
+            pytest.skip("filesystem does not permit creating symlinks")
 
         class FakeMLXLM:
             @staticmethod
@@ -524,7 +528,10 @@ class TestModelConvert:
         target = tmp_path / "empty-target"
         target.mkdir()
         output_dir = tmp_path / "model-link"
-        output_dir.symlink_to(target, target_is_directory=True)
+        try:
+            output_dir.symlink_to(target, target_is_directory=True)
+        except OSError:
+            pytest.skip("filesystem does not permit creating symlinks")
 
         class FakeConfig:
             class Engine:

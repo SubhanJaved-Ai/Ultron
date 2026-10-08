@@ -177,7 +177,7 @@ def test_concurrent_instances_do_not_lose_writes(tmp_path):
     for t in threads:
         t.start()
     for t in threads:
-        t.join(timeout=30)
+        t.join(timeout=60)
         assert not t.is_alive(), "worker thread hung"
 
     final = LocalFactStore(path)

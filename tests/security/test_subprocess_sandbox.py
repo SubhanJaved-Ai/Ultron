@@ -21,7 +21,6 @@ from openjarvis.security.subprocess_sandbox import (
 class TestBuildSafeEnv:
     def test_only_safe_vars_included(self) -> None:
         env = build_safe_env()
-        # All keys should be from the safe set
         safe_keys = {
             "PATH",
             "HOME",
@@ -34,6 +33,18 @@ class TestBuildSafeEnv:
             "TMPDIR",
             "TZ",
         }
+        if os.name == "nt":
+            safe_keys |= {
+                "SystemRoot",
+                "SystemDrive",
+                "COMSPEC",
+                "PATHEXT",
+                "TEMP",
+                "TMP",
+                "USERPROFILE",
+                "LOCALAPPDATA",
+                "APPDATA",
+            }
         for key in env:
             assert key in safe_keys
 
@@ -98,8 +109,10 @@ class TestRunSandboxed:
 
     def test_output_truncation(self) -> None:
         # Generate output larger than max_output_bytes
+        py_exe = get_python_executable()
+        py_cmd = f'"{py_exe}"' if os.name == "nt" else shlex.quote(py_exe)
         result = run_sandboxed(
-            f"{shlex.quote(get_python_executable())} -c \"print('A' * 200)\"",
+            f'{py_cmd} -c "print(\'A\' * 200)"',
             timeout=10.0,
             max_output_bytes=50,
         )

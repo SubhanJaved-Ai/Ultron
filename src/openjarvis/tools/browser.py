@@ -28,7 +28,16 @@ class _BrowserSession:
                 "playwright not installed. Install with: uv sync --extra browser"
             )
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=True)
+        launch_args = [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+        ]
+        self._browser = self._playwright.chromium.launch(
+            headless=True,
+            args=launch_args,
+        )
         self._page = self._browser.new_page()
 
     @property

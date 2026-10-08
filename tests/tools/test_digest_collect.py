@@ -12,7 +12,8 @@ from openjarvis.core.registry import ConnectorRegistry, ToolRegistry
 def test_digest_collect_registered():
     from openjarvis.tools.digest_collect import DigestCollectTool
 
-    ToolRegistry.register_value("digest_collect", DigestCollectTool)
+    if not ToolRegistry.contains("digest_collect"):
+        ToolRegistry.register_value("digest_collect", DigestCollectTool)
     assert ToolRegistry.contains("digest_collect")
 
 

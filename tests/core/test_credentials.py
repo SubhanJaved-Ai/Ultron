@@ -1,6 +1,7 @@
 """Tests for credential persistence module."""
 
 import os
+import sys
 
 import pytest
 
@@ -143,6 +144,9 @@ def test_get_status_missing():
     assert status["TAVILY_API_KEY"] is False
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Windows does not support POSIX octal file modes"
+)
 def test_file_permissions(cred_path):
     save_credential("web_search", "TAVILY_API_KEY", "tvly-x", path=cred_path)
     mode = oct(cred_path.stat().st_mode & 0o777)

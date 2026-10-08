@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from openjarvis.channels._stubs import (
     BaseChannel,
     ChannelHandler,
+    ChannelMessage,
     ChannelStatus,
 )
 from openjarvis.core.events import EventBus, EventType
@@ -80,6 +81,24 @@ class WhatsAppChannel(BaseChannel):
             logger.warning("Cannot send: no WhatsApp access token")
             return False
 
+        if metadata and metadata.get("voice_reply"):
+            try:
+                from openjarvis.speech.voice_channel_bridge import VoiceChannelBridge
+
+                bridge = VoiceChannelBridge()
+                voice_data = bridge.synthesize_voice(content)
+                if voice_data:
+                    return self.send_voice(
+                        channel,
+                        voice_data,
+                        conversation_id=conversation_id,
+                    )
+            except Exception as exc:
+                logger.debug(
+                    "WhatsApp voice synthesis failed, falling back to text: %s",
+                    exc,
+                )
+
         try:
             import httpx
 
@@ -112,6 +131,192 @@ class WhatsAppChannel(BaseChannel):
         except Exception:
             logger.debug("WhatsApp send failed", exc_info=True)
             return False
+
+    def send_voice(
+        self,
+        channel: str,
+        voice_bytes: bytes,
+        *,
+        conversation_id: str = "",
+        caption: str = "",
+    ) -> bool:
+        """Send an audio voice note via WhatsApp Cloud API."""
+        if not self._token:
+            logger.warning("Cannot send voice: no WhatsApp access token")
+            return False
+        if not self._phone_number_id:
+            logger.warning("Cannot send voice: no WhatsApp phone number ID")
+            return False
+        if not voice_bytes:
+            return False
+
+        try:
+            import httpx
+
+            # Step 1: Upload media to WhatsApp Cloud API
+            upload_url = (
+                f"https://graph.facebook.com/v21.0/{self._phone_number_id}/media"
+            )
+            headers = {"Authorization": f"Bearer {self._token}"}
+            files = {"file": ("voice.mp3", voice_bytes, "audio/mpeg")}
+            data = {"messaging_product": "whatsapp", "type": "audio/mpeg"}
+
+            upload_resp = httpx.post(
+                upload_url,
+                data=data,
+                files=files,
+                headers=headers,
+                timeout=30.0,
+            )
+            if upload_resp.status_code >= 300:
+                logger.warning(
+                    "WhatsApp media upload failed: %d %s",
+                    upload_resp.status_code,
+                    upload_resp.text,
+                )
+                return False
+
+            media_id = upload_resp.json().get("id")
+            if not media_id:
+                logger.warning("WhatsApp media upload returned no media ID")
+                return False
+
+            # Step 2: Send audio message referencing uploaded media
+            send_url = (
+                f"https://graph.facebook.com/v21.0/{self._phone_number_id}/messages"
+            )
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": channel,
+                "type": "audio",
+                "audio": {"id": media_id},
+            }
+            send_resp = httpx.post(
+                send_url,
+                json=payload,
+                headers=headers,
+                timeout=10.0,
+            )
+            if send_resp.status_code < 300:
+                self._publish_sent(channel, "[Voice Note]", conversation_id)
+                return True
+
+            logger.warning(
+                "WhatsApp send audio message failed: %d %s",
+                send_resp.status_code,
+                send_resp.text,
+            )
+            return False
+        except Exception:
+            logger.debug("WhatsApp send_voice failed", exc_info=True)
+            return False
+
+    def process_webhook_payload(
+        self,
+        payload: Dict[str, Any],
+    ) -> List[ChannelMessage]:
+        """Process incoming webhook JSON from WhatsApp Cloud API.
+
+        Parses text and voice/audio messages, transcribes voice notes,
+        dispatches to registered handlers, and publishes events.
+        """
+        from openjarvis.speech.voice_channel_bridge import VoiceChannelBridge
+
+        messages: List[ChannelMessage] = []
+        entries = payload.get("entry", [])
+        for entry in entries:
+            for change in entry.get("changes", []):
+                value = change.get("value", {})
+                raw_messages = value.get("messages", [])
+                for raw_msg in raw_messages:
+                    msg_type = raw_msg.get("type", "")
+                    sender = raw_msg.get("from", "")
+                    msg_id = raw_msg.get("id", "")
+                    content = ""
+                    metadata: Dict[str, Any] = {}
+
+                    if msg_type == "text":
+                        content = raw_msg.get("text", {}).get("body", "")
+                    elif msg_type in ("audio", "voice"):
+                        audio_info = raw_msg.get(msg_type, {})
+                        media_id = audio_info.get("id", "")
+                        if media_id and self._token:
+                            try:
+                                import httpx
+
+                                meta_url = (
+                                    f"https://graph.facebook.com/v21.0/{media_id}"
+                                )
+                                meta_resp = httpx.get(
+                                    meta_url,
+                                    headers={
+                                        "Authorization": f"Bearer {self._token}"
+                                    },
+                                    timeout=10.0,
+                                )
+                                if meta_resp.status_code < 300:
+                                    download_url = meta_resp.json().get("url")
+                                    if download_url:
+                                        dl_resp = httpx.get(
+                                            download_url,
+                                            headers={
+                                                "Authorization": (
+                                                    f"Bearer {self._token}"
+                                                )
+                                            },
+                                            timeout=30.0,
+                                        )
+                                        if dl_resp.status_code < 300:
+                                            bridge = VoiceChannelBridge()
+                                            suffix = (
+                                                ".ogg"
+                                                if msg_type == "voice"
+                                                else ".mp3"
+                                            )
+                                            content = bridge.transcribe_audio(
+                                                dl_resp.content,
+                                                suffix=suffix,
+                                            )
+                                            metadata["is_voice"] = True
+                                            metadata["transcribed"] = True
+                                            metadata["voice_reply"] = True
+                            except Exception as exc:
+                                logger.warning(
+                                    "WhatsApp voice transcription failed: %s",
+                                    exc,
+                                )
+                                content = (
+                                    "[Voice Note received: transcription failed]"
+                                )
+                        else:
+                            content = "[Voice Note received]"
+
+                    if content:
+                        cm = ChannelMessage(
+                            channel="whatsapp",
+                            sender=sender,
+                            content=content,
+                            message_id=msg_id,
+                            conversation_id=sender,
+                            metadata=metadata,
+                        )
+                        messages.append(cm)
+                        for handler in self._handlers:
+                            try:
+                                handler(cm)
+                            except Exception:
+                                logger.exception("WhatsApp handler error")
+                        if self._bus is not None:
+                            self._bus.publish(
+                                EventType.CHANNEL_MESSAGE_RECEIVED,
+                                {
+                                    "channel": cm.channel,
+                                    "sender": cm.sender,
+                                    "content": cm.content,
+                                    "message_id": cm.message_id,
+                                },
+                            )
+        return messages
 
     def status(self) -> ChannelStatus:
         """Return the current connection status."""

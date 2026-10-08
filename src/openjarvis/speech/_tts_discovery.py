@@ -16,13 +16,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Priority order: local first, then cloud.
-TTS_BACKEND_ORDER = ("kokoro", "openai_tts", "cartesia")
+TTS_BACKEND_ORDER = ("kokoro", "elevenlabs", "openai_tts", "cartesia")
 
 # Voice IDs are backend-specific and NOT portable. ``speech.voice_id`` applies
 # only to ``speech.tts_backend``; if synthesis falls back to another backend we
 # use that backend's own default rather than passing an unrecognized ID through.
 BACKEND_DEFAULT_VOICE = {
     "kokoro": "bm_george",  # British male
+    "elevenlabs": "JBFqnCBsd6RMkjVDRZzb",  # British Jarvis preset
     "openai_tts": "onyx",  # deepest OpenAI preset
     "cartesia": "",  # no safe static default; let Cartesia choose
 }
@@ -47,6 +48,13 @@ def get_tts_backend(
     # actually requested.
     import openjarvis.speech  # noqa: F401
     from openjarvis.core.registry import TTSRegistry
+
+    try:
+        from openjarvis.speech.elevenlabs_tts import ensure_registered as _ensure_el
+
+        _ensure_el()
+    except ImportError:
+        pass
 
     seen = attempted if attempted is not None else set()
 

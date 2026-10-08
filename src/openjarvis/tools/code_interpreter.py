@@ -98,7 +98,8 @@ def _child_limits() -> None:  # pragma: no cover - POSIX-only, runs in child
     # constant but reject changes to it (notably RLIMIT_AS on macOS); that must
     # not prevent the remaining supported limits from being installed.
     try:
-        os.setsid()
+        if hasattr(os, "setsid"):
+            os.setsid()
     except OSError:
         pass
     try:

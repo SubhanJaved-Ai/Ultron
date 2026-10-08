@@ -1,0 +1,22 @@
+{
+  "name": "Jarvis 2.0 Autonomous Assistant",
+  "short_name": "Jarvis 2.0",
+  "description": "Autonomous AI Assistant with 3D Holographic Interface and Voice Control",
+  "start_url": "/hologram",
+  "display": "standalone",
+  "background_color": "#050811",
+  "theme_color": "#00f3ff",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

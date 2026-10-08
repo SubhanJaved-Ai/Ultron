@@ -11,7 +11,6 @@ from openjarvis.core.events import EventType, get_event_bus
 from openjarvis.core.registry import MemoryRegistry
 from openjarvis.tools.storage._stubs import (
     MemoryBackend,
-    MemoryBackendUnavailable,
     RetrievalResult,
 )
 
@@ -42,28 +41,39 @@ class SQLiteMemory(MemoryBackend):
 
         self._db_path = str(db_path)
 
-        from openjarvis._rust_bridge import get_rust_module
+        from openjarvis._rust_bridge import RUST_AVAILABLE
 
-        # The Rust backend is mandatory and there is no Python fallback. When
-        # the extension is missing from *this* venv, ``get_rust_module`` raises
-        # ImportError; translate it into a clear, actionable error so callers
-        # never degrade to a misleading "Failed to index path" or a silent
-        # no-op (see #502).
-        try:
+        if RUST_AVAILABLE:
+            from openjarvis._rust_bridge import get_rust_module
+
             _rust = get_rust_module()
-        except ImportError as exc:
-            raise MemoryBackendUnavailable() from exc
-        self._rust_impl = _rust.SQLiteMemory(self._db_path)
-        self._conn = None  # type: ignore[assignment]
+            self._rust_impl = _rust.SQLiteMemory(self._db_path)
+            self._conn = None
+        else:
+            self._rust_impl = None
+            db_p = Path(self._db_path)
+            if str(db_p) != ":memory:":
+                db_p.parent.mkdir(parents=True, exist_ok=True)
+            self._conn = sqlite3.connect(str(self._db_path))
+            self._conn.row_factory = sqlite3.Row
+            self._conn.execute("PRAGMA busy_timeout = 10000")
+            if str(self._db_path) != ":memory:":
+                try:
+                    self._conn.execute("PRAGMA journal_mode = WAL")
+                except sqlite3.Error:
+                    pass
+            self._create_tables()
 
     def _create_tables(self) -> None:
+        if self._conn is None:
+            return
         self._conn.executescript("""
             CREATE TABLE IF NOT EXISTS documents (
                 id       TEXT PRIMARY KEY,
                 content  TEXT NOT NULL,
                 source   TEXT NOT NULL DEFAULT '',
                 metadata TEXT NOT NULL DEFAULT '{}',
-                created_at REAL NOT NULL
+                created_at REAL NOT NULL DEFAULT (julianday('now'))
             );
 
             CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts
@@ -82,8 +92,28 @@ class SQLiteMemory(MemoryBackend):
         metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Persist *content* and return a unique document id."""
-        meta_json = json.dumps(metadata) if metadata else None
-        doc_id = self._rust_impl.store(content, source, meta_json)
+        if self._rust_impl is not None:
+            meta_json = json.dumps(metadata) if metadata else None
+            doc_id = self._rust_impl.store(content, source, meta_json)
+        else:
+            import uuid
+
+            doc_id = str(uuid.uuid4())
+            meta_json = json.dumps(metadata or {})
+            cur = self._conn.cursor()
+            cur.execute(
+                "INSERT INTO documents (id, content, source, metadata) "
+                "VALUES (?, ?, ?, ?)",
+                (doc_id, content, source, meta_json),
+            )
+            rowid = cur.lastrowid
+            cur.execute(
+                "INSERT INTO documents_fts (rowid, content, source) "
+                "VALUES (?, ?, ?)",
+                (rowid, content, source),
+            )
+            self._conn.commit()
+
         bus = get_event_bus()
         bus.publish(
             EventType.MEMORY_STORE,
@@ -101,11 +131,40 @@ class SQLiteMemory(MemoryBackend):
         documents: List[tuple[str, Optional[Dict[str, Any]]]],
     ) -> List[str]:
         """Atomically replace all documents associated with *source*."""
-        payload = [
-            (content, json.dumps(metadata) if metadata else None)
-            for content, metadata in documents
-        ]
-        doc_ids = self._rust_impl.replace_source(source, payload)
+        if self._rust_impl is not None:
+            payload = [
+                (content, json.dumps(metadata) if metadata else None)
+                for content, metadata in documents
+            ]
+            doc_ids = self._rust_impl.replace_source(source, payload)
+        else:
+            import uuid
+
+            cur = self._conn.cursor()
+            cur.execute(
+                "DELETE FROM documents_fts WHERE rowid IN "
+                "(SELECT rowid FROM documents WHERE source = ?)",
+                (source,),
+            )
+            cur.execute("DELETE FROM documents WHERE source = ?", (source,))
+            doc_ids = []
+            for content, metadata in documents:
+                doc_id = str(uuid.uuid4())
+                meta_json = json.dumps(metadata or {})
+                cur.execute(
+                    "INSERT INTO documents (id, content, source, metadata) "
+                    "VALUES (?, ?, ?, ?)",
+                    (doc_id, content, source, meta_json),
+                )
+                rowid = cur.lastrowid
+                cur.execute(
+                    "INSERT INTO documents_fts (rowid, content, source) "
+                    "VALUES (?, ?, ?)",
+                    (rowid, content, source),
+                )
+                doc_ids.append(doc_id)
+            self._conn.commit()
+
         bus = get_event_bus()
         for doc_id in doc_ids:
             bus.publish(
@@ -125,15 +184,51 @@ class SQLiteMemory(MemoryBackend):
         top_k: int = 5,
         **kwargs: Any,
     ) -> List[RetrievalResult]:
-        """Search via FTS5 MATCH with BM25 ranking — always via Rust backend."""
+        """Search via FTS5 MATCH with BM25 ranking."""
         if not query.strip():
             return []
 
-        from openjarvis._rust_bridge import retrieval_results_from_json
+        if self._rust_impl is not None:
+            from openjarvis._rust_bridge import retrieval_results_from_json
 
-        results = retrieval_results_from_json(
-            self._rust_impl.retrieve(query, top_k),
-        )
+            results = retrieval_results_from_json(
+                self._rust_impl.retrieve(query, top_k),
+            )
+        else:
+            import re
+
+            words = [w for w in re.split(r"\W+", query) if w]
+            if not words:
+                return []
+            fts_query = " OR ".join(words)
+            cur = self._conn.cursor()
+            cur.execute(
+                """
+                SELECT d.content, d.source, d.metadata,
+                       bm25(documents_fts, 1.0, 0.5) * -1 as score
+                FROM documents_fts f
+                JOIN documents d ON d.rowid = f.rowid
+                WHERE documents_fts MATCH ?
+                ORDER BY bm25(documents_fts, 1.0, 0.5)
+                LIMIT ?
+                """,
+                (fts_query, top_k),
+            )
+            results = []
+            for row in cur.fetchall():
+                try:
+                    meta = json.loads(row["metadata"]) if row["metadata"] else {}
+                except (json.JSONDecodeError, TypeError):
+                    meta = {}
+                results.append(
+                    RetrievalResult(
+                        content=row["content"],
+                        source=row["source"] or "",
+                        metadata=meta,
+                        score=float(row["score"]),
+                    )
+                )
+
         bus = get_event_bus()
         bus.publish(
             EventType.MEMORY_RETRIEVE,
@@ -146,20 +241,45 @@ class SQLiteMemory(MemoryBackend):
         return results
 
     def delete(self, doc_id: str) -> bool:
-        """Delete a document by id — always via Rust backend."""
-        return self._rust_impl.delete(doc_id)
+        """Delete a document by id."""
+        if self._rust_impl is not None:
+            return self._rust_impl.delete(doc_id)
+        cur = self._conn.cursor()
+        cur.execute(
+            "DELETE FROM documents_fts WHERE rowid = "
+            "(SELECT rowid FROM documents WHERE id = ?)",
+            (doc_id,),
+        )
+        cur.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+        self._conn.commit()
+        return cur.rowcount > 0
 
     def clear(self) -> None:
-        """Remove all stored documents — always via Rust backend."""
-        self._rust_impl.clear()
+        """Remove all stored documents."""
+        if self._rust_impl is not None:
+            self._rust_impl.clear()
+            return
+        self._conn.executescript(
+            "DELETE FROM documents_fts; DELETE FROM documents;"
+        )
 
     def count(self) -> int:
-        """Return the number of stored documents — always via Rust backend."""
-        return self._rust_impl.count()
+        """Return the number of stored documents."""
+        if self._rust_impl is not None:
+            return self._rust_impl.count()
+        cur = self._conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM documents")
+        row = cur.fetchone()
+        return int(row[0]) if row else 0
 
     def close(self) -> None:
         """Close the database connection."""
-        pass
+        if self._conn is not None:
+            try:
+                self._conn.close()
+            except sqlite3.Error:
+                pass
+            self._conn = None
 
 
 __all__ = ["SQLiteMemory"]

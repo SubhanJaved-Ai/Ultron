@@ -105,6 +105,8 @@ def _reload_tool_modules() -> None:
 
 
 def test_all_builtin_tools_registered():
+    import openjarvis.tools  # noqa: F401
+
     _reload_tool_modules()
 
     registered = set(ToolRegistry.keys())

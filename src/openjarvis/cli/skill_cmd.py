@@ -730,4 +730,93 @@ def show_overlay(skill_name: str) -> None:
             console.print(f"     output={out!r}")
 
 
+# ---------------------------------------------------------------------------
+# ClawHub Community Skills CLI Group
+# ---------------------------------------------------------------------------
+
+
+@skill.group("clawhub")
+def clawhub():
+    """Discover, inspect, and install community skills from ClawHub (~13,700 skills)."""
+
+
+@clawhub.command("search")
+@click.argument("query", default="")
+@click.option("--category", default=None, help="Category or author filter")
+@click.option("--limit", default=15, help="Max results")
+def clawhub_search_cmd(query, category, limit):
+    """Search ClawHub community skills index."""
+    import json
+
+    from openjarvis.tools.clawhub_tools import ClawHubSearchTool
+
+    tool = ClawHubSearchTool()
+    res = tool.execute(query=query, category=category, limit=limit)
+    console = Console()
+    try:
+        data = json.loads(res.content)
+        skills = data.get("skills", [])
+        if not skills:
+            console.print(f"[dim]No skills found for '{query}'.[/dim]")
+            return
+        table = Table(title=f"ClawHub Skills: {query or 'All'}")
+        table.add_column("Name", style="cyan")
+        table.add_column("Category", style="yellow")
+        table.add_column("Installed", style="green")
+        table.add_column("Description", max_width=60)
+        for s in skills:
+            inst = "yes" if s.get("installed") else "no"
+            table.add_row(s["name"], s["category"], inst, s["description"])
+        console.print(table)
+    except Exception as exc:
+        console.print(f"[red]Error parsing search results:[/red] {exc}")
+
+
+@clawhub.command("info")
+@click.argument("skill_name")
+@click.option("--category", default=None, help="Optional category")
+def clawhub_info_cmd(skill_name, category):
+    """Inspect a ClawHub skill before installing."""
+    import json
+
+    from openjarvis.tools.clawhub_tools import ClawHubInfoTool
+
+    tool = ClawHubInfoTool()
+    res = tool.execute(skill_name=skill_name, category=category)
+    console = Console()
+    if not res.success:
+        console.print(f"[red]{res.content}[/red]")
+        return
+    try:
+        data = json.loads(res.content)
+        cat = data.get("category", "openclaw")
+        console.print(f"[bold cyan]{data['name']}[/bold cyan] ({cat})")
+        console.print(f"Description: {data.get('description', '')}")
+        console.print(f"Installed: {data.get('installed', False)}")
+        if data.get("instructions_preview"):
+            console.print(
+                f"\n[bold]Instructions Preview:[/bold]\n{data['instructions_preview']}"
+            )
+    except Exception as exc:
+        console.print(f"[red]Error parsing info:[/red] {exc}")
+
+
+@clawhub.command("install")
+@click.argument("skill_name")
+@click.option("--category", default=None, help="Optional category")
+@click.option("--force", is_flag=True, default=False, help="Overwrite if installed")
+def clawhub_install_cmd(skill_name, category, force):
+    """Download and compile a ClawHub skill into Jarvis."""
+    from openjarvis.tools.clawhub_tools import ClawHubInstallTool
+
+    tool = ClawHubInstallTool()
+    res = tool.execute(skill_name=skill_name, category=category, force=force)
+    console = Console()
+    if res.success:
+        console.print(f"[green]Successfully installed:[/green] {skill_name}")
+        console.print(f"Details: {res.content}")
+    else:
+        console.print(f"[red]Installation failed:[/red] {res.content}")
+
+
 __all__ = ["skill"]

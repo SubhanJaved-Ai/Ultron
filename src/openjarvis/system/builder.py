@@ -365,6 +365,18 @@ class SystemBuilder:
         system._mcp_clients = list(getattr(self, "_mcp_clients", []))
         if system.agent_executor is not None:
             system.agent_executor.set_system(system)
+        try:
+            from openjarvis.agents.subagents import get_subagent_manager
+
+            get_subagent_manager().set_dependencies(
+                engine=engine,
+                model=model,
+                system=system,
+                manager=agent_manager,
+                bus=bus,
+            )
+        except Exception as exc:
+            logger.debug("Failed to wire SubagentManager dependencies: %s", exc)
         return system
 
     def _resolve_engine(self, config: JarvisConfig):

@@ -99,7 +99,15 @@ class CapabilityPolicy:
     _DEFAULT_AGENT = "_default"
 
     def check(self, agent_id: str, capability: str, resource: str = "") -> bool:
-        """Check whether *agent_id* has *capability* for *resource*."""
+        """Check whether *agent_id* has *capability* for *resource*.
+
+        Falls back to the ``_default`` wildcard agent's grants only when
+        *agent_id* has no explicit policy of its own. This lets a baseline be
+        granted once via
+        ``grant("_default", ...)`` instead of needing to know every
+        dynamically-created managed-agent UUID ahead of time while preserving
+        the invariant that an agent-specific denial always wins.
+        """
         if self._rust_impl is not None:
             if (
                 not agent_id
@@ -156,6 +164,8 @@ class CapabilityPolicy:
 
     def _load_file(self, path: Path) -> None:
         """Load an explicitly configured policy, rejecting incomplete policy data."""
+        # A missing/malformed file must not silently discard configured denies.
+        # Validate the complete document before applying any grants.
         data = json.loads(path.read_text())
         if not isinstance(data, dict) or not isinstance(data.get("agents"), list):
             raise ValueError("Capability policy must contain an agents list")
@@ -184,6 +194,8 @@ class CapabilityPolicy:
 
         for agent_data in data["agents"]:
             agent_id = agent_data["agent_id"]
+            # An explicit empty policy is still an identity-specific policy;
+            # it must not accidentally inherit the wildcard's grants.
             self._policies.setdefault(agent_id, AgentPolicy(agent_id=agent_id))
             for grant in agent_data.get("grants", []):
                 self.grant(agent_id, grant["capability"], grant.get("pattern", "*"))
@@ -207,6 +219,10 @@ class CapabilityPolicy:
         path.write_text(json.dumps({"agents": agents}, indent=2))
 
 
+# Canonical capability requirements for every in-tree tool.  This table is a
+# security floor: ToolSpec declarations may add requirements, but they may not
+# weaken these.  Keep explicitly-safe tools in the table with an empty list so
+# an omitted future built-in can be distinguished from a reviewed safe one.
 DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "agent_kill": [Capability.SYSTEM_ADMIN],
     "agent_list": [Capability.SYSTEM_ADMIN],
@@ -322,7 +338,12 @@ _SAFE_BUILTIN_PROVENANCE = {
 
 
 def canonical_tool_capabilities(tool: Any) -> List[str]:
-    """Return the non-bypassable capability floor for *tool*."""
+    """Return the non-bypassable capability floor for *tool*.
+
+    Third-party tools remain governed by their ToolSpec.  An in-tree tool that
+    was newly registered without being inventoried fails closed as
+    ``system:admin`` instead of silently becoming unrestricted.
+    """
     module = type(tool).__module__
     name = tool.spec.name
     is_builtin = (
@@ -331,6 +352,9 @@ def canonical_tool_capabilities(tool: Any) -> List[str]:
         or module == "openjarvis.scheduler.tools"
     )
     if module == "openjarvis.tools.mcp_adapter":
+        # MCP tool names are remote-controlled.  Resolve adapter provenance
+        # before the name table so a server cannot impersonate a reviewed-safe
+        # local tool such as ``calculator`` or ``think``.
         return [Capability.TOOL_INVOKE]
     if is_builtin:
         if name in DEFAULT_TOOL_CAPABILITIES:
@@ -356,6 +380,9 @@ def canonical_tool_capabilities(tool: Any) -> List[str]:
         return [Capability.SYSTEM_ADMIN]
     if name in DEFAULT_TOOL_CAPABILITIES:
         canonical = list(DEFAULT_TOOL_CAPABILITIES[name])
+        # Third-party tools that collide with a privileged name retain its
+        # security floor.  Reviewed-safe names are safe only for their in-tree
+        # implementation and therefore fail closed on foreign provenance.
         return canonical or [Capability.SYSTEM_ADMIN]
     return []
 

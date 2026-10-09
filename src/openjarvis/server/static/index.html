@@ -6,26 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02050c">
-  <meta name="description" content="JARVIS 2.0 Autonomous AI — Marvel Cinematic 3D Holographic Core">
+  <meta name="description" content="JARVIS 2.0 Autonomous AI — Minimal Glowing Electron Core & Real-Time Voice Assistant">
   <link rel="manifest" href="/manifest.webmanifest">
-  <title>JARVIS 2.0 — Mark VII Holographic Core</title>
-  <script>
-    // Force purge stale service workers and caches on load
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        regs.forEach(function(r) { r.unregister(); });
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(function(keys) {
-        keys.forEach(function(k) { caches.delete(k); });
-      });
-    }
-  </script>
+  <title>JARVIS 2.0 — Quantum Electron Core</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-  <!-- Three.js for 3D Quantum Particle Cloud & Holographic Face Mesh (Served locally) -->
+  <!-- Three.js local library -->
   <script src="/three.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -33,15 +20,16 @@
       --bg: #02050c;
       --cyan: #00f3ff;
       --cyan-bright: #7df9ff;
-      --cyan-dim: rgba(0, 243, 255, 0.22);
-      --cyan-glow: 0 0 25px rgba(0, 243, 255, 0.7);
-      --blue: #0066ff;
-      --blue-glow: 0 0 35px rgba(0, 102, 255, 0.5);
-      --gold: #ffbe0b;
+      --cyan-dim: rgba(0, 243, 255, 0.2);
+      --yellow: #ffea00;
+      --yellow-bright: #fff266;
+      --yellow-dim: rgba(255, 234, 0, 0.25);
+      --green: #00ff88;
+      --green-bright: #66ffb2;
+      --green-dim: rgba(0, 255, 136, 0.25);
+      --purple: #c800ff;
       --text: #e0f8ff;
-      --muted: #416788;
-      --panel-bg: rgba(3, 10, 24, 0.65);
-      --panel-border: rgba(0, 243, 255, 0.2);
+      --muted: #4e7399;
     }
     body {
       background: var(--bg);
@@ -64,8 +52,8 @@
       display: block;
     }
 
-    /* Cinematic Hologram Scanlines & Vignette Overlay */
-    .crt-overlay {
+    /* Subtle Cinematic Vignette */
+    .vignette-overlay {
       position: fixed;
       top: 0;
       left: 0;
@@ -73,15 +61,11 @@
       height: 100vh;
       z-index: 2;
       pointer-events: none;
-      background:
-        radial-gradient(circle at center, transparent 35%, rgba(2, 5, 12, 0.85) 100%),
-        repeating-linear-gradient(0deg, rgba(0, 243, 255, 0.015) 0px, rgba(0, 243, 255, 0.015) 1px, transparent 1px, transparent 2px),
-        linear-gradient(rgba(0, 243, 255, 0.02) 1px, transparent 1px) 0 0 / 60px 60px,
-        linear-gradient(90deg, rgba(0, 243, 255, 0.02) 1px, transparent 1px) 0 0 / 60px 60px;
+      background: radial-gradient(circle at center, transparent 35%, rgba(2, 5, 12, 0.85) 100%);
     }
 
-    /* Interactive Holographic HUD Grid */
-    .hud-overlay {
+    /* Minimal UI Overlay */
+    .minimal-hud {
       position: fixed;
       top: 0;
       left: 0;
@@ -95,292 +79,273 @@
       padding: 24px 32px;
     }
 
-    /* Top Navigation & Status Bar */
+    /* Top Header Bar */
     .hud-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       pointer-events: auto;
     }
-    .hud-branding {
+    .hud-brand {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
     }
-    .hud-title {
+    .hud-logo {
       font-family: 'Orbitron', sans-serif;
-      font-size: 24px;
+      font-size: 20px;
       font-weight: 900;
       letter-spacing: 0.25em;
       color: var(--cyan);
-      text-shadow: var(--cyan-glow);
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      text-shadow: 0 0 20px rgba(0, 243, 255, 0.7);
     }
-    .hud-core-badge {
+    .hud-sublogo {
       font-family: 'Orbitron', sans-serif;
       font-size: 10px;
       font-weight: 700;
-      padding: 3px 8px;
-      border: 1px solid var(--cyan);
-      border-radius: 4px;
-      background: rgba(0, 243, 255, 0.12);
       letter-spacing: 0.15em;
-      color: var(--cyan);
-      text-shadow: 0 0 10px var(--cyan);
-      animation: badge-glow 2.5s infinite alternate;
-    }
-    @keyframes badge-glow {
-      from { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 0 5px rgba(0, 243, 255, 0.2); }
-      to { border-color: var(--cyan); box-shadow: 0 0 15px rgba(0, 243, 255, 0.6); }
+      color: var(--muted);
+      border-left: 1px solid var(--muted);
+      padding-left: 10px;
     }
 
-    /* Mode Selector (Quantum Core vs Holographic Face) */
-    .mode-switch-group {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 20px;
-      padding: 4px 6px;
-      backdrop-filter: blur(12px);
-    }
-    .mode-btn {
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--muted);
+    /* Dynamic Center Status Pill */
+    .status-pill {
       font-family: 'Orbitron', sans-serif;
       font-size: 10px;
       font-weight: 700;
-      letter-spacing: 0.12em;
-      padding: 6px 14px;
-      border-radius: 14px;
+      letter-spacing: 0.14em;
+      padding: 6px 16px;
+      border-radius: 20px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-pill.standby {
+      color: var(--cyan);
+      background: rgba(0, 243, 255, 0.08);
+      border: 1px solid var(--cyan-dim);
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+    }
+    .status-pill.listening {
+      color: var(--yellow);
+      background: rgba(255, 234, 0, 0.15);
+      border: 1px solid var(--yellow);
+      box-shadow: 0 0 25px rgba(255, 234, 0, 0.5);
+    }
+    .status-pill.thinking {
+      color: var(--purple);
+      background: rgba(200, 0, 255, 0.15);
+      border: 1px solid var(--purple);
+      box-shadow: 0 0 25px rgba(200, 0, 255, 0.5);
+    }
+    .status-pill.speaking {
+      color: var(--green);
+      background: rgba(0, 255, 136, 0.15);
+      border: 1px solid var(--green);
+      box-shadow: 0 0 25px rgba(0, 255, 136, 0.5);
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    /* Audio Neural Unlock Banner */
+    .audio-unlock-banner {
+      position: absolute;
+      top: 76px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 243, 255, 0.12);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 18px rgba(0, 243, 255, 0.4);
+      border-radius: 20px;
+      padding: 5px 16px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      color: var(--cyan-bright);
       cursor: pointer;
-      transition: all 0.25s ease;
+      pointer-events: auto;
       display: flex;
       align-items: center;
       gap: 6px;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s;
     }
-    .mode-btn:hover {
-      color: var(--cyan);
-      border-color: var(--cyan-dim);
-    }
-    .mode-btn.active {
-      color: #02050c;
-      background: var(--cyan);
-      border-color: var(--cyan);
-      box-shadow: 0 0 15px rgba(0, 243, 255, 0.8);
-    }
-    .upload-face-btn {
-      background: rgba(255, 190, 11, 0.1);
-      border: 1px dashed rgba(255, 190, 11, 0.5);
-      color: var(--gold);
-      font-family: 'Orbitron', sans-serif;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      padding: 6px 12px;
-      border-radius: 14px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .upload-face-btn:hover {
-      background: rgba(255, 190, 11, 0.25);
-      border-color: var(--gold);
-      box-shadow: 0 0 12px rgba(255, 190, 11, 0.6);
-    }
-    #face-upload-input {
-      display: none;
-    }
-
-    /* Telemetry Diagnostics */
-    .hud-telemetry {
-      display: flex;
-      gap: 24px;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 11px;
-      color: var(--muted);
-    }
-    .telemetry-item span { color: var(--cyan); font-weight: 700; }
-
-    /* Middle HUD Layer (Corner Diagnostics & Floating Transcript) */
-    .hud-main {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex: 1;
-      margin: 20px 0;
-      pointer-events: none;
-    }
-    .hud-card {
-      pointer-events: auto;
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 12px;
-      backdrop-filter: blur(14px);
-      padding: 16px 20px;
-      width: 320px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
-    }
-    .card-header {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      color: var(--cyan);
-      margin-bottom: 12px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid var(--cyan-dim);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .stat-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      margin-bottom: 8px;
-      color: var(--muted);
-    }
-    .stat-val { color: var(--text); font-weight: 600; }
-    .status-active { color: #00ffaa; text-shadow: 0 0 8px #00ffaa; }
-
-    /* Floating Subtitle / Transcript Log */
-    #transcript-feed {
-      max-height: 180px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    #transcript-feed::-webkit-scrollbar { width: 4px; }
-    #transcript-feed::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 2px; }
-    .feed-entry {
-      padding: 8px 12px;
-      border-radius: 8px;
-      animation: entry-fade 0.3s ease-out;
-    }
-    @keyframes entry-fade {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .entry-user {
-      background: rgba(0, 102, 255, 0.15);
-      border-left: 2px solid var(--blue);
-      color: #9ac2ff;
-    }
-    .entry-jarvis {
-      background: rgba(0, 243, 255, 0.12);
-      border-left: 2px solid var(--cyan);
-      color: var(--cyan-bright);
-    }
-
-    /* Real-Time Acoustic & Wake Status Center Display */
-    .center-hud-announcer {
-      position: absolute;
-      top: 18%;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      text-align: center;
-      pointer-events: none;
-    }
-    .jarvis-status-pill {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.25em;
-      padding: 6px 20px;
-      border-radius: 20px;
-      background: rgba(3, 10, 24, 0.75);
-      border: 1px solid var(--cyan);
-      color: var(--cyan);
-      text-shadow: var(--cyan-glow);
-      box-shadow: 0 0 20px rgba(0, 243, 255, 0.35);
-      transition: all 0.3s ease;
-    }
-    .jarvis-status-pill.listening {
+    .audio-unlock-banner.unlocked {
       border-color: #00ffaa;
       color: #00ffaa;
-      text-shadow: 0 0 15px #00ffaa;
-      box-shadow: 0 0 30px rgba(0, 255, 170, 0.5);
-      animation: pulse-listen 1.2s infinite;
-    }
-    .jarvis-status-pill.speaking {
-      border-color: var(--gold);
-      color: var(--gold);
-      text-shadow: 0 0 15px var(--gold);
-      box-shadow: 0 0 30px rgba(255, 190, 11, 0.5);
-    }
-    @keyframes pulse-listen {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.06); }
-    }
-    .wake-directive-hint {
-      font-size: 11px;
-      letter-spacing: 0.15em;
-      color: var(--muted);
-      text-transform: uppercase;
-    }
-    .wake-directive-hint span {
-      color: var(--cyan);
-      font-weight: 700;
+      background: rgba(0, 255, 170, 0.1);
+      box-shadow: 0 0 18px rgba(0, 255, 170, 0.4);
     }
 
-    /* Live Audio Spectrum Equalizer */
-    .spectrum-bar-wrap {
+    /* Center Interactive Core Reticle & Subtitle Display */
+    .center-hud-announcer {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       display: flex;
-      align-items: flex-end;
-      gap: 3px;
-      height: 24px;
-      margin-top: 4px;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      pointer-events: auto;
+      cursor: pointer;
+      width: 100%;
+      max-width: 600px;
+      padding: 0 20px;
+    }
+    .lock-reticle-wrap {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .reticle-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 1px dashed var(--cyan-dim);
+      transition: all 0.4s ease;
+      animation: spin-slow 24s linear infinite;
+    }
+    .reticle-ring.listening {
+      border-color: var(--yellow);
+      border-style: solid;
+      box-shadow: 0 0 30px rgba(255, 234, 0, 0.5), inset 0 0 20px rgba(255, 234, 0, 0.3);
+      animation: spin-fast 8s linear infinite;
+    }
+    .reticle-ring.speaking {
+      border-color: var(--green);
+      border-style: solid;
+      box-shadow: 0 0 35px rgba(0, 255, 136, 0.6), inset 0 0 25px rgba(0, 255, 136, 0.3);
+      animation: spin-fast 6s linear infinite;
+    }
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes spin-fast {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Minimal Live Subtitle Stream */
+    .subtitle-stream {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px 18px;
+      border-radius: 12px;
+      background: rgba(2, 5, 12, 0.7);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 13px;
+      letter-spacing: 0.06em;
+      line-height: 1.5;
+      color: var(--text);
+      max-width: 540px;
+      transition: all 0.3s;
+    }
+    .subtitle-stream.listening {
+      border-color: var(--yellow-dim);
+      color: var(--yellow-bright);
+    }
+    .subtitle-stream.speaking {
+      border-color: var(--green-dim);
+      color: var(--green-bright);
+    }
+    .subtitle-hint {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.14em;
+    }
+
+    /* Audio Equalizer Spectrum */
+    .spectrum-bars {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      height: 18px;
     }
     .spectrum-bar {
       width: 3px;
-      height: 4px;
-      background: var(--cyan);
+      height: 3px;
       border-radius: 2px;
-      transition: height 0.08s ease;
-      box-shadow: 0 0 6px var(--cyan);
+      background: var(--cyan);
+      transition: height 0.08s ease, background-color 0.3s;
     }
+    .spectrum-bars.listening .spectrum-bar { background: var(--yellow); }
+    .spectrum-bars.speaking .spectrum-bar { background: var(--green); }
 
-    /* Bottom Directive Input (Clean Sci-Fi Command Line) */
+    /* Bottom Command Line Pill */
     .hud-footer {
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
+      justify-content: center;
       pointer-events: auto;
+      width: 100%;
     }
     .directive-form {
       display: flex;
       align-items: center;
-      gap: 12px;
-      width: 100%;
-      max-width: 650px;
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 28px;
-      padding: 8px 20px;
+      gap: 10px;
+      background: rgba(3, 10, 24, 0.75);
+      border: 1px solid var(--cyan-dim);
+      border-radius: 30px;
+      padding: 6px 14px;
       backdrop-filter: blur(16px);
-      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.7);
-      transition: border-color 0.25s;
+      width: 100%;
+      max-width: 580px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      transition: all 0.3s ease;
     }
     .directive-form:focus-within {
       border-color: var(--cyan);
-      box-shadow: 0 0 25px rgba(0, 243, 255, 0.4);
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.35);
     }
-    .prompt-prefix {
+    .directive-form.listening {
+      border-color: var(--yellow);
+      box-shadow: 0 0 20px rgba(255, 234, 0, 0.4);
+    }
+    .directive-form.speaking {
+      border-color: var(--green);
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+    }
+    .mic-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--cyan-dim);
+      background: rgba(0, 243, 255, 0.1);
       color: var(--cyan);
-      font-family: 'Orbitron', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      flex-shrink: 0;
+    }
+    .mic-btn:hover {
+      background: var(--cyan);
+      color: #02050c;
+      box-shadow: 0 0 14px var(--cyan);
+    }
+    .mic-btn.active {
+      background: var(--yellow);
+      color: #02050c;
+      border-color: var(--yellow);
+      box-shadow: 0 0 18px var(--yellow);
     }
     .directive-input {
       flex: 1;
@@ -388,8 +353,9 @@
       border: none;
       color: var(--text);
       font-family: 'Share Tech Mono', monospace;
-      font-size: 15px;
+      font-size: 13px;
       outline: none;
+      padding: 6px 4px;
     }
     .directive-input::placeholder {
       color: #3b5a7a;
@@ -398,106 +364,66 @@
       background: transparent;
       border: 1px solid var(--cyan-dim);
       color: var(--cyan);
-      border-radius: 14px;
-      padding: 5px 14px;
+      border-radius: 18px;
+      padding: 6px 16px;
       font-family: 'Orbitron', sans-serif;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
-      cursor: pointer;
       letter-spacing: 0.1em;
+      cursor: pointer;
       transition: all 0.2s;
     }
     .directive-send:hover {
       background: var(--cyan);
       color: #02050c;
-      box-shadow: 0 0 15px var(--cyan);
-    }
-
-    /* Permissions Audio Arm Banner */
-    #mic-arm-banner {
-      position: fixed;
-      bottom: 85px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 243, 255, 0.15);
-      border: 1px solid var(--cyan);
-      padding: 8px 24px;
-      border-radius: 20px;
-      font-size: 12px;
-      letter-spacing: 0.15em;
-      color: var(--cyan-bright);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
-      z-index: 20;
-      transition: all 0.3s;
-    }
-    #mic-arm-banner:hover {
-      background: rgba(0, 243, 255, 0.3);
-      transform: translateX(-50%) scale(1.03);
-    }
-
-    /* Mobile Adaptations */
-    @media (max-width: 860px) {
-      .hud-overlay { padding: 16px; }
-      .hud-telemetry { display: none; }
-      .hud-main { flex-direction: column; justify-content: flex-end; align-items: stretch; }
-      .hud-card { width: 100%; margin-bottom: 8px; }
-      .hud-card.desktop-only { display: none; }
-      .center-hud-announcer { top: 12%; }
+      box-shadow: 0 0 14px var(--cyan);
     }
   </style>
 </head>
 <body>
-  <!-- Three.js WebGL Hologram Viewport -->
+  <!-- 3D WebGL Canvas -->
   <canvas id="hologram-canvas"></canvas>
 
-  <!-- Holographic CRT Scanline & Grid Effect -->
-  <div class="crt-overlay"></div>
+  <!-- Vignette -->
+  <div class="vignette-overlay"></div>
 
-  <!-- HUD Interface Layer -->
-  <div class="hud-overlay">
+  <!-- Audio Element for Guaranteed Talk-Back Output -->
+  <audio id="jarvis-audio-player" preload="auto" style="display:none;"></audio>
+
+  <!-- Minimal HUD Overlay -->
+  <div class="minimal-hud">
     <!-- Top Header -->
     <header class="hud-header">
-      <div class="hud-branding">
-        <div class="hud-title">
-          JARVIS
-          <span class="hud-core-badge">MARK VII CORE</span>
-        </div>
-
-        <!-- Mode Switcher: Quantum Electron Core vs Holographic Face Mesh -->
-        <div class="mode-switch-group">
-          <button id="mode-core-btn" class="mode-btn active" onclick="setHologramMode('core')">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
-            ELECTRON CORE
-          </button>
-          <button id="mode-face-btn" class="mode-btn" onclick="setHologramMode('face')">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
-            HOLO FACE
-          </button>
-          <button class="upload-face-btn" onclick="document.getElementById('face-upload-input').click()" title="Upload any portrait photo to project as a 3D hologram">
-            + UPLOAD FACE
-          </button>
-          <input type="file" id="face-upload-input" accept="image/*" onchange="handleFaceUpload(event)">
-        </div>
+      <div class="hud-brand">
+        <div class="hud-logo">JARVIS</div>
+        <div class="hud-sublogo">QUANTUM ELECTRON CORE</div>
       </div>
 
-      <!-- Telemetry Stream -->
-      <div class="hud-telemetry">
-        <div class="telemetry-item">ACOUSTIC SENSOR: <span id="tele-mic">ARMED</span></div>
-        <div class="telemetry-item">WAKE PROTOCOL: <span>"JARVIS"</span></div>
-        <div class="telemetry-item">FPS: <span id="tele-fps">60</span></div>
+      <div id="status-pill" class="status-pill standby">
+        <div class="status-dot"></div>
+        <span id="status-text">STANDBY</span>
       </div>
     </header>
 
-    <!-- Center HUD Status Indicator (Always Listening) -->
-    <div class="center-hud-announcer">
-      <div id="jarvis-status-badge" class="jarvis-status-pill">AWAITING DIRECTIVE</div>
-      <div class="wake-directive-hint">CONTINUOUS LISTENING — SAY <span>"JARVIS ..."</span> AT ANY TIME</div>
-      <!-- Spectrum Equalizer Bars -->
-      <div class="spectrum-bar-wrap" id="spectrum-bars">
+    <!-- Audio Neural Unlock Banner -->
+    <div id="audio-unlock-banner" class="audio-unlock-banner" onclick="unlockAudioNeuralLink()" title="Click anywhere to initialize voice playback">
+      <span>⚡</span>
+      <span id="audio-banner-text">CLICK ANYWHERE TO UNLOCK VOICE LINK</span>
+    </div>
+
+    <!-- Center Interactive Core Reticle & Subtitle -->
+    <div class="center-hud-announcer" onclick="toggleVoiceLockManual()" title="Click to Lock On & Speak directly to Jarvis">
+      <div class="lock-reticle-wrap">
+        <div id="reticle-ring" class="reticle-ring"></div>
+      </div>
+
+      <!-- Subtitle Message Stream -->
+      <div id="subtitle-box" class="subtitle-stream">
+        <span class="subtitle-hint">CLICK CORE OR SAY "JARVIS ..." TO TALK</span>
+      </div>
+
+      <!-- Equalizer Spectrum Bars -->
+      <div class="spectrum-bars" id="spectrum-bars">
         <div class="spectrum-bar"></div>
         <div class="spectrum-bar"></div>
         <div class="spectrum-bar"></div>
@@ -513,147 +439,180 @@
       </div>
     </div>
 
-    <!-- Side HUD Panels -->
-    <main class="hud-main">
-      <!-- Left Diagnostics Card -->
-      <div class="hud-card desktop-only">
-        <div class="card-header">
-          <span>SYSTEM TELEMETRY</span>
-          <span class="status-active">● ONLINE</span>
-        </div>
-        <div class="stat-row">
-          <span>CORE FREQUENCY</span>
-          <span class="stat-val" id="stat-freq">432.8 THz</span>
-        </div>
-        <div class="stat-row">
-          <span>QUANTUM ELECTRONS</span>
-          <span class="stat-val" id="stat-particles">3,800 ACTIVE</span>
-        </div>
-        <div class="stat-row">
-          <span>NEURAL SYNAPSE</span>
-          <span class="stat-val" id="stat-synapse">SYNCHRONIZED</span>
-        </div>
-        <div class="stat-row">
-          <span>VOICE MATRIX</span>
-          <span class="stat-val">CONTINUOUS STT</span>
-        </div>
-        <div class="stat-row">
-          <span>AVATAR PROJECTION</span>
-          <span class="stat-val" id="stat-avatar-mode">MCU ELECTRON CLOUD</span>
-        </div>
-      </div>
-
-      <!-- Right Subtitle / Directives Card -->
-      <div class="hud-card">
-        <div class="card-header">
-          <span>COMMUNICATION FEED</span>
-          <span id="comm-mode-text" style="color: var(--cyan);">STANDBY</span>
-        </div>
-        <div id="transcript-feed">
-          <div class="feed-entry entry-jarvis">
-            <strong>JARVIS:</strong> Systems operational. Microphones calibrated. Say "Jarvis" followed by your instruction.
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <!-- Bottom Command Line -->
+    <!-- Bottom Command Bar -->
     <footer class="hud-footer">
-      <form class="directive-form" onsubmit="handleTextDirective(event)">
-        <span class="prompt-prefix">JARVIS &gt;</span>
-        <input type="text" id="directive-field" class="directive-input" placeholder="Say 'Jarvis ...' or type directive here..." autocomplete="off">
+      <form class="directive-form" id="directive-form" onsubmit="handleTextDirective(event)">
+        <button type="button" id="mic-btn" class="mic-btn" onclick="toggleVoiceLockManual()" title="Toggle microphone">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          </svg>
+        </button>
+        <input type="text" id="directive-field" class="directive-input" placeholder="Ask Jarvis anything or speak out loud..." autocomplete="off">
         <button type="submit" class="directive-send">TRANSMIT</button>
       </form>
     </footer>
-  </div>
-
-  <!-- Browser Mic Initialization Helper Banner -->
-  <div id="mic-arm-banner" onclick="armMicrophoneListener()">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-    </svg>
-    CLICK ONCE TO ACTIVATE CONTINUOUS "JARVIS" LISTENING
+    <audio id="jarvis-audio-player" preload="auto" playsinline style="display:none;"></audio>
   </div>
 
   <script>
     // ==========================================================================
-    // 1. THREE.JS 3D QUANTUM ELECTRON CLOUD & HOLOGRAPHIC FACE ENGINE
+    // 0. AUDIO CHIME SYNTHESIZER (WEB AUDIO API)
+    // ==========================================================================
+    class JarvisAudioSynthesizer {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playLockChime() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(660, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.18, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
+      playUnlockChime() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(580, now + 0.12);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.12, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      }
+      playTransmitChime() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1180, now + 0.09);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.15, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      }
+    }
+    const audioSynth = new JarvisAudioSynthesizer();
+
+    // ==========================================================================
+    // 1. THREE.JS GLOWING ELECTRON SPHERE & DYNAMIC COLOR MATRIX
     // ==========================================================================
     const canvas = document.getElementById('hologram-canvas');
     let scene, camera, renderer;
-    let electronGroup, faceGroup;
+    let electronGroup;
+    let nucleusMesh, nucleusGlowMesh;
     let electronParticles, electronGeometry, electronMaterial;
     let orbitalRings = [];
-    let coreGlowMesh, nucleusMesh;
-    let facePoints, faceGeometry, faceMaterial;
-    let currentMode = 'core'; // 'core' | 'face'
 
-    // Quantum physics state
-    let particleCount = 3800;
+    // State Colors
+    const COLOR_STANDBY  = new THREE.Color(0x00f3ff); // Cyan / Blue
+    const COLOR_LISTEN   = new THREE.Color(0xffea00); // Yellow Core Ball
+    const COLOR_THINK    = new THREE.Color(0xc800ff); // Violet
+    const COLOR_SPEAK    = new THREE.Color(0x00ff88); // Vibrant Green Core Ball
+
+    let currentColor = new THREE.Color(0x00f3ff);
+    let targetColor  = new THREE.Color(0x00f3ff);
+
+    // Particle Physics
+    const particleCount = 3200;
     let particlePositions, particleVelocities, particleOriginalRadii, particleAngles;
-    let audioReactiveScale = 1.0;
+
     let jarvisState = 'STANDBY'; // 'STANDBY' | 'LISTENING' | 'THINKING' | 'SPEAKING'
     let mouseX = 0, mouseY = 0;
     let targetRotationX = 0, targetRotationY = 0;
+    let audioPulseScale = 1.0;
+
+    function createGlowTexture() {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      grad.addColorStop(0.3, 'rgba(255, 255, 255, 0.8)');
+      grad.addColorStop(0.6, 'rgba(255, 255, 255, 0.2)');
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(c);
+    }
 
     function initThreeScene() {
       scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-      camera.position.z = 450;
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+      camera.position.z = 380;
 
       renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-      // Build 3D MCU Quantum Electron Cloud
-      buildQuantumElectronCloud();
-
-      // Build Preset 3D Holographic Face Mesh
-      buildPresetHologramFace();
-
-      // Mouse Parallax Track
-      window.addEventListener('mousemove', (e) => {
-        mouseX = (e.clientX - window.innerWidth / 2) * 0.0008;
-        mouseY = (e.clientY - window.innerHeight / 2) * 0.0008;
-      });
-
-      window.addEventListener('resize', onWindowResize);
-    }
-
-    // Helper: Generate circular glowing particle sprite texture
-    function createGlowTexture(colorStr, blurFactor) {
-      const pCanvas = document.createElement('canvas');
-      pCanvas.width = 128;
-      pCanvas.height = 128;
-      const pCtx = pCanvas.getContext('2d');
-      const grad = pCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
-      grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-      grad.addColorStop(0.2, colorStr);
-      grad.addColorStop(0.6, 'rgba(0, 102, 255, 0.4)');
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      pCtx.fillStyle = grad;
-      pCtx.fillRect(0, 0, 128, 128);
-      return new THREE.CanvasTexture(pCanvas);
-    }
-
-    // 1A. Quantum Electron Core (Marvel Cinematic Iron Man Style)
-    function buildQuantumElectronCloud() {
       electronGroup = new THREE.Group();
       scene.add(electronGroup);
 
-      // A widely spread cloud of electrons
+      // --- Central Glowing Core Ball (The Electron Nucleus) ---
+      const nucleusGeo = new THREE.SphereGeometry(15, 32, 32);
+      const nucleusMat = new THREE.MeshBasicMaterial({
+        color: 0x00f3ff,
+        transparent: true,
+        opacity: 0.95,
+        wireframe: false
+      });
+      nucleusMesh = new THREE.Mesh(nucleusGeo, nucleusMat);
+      electronGroup.add(nucleusMesh);
+
+      // Outer Glowing Aura Shell
+      const glowGeo = new THREE.SphereGeometry(19, 32, 32);
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: 0x00f3ff,
+        transparent: true,
+        opacity: 0.35,
+        wireframe: true
+      });
+      nucleusGlowMesh = new THREE.Mesh(glowGeo, glowMat);
+      electronGroup.add(nucleusGlowMesh);
+
+      // --- Orbiting Quantum Electron Particles (Compact, Fits Screen Circle) ---
       electronGeometry = new THREE.BufferGeometry();
       particlePositions = new Float32Array(particleCount * 3);
       particleVelocities = new Float32Array(particleCount * 3);
       particleOriginalRadii = new Float32Array(particleCount);
-      particleAngles = new Float32Array(particleCount * 2); // theta, phi
-
-      const minRadius = 40;
-      const maxRadius = 320; // Widely spread as requested
+      particleAngles = new Float32Array(particleCount * 2);
 
       for (let i = 0; i < particleCount; i++) {
-        const radius = minRadius + Math.pow(Math.random(), 1.6) * (maxRadius - minRadius);
+        // Fits compactly within center circle: min radius 32, max radius 96
+        const radius = 32 + Math.random() * 64;
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
 
@@ -661,47 +620,36 @@
         const y = radius * Math.sin(phi) * Math.sin(theta);
         const z = radius * Math.cos(phi);
 
-        particlePositions[i * 3] = x;
+        particlePositions[i * 3]     = x;
         particlePositions[i * 3 + 1] = y;
         particlePositions[i * 3 + 2] = z;
 
         particleOriginalRadii[i] = radius;
-        particleAngles[i * 2] = theta;
+        particleAngles[i * 2]     = theta;
         particleAngles[i * 2 + 1] = phi;
 
-        // Individual orbital velocity
-        particleVelocities[i * 3] = (Math.random() - 0.5) * 0.015;
-        particleVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.015;
-        particleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.015;
+        // Serene, slow orbital drift velocities
+        particleVelocities[i * 3]     = (Math.random() - 0.5) * 0.0002;
+        particleVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0002;
+        particleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0002;
       }
 
       electronGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
 
       electronMaterial = new THREE.PointsMaterial({
-        size: 5.5,
-        map: createGlowTexture('rgba(0, 243, 255, 0.95)', 0.5),
+        size: 3.4,
+        map: createGlowTexture(),
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        color: 0x00f3ff,
+        color: 0x00f3ff
       });
 
       electronParticles = new THREE.Points(electronGeometry, electronMaterial);
       electronGroup.add(electronParticles);
 
-      // Central Luminous Singularity Core
-      const coreGeo = new THREE.SphereGeometry(14, 32, 32);
-      const coreMat = new THREE.MeshBasicMaterial({
-        color: 0x7df9ff,
-        transparent: true,
-        opacity: 0.85,
-        wireframe: true
-      });
-      nucleusMesh = new THREE.Mesh(coreGeo, coreMat);
-      electronGroup.add(nucleusMesh);
-
-      // Magnetic Flux Orbital Rings (MCU Gyro Rings)
-      const ringRadii = [60, 110, 170, 240];
+      // --- Concentric Magnetic Flux Rings (Proportional to Compact Electron Sphere) ---
+      const ringRadii = [38, 65, 96];
       ringRadii.forEach((r, idx) => {
         const ringGeo = new THREE.BufferGeometry();
         const pts = [];
@@ -712,181 +660,26 @@
         }
         ringGeo.setFromPoints(pts);
         const ringMat = new THREE.LineBasicMaterial({
-          color: idx % 2 === 0 ? 0x00f3ff : 0x0066ff,
+          color: 0x00f3ff,
           transparent: true,
           opacity: 0.35,
           blending: THREE.AdditiveBlending
         });
         const ring = new THREE.Line(ringGeo, ringMat);
-        ring.rotation.x = Math.random() * Math.PI;
-        ring.rotation.y = Math.random() * Math.PI;
-        ring.userData = { speedX: (idx + 1) * 0.003, speedY: (idx + 1) * -0.002 };
+        ring.rotation.x = 0.5 * (idx + 1);
+        ring.rotation.y = 0.3 * (idx + 1);
         orbitalRings.push(ring);
         electronGroup.add(ring);
       });
-    }
 
-    // 1B. 3D Holographic Human / Iron Man Face Generator
-    function buildPresetHologramFace() {
-      faceGroup = new THREE.Group();
-      faceGroup.visible = false;
-      scene.add(faceGroup);
-
-      // Generate 3D Holographic Wireframe Portrait Point Cloud
-      const faceCount = 7000;
-      const fPositions = new Float32Array(faceCount * 3);
-      const fColors = new Float32Array(faceCount * 3);
-
-      let idx = 0;
-      // Head silhouette + cranial contour
-      for (let i = 0; i < faceCount; i++) {
-        const u = Math.random();
-        const v = Math.random();
-        const theta = u * Math.PI * 2;
-        const phi = (v - 0.5) * Math.PI;
-
-        // Ellipsoid face shape with jaw taper & nasal ridge
-        let rX = 85 * (1 - 0.25 * (phi < 0 ? -phi : 0));
-        let rY = 120;
-        let rZ = 75;
-
-        // Facial features perturbation
-        let x = rX * Math.cos(phi) * Math.sin(theta);
-        let y = rY * Math.sin(phi);
-        let z = rZ * Math.cos(phi) * Math.cos(theta);
-
-        // Clip to front face hemisphere mostly
-        if (z < -10) z *= 0.25;
-
-        // Eye socket depressions & cheekbones
-        if (y > 10 && y < 35 && Math.abs(x) > 15 && Math.abs(x) < 45 && z > 30) {
-          z -= 15; // Eye socket
-        }
-        if (y > -15 && y < 15 && Math.abs(x) < 12 && z > 35) {
-          z += 22; // Nose bridge
-        }
-        if (y > -45 && y < -25 && Math.abs(x) < 30 && z > 30) {
-          z += 6; // Lips
-        }
-
-        fPositions[idx * 3] = x;
-        fPositions[idx * 3 + 1] = y;
-        fPositions[idx * 3 + 2] = z;
-
-        // Holographic Cyan / Azure gradient
-        fColors[idx * 3] = 0.0;
-        fColors[idx * 3 + 1] = 0.85 + (Math.sin(y * 0.05) * 0.15);
-        fColors[idx * 3 + 2] = 1.0;
-        idx++;
-      }
-
-      faceGeometry = new THREE.BufferGeometry();
-      faceGeometry.setAttribute('position', new THREE.BufferAttribute(fPositions, 3));
-      faceGeometry.setAttribute('color', new THREE.BufferAttribute(fColors, 3));
-
-      faceMaterial = new THREE.PointsMaterial({
-        size: 4.0,
-        map: createGlowTexture('rgba(0, 243, 255, 0.9)', 0.4),
-        vertexColors: true,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
+      // Mouse Parallax
+      window.addEventListener('mousemove', (e) => {
+        mouseX = ((e.clientX / window.innerWidth) - 0.5) * 0.3;
+        mouseY = ((e.clientY / window.innerHeight) - 0.5) * 0.3;
       });
 
-      facePoints = new THREE.Points(faceGeometry, faceMaterial);
-      faceGroup.add(facePoints);
-    }
-
-    // 1C. Upload Real Human Photo -> Convert to 3D Holographic Particle Face!
-    function handleFaceUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          create3DHologramFromImage(img);
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function create3DHologramFromImage(img) {
-      // Offscreen canvas processing to sample luminance and 3D depth
-      const sampleCanvas = document.createElement('canvas');
-      const w = 120;
-      const h = 140;
-      sampleCanvas.width = w;
-      sampleCanvas.height = h;
-      const sCtx = sampleCanvas.getContext('2d');
-      sCtx.drawImage(img, 0, 0, w, h);
-      const imgData = sCtx.getImageData(0, 0, w, h).data;
-
-      const points = [];
-      const colors = [];
-
-      for (let y = 0; y < h; y += 1) {
-        for (let x = 0; x < w; x += 1) {
-          const pixelIndex = (y * w + x) * 4;
-          const r = imgData[pixelIndex];
-          const g = imgData[pixelIndex + 1];
-          const b = imgData[pixelIndex + 2];
-          const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
-
-          // Only sample features above threshold
-          if (brightness > 0.15) {
-            // Map 2D (x, y) to centered 3D coordinates
-            const posX = (x - w / 2) * 2.2;
-            const posY = -(y - h / 2) * 2.2;
-
-            // Compute depth: brighter areas (nose, forehead, cheeks) project forward
-            const radialDist = Math.sqrt(Math.pow((x - w / 2) / (w / 2), 2) + Math.pow((y - h / 2) / (h / 2), 2));
-            const curvature = Math.max(0, 1 - radialDist * radialDist) * 45;
-            const posZ = (brightness * 45) + curvature;
-
-            points.push(posX, posY, posZ);
-
-            // Sci-fi holographic coloring
-            colors.push(0.0, 0.75 + brightness * 0.25, 1.0);
-          }
-        }
-      }
-
-      // Rebuild faceGeometry
-      faceGeometry.dispose();
-      faceGeometry = new THREE.BufferGeometry();
-      faceGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(points), 3));
-      faceGeometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
-      facePoints.geometry = faceGeometry;
-
-      // Switch to face mode automatically
-      setHologramMode('face');
-      addTranscriptEntry('JARVIS', 'Custom portrait matrix ingested. 3D holographic projection reconstructed.');
-      speakResponse('Custom portrait matrix ingested. Holographic projection reconstructed, sir.');
-    }
-
-    // Toggle Modes (Electron Core vs Hologram Face)
-    function setHologramMode(mode) {
-      currentMode = mode;
-      const coreBtn = document.getElementById('mode-core-btn');
-      const faceBtn = document.getElementById('mode-face-btn');
-      const statAvatar = document.getElementById('stat-avatar-mode');
-
-      if (mode === 'core') {
-        electronGroup.visible = true;
-        faceGroup.visible = false;
-        coreBtn.classList.add('active');
-        faceBtn.classList.remove('active');
-        statAvatar.innerText = 'MCU ELECTRON CLOUD';
-      } else {
-        electronGroup.visible = false;
-        faceGroup.visible = true;
-        coreBtn.classList.remove('active');
-        faceBtn.classList.add('active');
-        statAvatar.innerText = '3D HOLOGRAPHIC FACE';
-      }
+      window.addEventListener('resize', onWindowResize);
+      animate();
     }
 
     function onWindowResize() {
@@ -895,175 +688,355 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // 1D. Main Render Loop & State-Driven Particle Animation
-    let clock = new THREE.Clock();
-    let frameCount = 0;
-    let lastTime = performance.now();
+    // --- Main 60FPS Render Loop ---
+    const clock = new THREE.Clock();
 
     function animate() {
       requestAnimationFrame(animate);
-      const delta = clock.getDelta();
       const time = clock.getElapsedTime();
 
-      // FPS Counter
-      frameCount++;
-      const now = performance.now();
-      if (now - lastTime >= 1000) {
-        document.getElementById('tele-fps').innerText = Math.round((frameCount * 1000) / (now - lastTime));
-        frameCount = 0;
-        lastTime = now;
+      // Smooth color interpolation between state targets
+      currentColor.lerp(targetColor, 0.08);
+
+      // Apply interpolated color to all electron components
+      if (nucleusMesh) nucleusMesh.material.color.copy(currentColor);
+      if (nucleusGlowMesh) nucleusGlowMesh.material.color.copy(currentColor);
+      if (electronMaterial) electronMaterial.color.copy(currentColor);
+      orbitalRings.forEach(r => r.material.color.copy(currentColor));
+
+      // Mouse Parallax Smoothing
+      targetRotationY += (mouseX - targetRotationY) * 0.04;
+      targetRotationX += (mouseY - targetRotationX) * 0.04;
+
+      // Group Serene Orbital Rotation (4x Slower, Calm and Cinematic)
+      electronGroup.rotation.y = time * 0.006 + targetRotationY;
+      electronGroup.rotation.x = Math.sin(time * 0.01) * 0.02 + targetRotationX;
+
+      // Orbital Magnetic Flux Rings Precession (Slowed Down)
+      orbitalRings.forEach((ring, idx) => {
+        ring.rotation.z += 0.0005 * (idx % 2 === 0 ? 1 : -1);
+        ring.rotation.x += 0.0003;
+      });
+
+      // Nucleus Breathing Scale (Gentle Breathing)
+      let baseScale = 1.0 + Math.sin(time * 1.0) * 0.03;
+      if (jarvisState === 'LISTENING') {
+        baseScale = 1.1 + Math.sin(time * 2.5) * 0.05;
+      } else if (jarvisState === 'SPEAKING') {
+        baseScale = (1.15 * audioPulseScale) + Math.sin(time * 3.5) * 0.06;
       }
+      if (nucleusMesh) nucleusMesh.scale.setScalar(baseScale);
+      if (nucleusGlowMesh) nucleusGlowMesh.scale.setScalar(baseScale * 1.25);
 
-      // 3D Mouse Parallax
-      targetRotationY += (mouseX - targetRotationY) * 0.05;
-      targetRotationX += (mouseY - targetRotationX) * 0.05;
+      // Orbiting Particles Displacement (4x Slower, Smooth Drift)
+      const positions = electronGeometry.attributes.position.array;
+      const speedMult = jarvisState === 'LISTENING' ? 1.2 : (jarvisState === 'SPEAKING' ? 1.4 : 0.8);
 
-      // Mode A: MCU Quantum Electron Cloud Animation
-      if (currentMode === 'core') {
-        electronGroup.rotation.y = time * 0.15 + targetRotationY;
-        electronGroup.rotation.x = Math.sin(time * 0.1) * 0.1 + targetRotationX;
+      for (let i = 0; i < particleCount; i++) {
+        let theta = particleAngles[i * 2]     + particleVelocities[i * 3]     * speedMult * 20;
+        let phi   = particleAngles[i * 2 + 1] + particleVelocities[i * 3 + 1] * speedMult * 20;
 
-        // Animate Orbital Rings
-        orbitalRings.forEach(ring => {
-          ring.rotation.x += ring.userData.speedX;
-          ring.rotation.y += ring.userData.speedY;
-        });
+        particleAngles[i * 2]     = theta;
+        particleAngles[i * 2 + 1] = phi;
 
-        // Breathing Nucleus Pulse
-        const coreScale = 1.0 + (jarvisState === 'LISTENING' ? 0.35 : 0.12) * Math.sin(time * 4) + (audioReactiveScale - 1) * 0.4;
-        nucleusMesh.scale.set(coreScale, coreScale, coreScale);
-
-        // Particle Physics per State
-        const positions = electronGeometry.attributes.position.array;
-
-        // Dynamic State modifiers
-        let contractionTarget = 1.0;
-        let speedMultiplier = 1.0;
-        let blinkIntensity = 1.0;
-
-        if (jarvisState === 'LISTENING') {
-          // USER SAID "JARVIS" -> Particles blink & contract inwards attentively!
-          contractionTarget = 0.55;
-          speedMultiplier = 2.4;
-          blinkIntensity = 1.0 + Math.sin(time * 25) * 0.6; // Rapid electrical blink
-          electronMaterial.color.setHex(0x7df9ff);
-        } else if (jarvisState === 'THINKING') {
-          // High-speed vortex swirl
-          contractionTarget = 0.75;
-          speedMultiplier = 4.0;
-          electronMaterial.color.setHex(0x0066ff);
-        } else if (jarvisState === 'SPEAKING') {
-          // Audio frequency reactive explosion
-          contractionTarget = 1.1 + Math.sin(time * 12) * 0.25;
-          speedMultiplier = 1.8;
-          electronMaterial.color.setHex(0xffbe0b);
-        } else {
-          // Standby drift
-          contractionTarget = 1.0;
-          speedMultiplier = 1.0;
-          electronMaterial.color.setHex(0x00f3ff);
+        let r = particleOriginalRadii[i] + Math.sin(time * 0.6 + i) * 2;
+        if (jarvisState === 'SPEAKING') {
+          r *= audioPulseScale;
         }
 
-        electronMaterial.size = (jarvisState === 'LISTENING' ? 7.0 : 5.5) * blinkIntensity;
-
-        for (let i = 0; i < particleCount; i++) {
-          const idx = i * 3;
-          let theta = particleAngles[i * 2];
-          let phi = particleAngles[i * 2 + 1];
-
-          // Orbit motion
-          theta += (0.2 + (i % 5) * 0.1) * delta * speedMultiplier;
-          particleAngles[i * 2] = theta;
-
-          // Target radius with smooth spring
-          const targetR = particleOriginalRadii[i] * contractionTarget;
-          const currentX = positions[idx];
-          const currentY = positions[idx + 1];
-          const currentZ = positions[idx + 2];
-          const currentR = Math.sqrt(currentX * currentX + currentY * currentY + currentZ * currentZ);
-
-          const newR = currentR + (targetR - currentR) * 0.08;
-
-          positions[idx] = newR * Math.sin(phi) * Math.cos(theta);
-          positions[idx + 1] = newR * Math.sin(phi) * Math.sin(theta);
-          positions[idx + 2] = newR * Math.cos(phi);
-        }
-        electronGeometry.attributes.position.needsUpdate = true;
+        positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i * 3 + 2] = r * Math.cos(phi);
       }
-
-      // Mode B: 3D Holographic Face Mesh Animation
-      if (currentMode === 'face') {
-        faceGroup.rotation.y = Math.sin(time * 0.6) * 0.2 + targetRotationY * 1.5;
-        faceGroup.rotation.x = Math.sin(time * 0.4) * 0.1 + targetRotationX * 1.5;
-
-        // Scanline laser wave passing across face
-        const fPositions = faceGeometry.attributes.position.array;
-        const fColors = faceGeometry.attributes.color.array;
-
-        const scanlineY = Math.sin(time * 2.5) * 120;
-        const mouthModulation = jarvisState === 'SPEAKING' ? Math.sin(time * 20) * 8 : 0;
-
-        for (let i = 0; i < fPositions.length / 3; i++) {
-          const py = fPositions[i * 3 + 1];
-          const isNearScanline = Math.abs(py - scanlineY) < 18;
-
-          if (isNearScanline) {
-            fColors[i * 3] = 0.8;
-            fColors[i * 3 + 1] = 1.0;
-            fColors[i * 3 + 2] = 1.0;
-          } else {
-            fColors[i * 3] = 0.0;
-            fColors[i * 3 + 1] = 0.85;
-            fColors[i * 3 + 2] = 1.0;
-          }
-
-          // Mouth audio reaction when speaking
-          if (jarvisState === 'SPEAKING' && py > -45 && py < -25) {
-            fPositions[i * 3 + 2] += mouthModulation * 0.05;
-          }
-        }
-        faceGeometry.attributes.color.needsUpdate = true;
-      }
+      electronGeometry.attributes.position.needsUpdate = true;
 
       renderer.render(scene, camera);
     }
 
     // ==========================================================================
-    // 2. CONTINUOUS "JARVIS" WAKE-WORD VOICE RECOGNITION (NO BUTTON REQUIRED)
+    // 2. STATE MANAGER & COLOR MATRIX CONTROLLER
     // ==========================================================================
-    let recognition = null;
-    let isListeningActive = false;
-    let speechSynth = window.speechSynthesis;
-    let selectedVoice = null;
+    function setJarvisState(state) {
+      jarvisState = state;
+      const pill = document.getElementById('status-pill');
+      const text = document.getElementById('status-text');
+      const reticle = document.getElementById('reticle-ring');
+      const form = document.getElementById('directive-form');
+      const bars = document.getElementById('spectrum-bars');
+      const micBtn = document.getElementById('mic-btn');
 
-    function initVoiceSynthesis() {
-      if (!speechSynth) return;
-      const setVoice = () => {
-        const voices = speechSynth.getVoices();
-        // Prefer British English ("Daniel" / "UK English" / "en-GB") for canonical Jarvis feel
-        selectedVoice = voices.find(v => v.lang === 'en-GB' || v.name.includes('UK') || v.name.includes('Daniel') || v.name.includes('British'))
-          || voices.find(v => v.lang.startsWith('en'))
-          || voices[0];
-      };
-      setVoice();
-      if (speechSynth.onvoiceschanged !== undefined) {
-        speechSynth.onvoiceschanged = setVoice;
+      // Update Target Color
+      if (state === 'STANDBY') {
+        targetColor.copy(COLOR_STANDBY); // Cyan
+        if (text) text.innerText = 'STANDBY';
+        if (pill) pill.className = 'status-pill standby';
+        if (reticle) reticle.className = 'reticle-ring';
+        if (form) form.className = 'directive-form';
+        if (bars) bars.className = 'spectrum-bars';
+        if (micBtn) micBtn.classList.remove('active');
+        pulseEqualizer(false);
+      } else if (state === 'LISTENING') {
+        targetColor.copy(COLOR_LISTEN); // Yellow Core Ball
+        if (text) text.innerText = '● LISTENING';
+        if (pill) pill.className = 'status-pill listening';
+        if (reticle) reticle.className = 'reticle-ring listening';
+        if (form) form.className = 'directive-form listening';
+        if (bars) bars.className = 'spectrum-bars listening';
+        if (micBtn) micBtn.classList.add('active');
+        pulseEqualizer(true);
+      } else if (state === 'THINKING') {
+        targetColor.copy(COLOR_THINK); // Violet
+        if (text) text.innerText = 'PROCESSING...';
+        if (pill) pill.className = 'status-pill thinking';
+        if (reticle) reticle.className = 'reticle-ring';
+        if (form) form.className = 'directive-form';
+        if (bars) bars.className = 'spectrum-bars';
+      } else if (state === 'SPEAKING') {
+        targetColor.copy(COLOR_SPEAK); // Red Core Ball
+        if (text) text.innerText = '● RESPONDING';
+        if (pill) pill.className = 'status-pill speaking';
+        if (reticle) reticle.className = 'reticle-ring speaking';
+        if (form) form.className = 'directive-form speaking';
+        if (bars) bars.className = 'spectrum-bars speaking';
+        pulseEqualizer(true);
       }
     }
 
-    function armMicrophoneListener() {
-      // Hide permission banner once user clicks once
-      const banner = document.getElementById('mic-arm-banner');
-      if (banner) banner.style.display = 'none';
-
-      initContinuousWakeWord();
+    function setSubtitle(text, modeClass) {
+      const box = document.getElementById('subtitle-box');
+      if (!box) return;
+      box.className = 'subtitle-stream ' + (modeClass || '');
+      box.innerText = text;
     }
 
-    function initContinuousWakeWord() {
+    function pulseEqualizer(active) {
+      const bars = document.querySelectorAll('.spectrum-bar');
+      bars.forEach(bar => {
+        if (active) {
+          const h = Math.floor(Math.random() * 16) + 4;
+          bar.style.height = h + 'px';
+        } else {
+          bar.style.height = '3px';
+        }
+      });
+    }
+
+    // ==========================================================================
+    // 3. GUARANTEED VOICE TALK-BACK ENGINE (STREAMING TTS + BROWSER TTS)
+    // ==========================================================================
+    let isJarvisSpeaking = false;
+    let jarvisMuteUntil = 0;
+    let audioPlayer = document.getElementById('jarvis-audio-player');
+    let speechSynth = window.speechSynthesis;
+    let selectedVoice = null;
+
+    function getAudioPlayer() {
+      if (!audioPlayer) audioPlayer = document.getElementById('jarvis-audio-player');
+      if (!audioPlayer) {
+        audioPlayer = new Audio();
+        audioPlayer.id = 'jarvis-audio-player';
+        document.body.appendChild(audioPlayer);
+      }
+      return audioPlayer;
+    }
+
+    function unlockAudioNeuralLink() {
+      audioSynth.init();
+      const player = getAudioPlayer();
+      player.volume = 1.0;
+      // Play brief silent audio chunk to ensure browser media permissions are fully unlocked
+      player.play().catch(() => {});
+
+      if (window.speechSynthesis) {
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+        if (!selectedVoice) selectedVoice = resolveJarvisVoice();
+      }
+
+      // Also ensure continuous speech recognition is active
+      if (!isListeningActive) {
+        initSpeechRecognitionEngine();
+      }
+
+      const banner = document.getElementById('audio-unlock-banner');
+      if (banner && !banner.classList.contains('unlocked')) {
+        banner.classList.add('unlocked');
+        banner.innerHTML = '<span>✔</span> AUDIO & MICROPHONE: SYNCHRONIZED';
+        setTimeout(() => {
+          banner.style.opacity = '0';
+          setTimeout(() => { banner.style.display = 'none'; }, 400);
+        }, 1200);
+      }
+    }
+
+    function resolveJarvisVoice() {
+      if (!speechSynth) speechSynth = window.speechSynthesis;
+      if (!speechSynth) return null;
+      const voices = speechSynth.getVoices();
+      if (!voices || voices.length === 0) return null;
+      return voices.find(v => (v.lang === 'en-GB' || /daniel|george|british|uk|natural/i.test(v.name)))
+        || voices.find(v => v.lang.startsWith('en'))
+        || voices[0];
+    }
+
+    // Play response out loud with guaranteed audio output
+    function speakResponse(text) {
+      if (!text || text.trim().length === 0) {
+        releaseTargetLock();
+        return;
+      }
+
+      unlockAudioNeuralLink();
+
+      // Clean text of all em-dashes and special quotes
+      const cleanText = text
+        .replace(/—/g, ', ')
+        .replace(/–/g, ', ')
+        .replace(/[*_#`~]/g, '')
+        .trim();
+
+      isJarvisSpeaking = true;
+      jarvisMuteUntil = Date.now() + 1500;
+      setJarvisState('SPEAKING'); // Turns Core Ball GREEN!
+      setSubtitle(`JARVIS: "${cleanText}"`, 'speaking');
+
+      // --- Channel 1: Native HTML5 Audio Streaming from /api/tts ---
+      let audioSuccess = false;
+      const player = getAudioPlayer();
+      const ttsUrl = `/api/tts?text=${encodeURIComponent(cleanText)}`;
+
+      const onAudioEnd = () => {
+        pulseEqualizer(false);
+        audioPulseScale = 1.0;
+        isTargetLocked = false;
+        clearTimeout(speechSilenceTimeout);
+        setJarvisState('STANDBY'); // Returns to CYAN
+        jarvisMuteUntil = Date.now() + 650;
+        setTimeout(() => {
+          isJarvisSpeaking = false;
+          // Resume speech recognition listening
+          if (recognition) {
+            try { recognition.start(); } catch (err) {}
+          }
+        }, 650);
+        // Retain spoken message in HUD subtitle for 6 seconds
+        setTimeout(() => {
+          if (jarvisState === 'STANDBY' && !isJarvisSpeaking && !isTargetLocked) {
+            setSubtitle('CLICK CORE OR SAY "JARVIS ..." TO TALK', '');
+          }
+        }, 6000);
+      };
+
+      player.volume = 1.0;
+      player.src = ttsUrl;
+      player.onplay = () => {
+        audioSuccess = true;
+        isJarvisSpeaking = true;
+        pulseEqualizer(true);
+      };
+      player.ontimeupdate = () => {
+        // Pulse the green electron ball with speech amplitude
+        audioPulseScale = 1.0 + Math.sin(Date.now() * 0.02) * 0.12;
+        pulseEqualizer(true);
+      };
+      player.onended = onAudioEnd;
+      player.onerror = () => {
+        // Fallback to Web Speech API if streaming audio fails
+        if (!audioSuccess) {
+          fallbackWebSpeechTTS(cleanText, onAudioEnd);
+        }
+      };
+
+      const playPromise = player.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("Audio element play error, falling back to speech synthesis:", err);
+          fallbackWebSpeechTTS(cleanText, onAudioEnd);
+        });
+      }
+    }
+
+    function fallbackWebSpeechTTS(cleanText, onEndCallback) {
+      if (!speechSynth) speechSynth = window.speechSynthesis;
+      if (!speechSynth) {
+        onEndCallback();
+        return;
+      }
+
+      try {
+        if (speechSynth.speaking || speechSynth.pending) speechSynth.cancel();
+        if (speechSynth.paused) speechSynth.resume();
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        window._activeUtterance = utterance;
+
+        if (!selectedVoice) selectedVoice = resolveJarvisVoice();
+        if (selectedVoice) utterance.voice = selectedVoice;
+        utterance.volume = 1.0;
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => {
+          isJarvisSpeaking = true;
+          pulseEqualizer(true);
+        };
+        utterance.onboundary = () => {
+          audioPulseScale = 1.08;
+          pulseEqualizer(true);
+        };
+        utterance.onend = onEndCallback;
+        utterance.onerror = onEndCallback;
+
+        speechSynth.speak(utterance);
+      } catch (e) {
+        console.error('Speech synthesis error:', e);
+        onEndCallback();
+      }
+    }
+
+    // ==========================================================================
+    // 4. CONTINUOUS SPEECH RECOGNITION (STT) & INSTANT WAKE-WORD LOCK
+    // ==========================================================================
+    let recognition = null;
+    let isListeningActive = false;
+    let isTargetLocked = false;
+    let speechSilenceTimeout = null;
+
+    function toggleVoiceLockManual() {
+      audioSynth.init();
+      unlockAudioNeuralLink();
+
+      if (!isListeningActive) {
+        initSpeechRecognitionEngine();
+      }
+      if (!isTargetLocked) {
+        engageTargetLock();
+      } else {
+        releaseTargetLock();
+      }
+    }
+
+    function engageTargetLock() {
+      isTargetLocked = true;
+      audioSynth.playLockChime();
+      setJarvisState('LISTENING'); // Turns Core Ball YELLOW!
+      setSubtitle('LISTENING FOR YOUR INSTRUCTION...', 'listening');
+    }
+
+    function releaseTargetLock() {
+      isTargetLocked = false;
+      clearTimeout(speechSilenceTimeout);
+      setJarvisState('STANDBY'); // Returns to CYAN
+      setSubtitle('CLICK CORE OR SAY "JARVIS ..." TO TALK', '');
+    }
+
+    function initSpeechRecognitionEngine() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        updateJarvisStatus('STT NOT SUPPORTED', '');
-        addTranscriptEntry('JARVIS', 'Web Speech API is not supported in this browser. Please use Google Chrome or Edge.');
+        setSubtitle('Web Speech API not available in this browser', '');
+        return;
+      }
+      if (recognition) {
+        try { recognition.start(); } catch (err) {}
         return;
       }
 
@@ -1074,199 +1047,198 @@
 
       recognition.onstart = () => {
         isListeningActive = true;
-        document.getElementById('tele-mic').innerText = 'ACTIVE [CONTINUOUS]';
-        document.getElementById('tele-mic').style.color = '#00ffaa';
-        updateJarvisStatus('AWAITING DIRECTIVE', 'listening');
+        console.log("Speech recognition active and listening for wake words...");
       };
-
-      let wakeWordTimeout = null;
-      let heardCommand = '';
 
       recognition.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
+        if (isJarvisSpeaking || Date.now() < jarvisMuteUntil || jarvisState === 'SPEAKING') return;
 
+        let interim = '';
+        let final = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
+          const trans = event.results[i][0].transcript;
+          if (event.results[i].isFinal) final += trans;
+          else interim += trans;
         }
 
-        const heardText = (finalTranscript || interimTranscript).trim();
-        pulseEqualizer(true);
+        const fullHeard = (final || interim).trim();
+        if (!fullHeard) return;
 
-        // Check for Wake Word: "JARVIS" (case-insensitive)
-        const match = heardText.match(/(?:hey |ok |hello )?jarvis[\s,.]*(.*)/i);
+        const lower = fullHeard.toLowerCase();
+        // Robust Wake Word Detection: matches "jarvis", "hello jarvis", "hey jarvis", "ok jarvis", "hi jarvis"
+        const wakeRegex = /(?:^|\s)(?:hey|hello|hi|ok|okay)?\s*jarvis\b[\s,.]*(.*)$/i;
+        const match = lower.match(wakeRegex);
+
         if (match) {
-          const command = match[1] ? match[1].trim() : '';
-          heardCommand = command;
-
-          // Transition to LISTENING state immediately
-          setJarvisState('LISTENING');
-          updateJarvisStatus('JARVIS LISTENING...', 'listening');
-
-          // If speech is final, process immediately
-          if (event.results[event.results.length - 1].isFinal) {
-            clearTimeout(wakeWordTimeout);
-            if (command.length > 0) {
-              processJarvisDirective(command);
-            } else {
-              // User said just "Jarvis"
-              speakResponse("Yes sir? I am listening. How can I assist you?");
-            }
-            heardCommand = '';
-          } else {
-            // Debounce for interim pause
-            clearTimeout(wakeWordTimeout);
-            wakeWordTimeout = setTimeout(() => {
-              if (heardCommand.length > 0) {
-                processJarvisDirective(heardCommand);
-              } else if (jarvisState === 'LISTENING') {
-                speakResponse("Yes sir? I am listening. How can I assist you?");
-              }
-              heardCommand = '';
-            }, 1400);
+          if (!isTargetLocked) {
+            engageTargetLock(); // Turns Core Ball YELLOW and plays chime!
           }
+          const command = (match[1] || '').trim();
+          setSubtitle(`HEARING: "${fullHeard}"`, 'listening');
+
+          clearTimeout(speechSilenceTimeout);
+          speechSilenceTimeout = setTimeout(() => {
+            if (command.length > 0) {
+              dispatchJarvisDirective(command);
+            } else {
+              // User said "hello jarvis" or "jarvis"
+              dispatchJarvisDirective("hello jarvis");
+            }
+          }, final.length > 0 ? 300 : 700);
+
+        } else if (isTargetLocked) {
+          setSubtitle(`HEARING: "${fullHeard}"`, 'listening');
+          clearTimeout(speechSilenceTimeout);
+          speechSilenceTimeout = setTimeout(() => {
+            if (fullHeard.length > 0) {
+              dispatchJarvisDirective(fullHeard);
+            }
+          }, final.length > 0 ? 300 : 700);
         }
       };
 
-      recognition.onerror = (event) => {
-        console.warn('Speech recognition warning:', event.error);
-        if (event.error === 'not-allowed') {
-          document.getElementById('tele-mic').innerText = 'PERMISSION DENIED';
-          document.getElementById('tele-mic').style.color = '#ff3366';
+      recognition.onerror = (e) => {
+        console.warn('Speech recognition error:', e.error);
+        if (e.error === 'not-allowed') {
+          const banner = document.getElementById('audio-unlock-banner');
+          if (banner) {
+            banner.style.display = 'flex';
+            banner.style.opacity = '1';
+            banner.innerHTML = '<span>🎤</span> CLICK ANYWHERE TO ALLOW MICROPHONE';
+          }
         }
       };
 
       recognition.onend = () => {
-        // Continuous loop: Auto-restart silently on disconnect or timeout
-        if (isListeningActive) {
-          try {
-            recognition.start();
-          } catch (e) {
-            setTimeout(() => { if (isListeningActive) recognition.start(); }, 300);
-          }
+        isListeningActive = false;
+        // Auto-restart continuous listener so wake words keep working
+        if (!isJarvisSpeaking) {
+          setTimeout(() => {
+            try { recognition.start(); } catch (err) {}
+          }, 250);
         }
       };
 
       try {
         recognition.start();
       } catch (err) {
-        console.log('Voice start deferred to user gesture:', err);
+        console.warn('Could not start recognition immediately:', err);
       }
     }
 
-    // Process and dispatch user directive
-    async function processJarvisDirective(directive) {
+    // ==========================================================================
+    // 5. DIRECTIVE DISPATCHER (INSTANT LOCAL + BACKEND AI ANSWERING)
+    // ==========================================================================
+    async function dispatchJarvisDirective(directive) {
       if (!directive || directive.trim().length === 0) return;
 
-      // Add to HUD communication feed
-      addTranscriptEntry('USER', directive);
+      unlockAudioNeuralLink();
+      audioSynth.playTransmitChime();
       setJarvisState('THINKING');
-      updateJarvisStatus('PROCESSING DIRECTIVE...', 'listening');
+      setSubtitle(`PROCESSING: "${directive}"`, '');
 
-      try {
-        // Post directive to backend API
-        const response = await fetch('/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'default',
-            messages: [{ role: 'user', content: directive }],
-            temperature: 0.7,
-            max_tokens: 300
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const reply = data.choices?.[0]?.message?.content || "Directive received and executing, sir.";
-          addTranscriptEntry('JARVIS', reply);
-          speakResponse(reply);
-        } else {
-          // Smart offline fallback response
-          const fallback = generateSmartFallbackReply(directive);
-          addTranscriptEntry('JARVIS', fallback);
-          speakResponse(fallback);
-        }
-      } catch (error) {
-        const fallback = generateSmartFallbackReply(directive);
-        addTranscriptEntry('JARVIS', fallback);
-        speakResponse(fallback);
-      }
-    }
-
-    function generateSmartFallbackReply(query) {
-      const q = query.toLowerCase().trim();
-      if (q === 'jarvis' || q === 'hey jarvis' || q === '') return "Yes sir? I am listening. How can I help?";
-      if (q.includes('time')) return `The current time is ${new Date().toLocaleTimeString()}, sir.`;
-      if (q.includes('date') || q.includes('day')) return `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
-      if (q.includes('who are you') || q.includes('your name')) return "I am JARVIS, your Autonomous Intelligence System. Operating at peak quantum capacity.";
-      if (q.includes('status') || q.includes('systems')) return "All core telemetry systems are nominal. 3D holographic matrix online, microphones calibrated.";
-      if (q.includes('hello') || q.includes('hi')) return "Greetings, sir. How may I assist you today?";
-      return `Processing directive: "${query}". All system modules synchronized.`;
-    }
-
-    // Speak response using voice synthesis
-    function speakResponse(text) {
-      if (!speechSynth) {
-        setJarvisState('STANDBY');
+      // Check instant zero-latency local commands first
+      const instantReply = evaluateLocalJarvisCommand(directive);
+      if (instantReply) {
+        speakResponse(instantReply);
         return;
       }
 
-      speechSynth.cancel(); // Cancel any ongoing speech
-      setJarvisState('SPEAKING');
-      updateJarvisStatus('JARVIS RESPONDING', 'speaking');
+      // Query OpenJarvis autonomous intelligence backend
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      const cleanText = text.replace(/[*_#`]/g, '');
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      if (selectedVoice) utterance.voice = selectedVoice;
-      utterance.rate = 1.05;
-      utterance.pitch = 0.95;
+        const response = await fetch('/api/hologram/directive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ directive: directive }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
-      utterance.onboundary = () => {
-        pulseEqualizer(true);
-      };
+        if (response.ok) {
+          const data = await response.json();
+          const reply = data.reply;
+          if (reply && reply.trim().length > 0) {
+            speakResponse(reply);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Backend directive error:', err);
+      }
 
-      utterance.onend = () => {
-        pulseEqualizer(false);
-        setJarvisState('STANDBY');
-        updateJarvisStatus('AWAITING DIRECTIVE', '');
-      };
-
-      utterance.onerror = () => {
-        pulseEqualizer(false);
-        setJarvisState('STANDBY');
-        updateJarvisStatus('AWAITING DIRECTIVE', '');
-      };
-
-      speechSynth.speak(utterance);
+      // Local Knowledge Fallback if offline
+      const fallback = generateClientFallback(directive);
+      speakResponse(fallback);
     }
 
-    function setJarvisState(state) {
-      jarvisState = state;
-      const el = document.getElementById('comm-mode-text');
-      if (el) el.innerText = state;
+    function evaluateLocalJarvisCommand(query) {
+      const q = query.toLowerCase().trim();
+
+      if (q.includes("what's going on") || q.includes("what is going on") || q.includes("what is happening") || q.includes("what's happening")) {
+        return "All systems nominal, sir. Mark VII Quantum Electron Core is active and synchronized, running at 432.8 Terahertz.";
+      }
+      if (q.includes("status") || q.includes("telemetry") || q.includes("systems")) {
+        return "All systems operational, sir. Quantum electron matrix online, acoustic sensors armed, core reactor ready.";
+      }
+      if (q.includes("how are you")) {
+        return "Operating at peak holographic and cognitive efficiency, sir. Ready for your command.";
+      }
+      if (q.includes("time")) {
+        return `The current local time is ${new Date().toLocaleTimeString()}, sir.`;
+      }
+      if (q.includes("date") || q.includes("day") || q.includes("today")) {
+        return `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}, sir.`;
+      }
+      if (q.includes("who are you") || q.includes("your name")) {
+        return "I am JARVIS, your autonomous artificial intelligence system. Operating at peak quantum capacity, sir.";
+      }
+      if (q.includes("who am i") || q.includes("creator")) {
+        return "You are the creator, sir.";
+      }
+      if (q.includes("hello") || q.includes("hi") || q.includes("greetings")) {
+        return "Greetings, sir. All core telemetry modules are synchronized. How may I be of assistance?";
+      }
+      if (q.includes("thank")) {
+        return "Always an absolute pleasure to serve you, sir.";
+      }
+      if (q.includes("joke") || q.includes("funny")) {
+        return "Why do programmers prefer dark mode, sir? Because light attracts bugs.";
+      }
+
+      // Fast Math Evaluator
+      const mathMatch = q.match(/(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/);
+      if (mathMatch) {
+        try {
+          const a = parseFloat(mathMatch[1]);
+          const op = mathMatch[2];
+          const b = parseFloat(mathMatch[3]);
+          let res = 0;
+          if (op === '+') res = a + b;
+          if (op === '-') res = a - b;
+          if (op === '*') res = a * b;
+          if (op === '/') res = b !== 0 ? (a / b) : 'undefined';
+          return `The result is ${res}, sir.`;
+        } catch (e) {}
+      }
+
+      return null;
     }
 
-    function updateJarvisStatus(text, cssClass) {
-      const badge = document.getElementById('jarvis-status-badge');
-      if (!badge) return;
-      badge.innerText = text;
-      badge.className = 'jarvis-status-pill ' + (cssClass || '');
-    }
-
-    function addTranscriptEntry(speaker, text) {
-      const feed = document.getElementById('transcript-feed');
-      if (!feed) return;
-      const div = document.createElement('div');
-      div.className = 'feed-entry ' + (speaker === 'USER' ? 'entry-user' : 'entry-jarvis');
-      div.innerHTML = `<strong>${speaker}:</strong> ${text}`;
-      feed.appendChild(div);
-      feed.scrollTop = feed.scrollHeight;
+    function generateClientFallback(query) {
+      const q = query.toLowerCase().trim();
+      if (q.includes("quantum")) {
+        return "Quantum computing harnesses quantum mechanics to process complex data exponentially faster than classical computers, sir.";
+      }
+      if (q.includes("arc reactor")) {
+        return "The Arc Reactor is an advanced clean fusion generator providing power to our core systems, sir.";
+      }
+      if (q.includes("speed of light")) {
+        return "The speed of light in vacuum is approximately 299,792 kilometers per second, sir.";
+      }
+      return `Directive acknowledged: '${query}'. Local cognitive matrix is online, sir.`;
     }
 
     function handleTextDirective(event) {
@@ -1275,50 +1247,23 @@
       const val = input.value.trim();
       if (!val) return;
       input.value = '';
-      processJarvisDirective(val);
+      dispatchJarvisDirective(val);
     }
 
-    // Audio Equalizer Spectrum Pulse Animation
-    function pulseEqualizer(active) {
-      const bars = document.querySelectorAll('.spectrum-bar');
-      bars.forEach(bar => {
-        if (active) {
-          const h = Math.floor(Math.random() * 22) + 4;
-          bar.style.height = h + 'px';
-        } else {
-          bar.style.height = '4px';
-        }
-      });
-    }
-
-    // Global click/key handler to arm microphone on any user interaction
-    document.addEventListener('click', () => {
-      if (!isListeningActive) armMicrophoneListener();
-    });
-    document.addEventListener('keydown', () => {
-      if (!isListeningActive) armMicrophoneListener();
+    // Attach user gesture listeners
+    ['click', 'keydown', 'touchstart'].forEach(evt => {
+      window.addEventListener(evt, unlockAudioNeuralLink, { passive: true });
     });
 
-    // Auto-init on page load
+    // Initialize 3D Scene and Voice Recognition on load
     window.addEventListener('DOMContentLoaded', () => {
-      try {
-        initThreeScene();
-      } catch (err) {
-        console.error('Three.js scene init error:', err);
+      initThreeScene();
+      initSpeechRecognitionEngine();
+      if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          selectedVoice = resolveJarvisVoice();
+        };
       }
-      try {
-        initVoiceSynthesis();
-      } catch (err) {
-        console.error('Voice synth init error:', err);
-      }
-      try {
-        animate();
-      } catch (err) {
-        console.error('Animation loop error:', err);
-      }
-
-      // Initialize wake-word listener
-      initContinuousWakeWord();
     });
   </script>
 </body>

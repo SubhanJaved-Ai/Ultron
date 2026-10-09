@@ -881,4 +881,223 @@ def messages(agent_id):
         click.echo(f"  {direction}{mode_badge}: {m['content'][:100]}")
 
 
+@agent.group("subagents")
+def subagents() -> None:
+    """Manage dynamic autonomous subagents (spawn, list, inspect, kill)."""
+
+
+@subagents.command("list")
+@click.option(
+    "--status", default=None, help="Filter by status (running, completed, failed, all)"
+)
+def list_subagents_cmd(status):
+    """List all autonomous subagents."""
+    from openjarvis.agents.subagents import get_subagent_manager
+
+    mgr = get_subagent_manager()
+    subagents_list = mgr.list_subagents(status=status)
+    console = Console(stderr=True)
+    if not subagents_list:
+        console.print("[dim]No subagents found.[/dim]")
+        return
+
+    table = Table(title="Autonomous Subagents")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Name", style="green")
+    table.add_column("Type", style="yellow")
+    table.add_column("Status", style="bold")
+    table.add_column("Duration", justify="right")
+    table.add_column("Task")
+
+    for s in subagents_list:
+        data = s.to_dict()
+        dur = f"{data.get('duration_seconds', 0)}s" if s.started_at else "-"
+        status_style = {
+            "completed": "green",
+            "running": "bold yellow",
+            "failed": "red",
+            "stopped": "dim strike",
+        }.get(s.status, "")
+        table.add_row(
+            s.id,
+            s.name,
+            s.agent_type,
+            f"[{status_style}]{s.status}[/{status_style}]",
+            dur,
+            s.task[:60] + ("..." if len(s.task) > 60 else ""),
+        )
+    console.print(table)
+
+
+@subagents.command("spawn")
+@click.argument("task")
+@click.option("--name", default=None, help="Subagent name")
+@click.option("--type", "agent_type", default="orchestrator", help="Agent architecture")
+@click.option("--tools", default=None, help="Comma-separated tool names")
+@click.option("--wait/--no-wait", default=False, help="Wait for completion")
+def spawn_subagent_cmd(task, name, agent_type, tools, wait):
+    """Spawn an autonomous subagent for a given task."""
+    from openjarvis.agents.subagents import get_subagent_manager
+
+    mgr = get_subagent_manager()
+    console = Console()
+    console.print(f"[bold cyan]Spawning subagent for task:[/bold cyan] {task}")
+    record = mgr.spawn(
+        task=task,
+        name=name,
+        agent_type=agent_type,
+        tools=tools,
+        wait=wait,
+    )
+    console.print(
+        f"[green]Subagent spawned:[/green] ID=[cyan]{record.id}[/cyan], "
+        f"Status=[yellow]{record.status}[/yellow]"
+    )
+    if wait and record.result:
+        console.print(f"\n[bold green]Findings:[/bold green]\n{record.result}")
+
+
+@subagents.command("status")
+@click.argument("subagent_id")
+def status_subagent_cmd(subagent_id):
+    """Inspect subagent progress and current status."""
+    from openjarvis.agents.subagents import get_subagent_manager
+
+    mgr = get_subagent_manager()
+    record = mgr.get(subagent_id)
+    if not record:
+        click.echo(f"Subagent '{subagent_id}' not found.", err=True)
+        raise SystemExit(1)
+    console = Console()
+    console.print(f"[bold cyan]Subagent:[/bold cyan] {record.name} ({record.id})")
+    console.print(f"[bold]Status:[/bold] {record.status}")
+    console.print(f"[bold]Task:[/bold] {record.task}")
+    if record.result:
+        console.print(
+            f"\n[bold green]Findings Preview:[/bold green]\n{record.result[:400]}"
+        )
+    if record.error:
+        console.print(f"\n[bold red]Error:[/bold red] {record.error}")
+
+
+@subagents.command("result")
+@click.argument("subagent_id")
+def result_subagent_cmd(subagent_id):
+    """View full results and findings of a subagent."""
+    from openjarvis.agents.subagents import get_subagent_manager
+
+    mgr = get_subagent_manager()
+    record = mgr.get(subagent_id)
+    if not record:
+        click.echo(f"Subagent '{subagent_id}' not found.", err=True)
+        raise SystemExit(1)
+    console = Console()
+    if record.result:
+        console.print(
+            f"[bold green]Report for {record.id}:[/bold green]\n\n{record.result}"
+        )
+    elif record.error:
+        console.print(f"[bold red]Failed with error:[/bold red]\n{record.error}")
+    else:
+        console.print(f"[yellow]Status is '{record.status}'. No results yet.[/yellow]")
+
+
+@subagents.command("kill")
+@click.argument("subagent_id")
+def kill_subagent_cmd(subagent_id):
+    """Terminate an active subagent."""
+    from openjarvis.agents.subagents import get_subagent_manager
+
+    mgr = get_subagent_manager()
+    success = mgr.kill(subagent_id)
+    if success:
+        click.echo(f"Subagent '{subagent_id}' stopped.")
+    else:
+        click.echo(f"Subagent '{subagent_id}' not found.", err=True)
+        raise SystemExit(1)
+
+
+@subagents.command("pipeline")
+@click.argument("stages_json")
+@click.option("--name", default=None, help="Pipeline name")
+@click.option("--swarm-id", default=None, help="Swarm session ID")
+@click.option("--timeout", default=120.0, help="Per-stage timeout in seconds")
+def pipeline_subagent_cmd(stages_json, name, swarm_id, timeout):
+    """Execute a multi-stage subagent pipeline from JSON stage definitions."""
+    import json
+
+    from openjarvis.agents.subagents import get_subagent_manager
+
+    mgr = get_subagent_manager()
+    console = Console()
+    try:
+        stages = json.loads(stages_json)
+    except Exception as exc:
+        console.print(f"[red]Invalid stages JSON:[/red] {exc}")
+        raise SystemExit(1)
+
+    headline = name or "Autonomous Pipeline"
+    console.print(f"[bold cyan]Launching Swarm Pipeline:[/bold cyan] {headline}")
+    result = mgr.execute_pipeline(
+        stages=stages,
+        name=name,
+        swarm_id=swarm_id,
+        timeout_per_stage=timeout,
+    )
+    status_style = "green" if result.status == "completed" else "red"
+    summary = (
+        f"({result.stages_completed}/{result.total_stages} stages "
+        f"completed in {result.duration_seconds}s)"
+    )
+    console.print(
+        f"Pipeline [{result.swarm_id}]: "
+        f"[{status_style}]{result.status.upper()}[/{status_style}] {summary}"
+    )
+    console.print(
+        f"\n[bold green]Final Deliverable:[/bold green]\n{result.final_output}"
+    )
+
+
+@subagents.command("blackboard")
+@click.argument("swarm_id", default="default")
+@click.option("--key", default=None, help="Specific key to inspect")
+def blackboard_subagent_cmd(swarm_id, key):
+    """Inspect artifacts and data on a swarm blackboard."""
+    from openjarvis.agents.subagents import get_subagent_manager
+
+    mgr = get_subagent_manager()
+    bb = mgr.get_blackboard(swarm_id)
+    console = Console()
+
+    if key:
+        entry = bb.get_entry(key)
+        if not entry:
+            console.print(
+                f"[yellow]Key '{key}' not found on blackboard '{swarm_id}'.[/yellow]"
+            )
+            return
+        console.print(
+            f"[bold cyan]Blackboard Entry:[/bold cyan] {key} [{entry.category}]"
+        )
+        console.print(f"Value:\n{entry.value}")
+        return
+
+    entries = bb.list_entries()
+    if not entries:
+        console.print(f"[dim]Blackboard '{swarm_id}' is empty.[/dim]")
+        return
+
+    table = Table(title=f"Swarm Blackboard: {swarm_id}")
+    table.add_column("Key", style="cyan")
+    table.add_column("Category", style="yellow")
+    table.add_column("Author", style="dim")
+    table.add_column("Value Preview", max_width=60)
+    for e in entries:
+        val_str = str(e.value)
+        if len(val_str) > 60:
+            val_str = val_str[:57] + "..."
+        table.add_row(e.key, e.category, e.author_subagent_id or "-", val_str)
+    console.print(table)
+
+
 __all__ = ["agent"]

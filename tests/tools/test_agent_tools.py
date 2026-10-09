@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 
+from openjarvis.agents.subagents import reset_subagent_manager
+from openjarvis.tools import agent_tools
 from openjarvis.tools.agent_tools import (
-    _SPAWNED_AGENTS,
     AgentKillTool,
     AgentListTool,
     AgentSendTool,
@@ -19,7 +20,8 @@ from openjarvis.tools.agent_tools import (
 
 class TestAgentSpawnTool:
     def setup_method(self):
-        _SPAWNED_AGENTS.clear()
+        reset_subagent_manager()
+        agent_tools._SPAWNED_AGENTS.clear()
 
     def test_spec(self):
         tool = AgentSpawnTool()
@@ -36,7 +38,7 @@ class TestAgentSpawnTool:
         data = json.loads(result.content)
         assert data["agent_type"] == "simple"
         assert data["status"] == "running"
-        assert data["agent_id"] in _SPAWNED_AGENTS
+        assert data["agent_id"] in agent_tools._SPAWNED_AGENTS
 
     def test_spawn_with_custom_id(self):
         tool = AgentSpawnTool()
@@ -44,7 +46,7 @@ class TestAgentSpawnTool:
         assert result.success
         data = json.loads(result.content)
         assert data["agent_id"] == "my-agent-1"
-        assert "my-agent-1" in _SPAWNED_AGENTS
+        assert "my-agent-1" in agent_tools._SPAWNED_AGENTS
 
     def test_spawn_with_query(self):
         tool = AgentSpawnTool()
@@ -61,7 +63,7 @@ class TestAgentSpawnTool:
         )
         assert result.success
         agent_id = json.loads(result.content)["agent_id"]
-        assert _SPAWNED_AGENTS[agent_id]["tools"] == "calculator,think"
+        assert agent_tools._SPAWNED_AGENTS[agent_id]["tools"] == "calculator,think"
 
     def test_spawn_no_agent_type(self):
         tool = AgentSpawnTool()
@@ -78,7 +80,7 @@ class TestAgentSpawnTool:
     def test_spawn_records_created_at(self):
         tool = AgentSpawnTool()
         tool.execute(agent_type="simple", agent_id="ts-test")
-        entry = _SPAWNED_AGENTS["ts-test"]
+        entry = agent_tools._SPAWNED_AGENTS["ts-test"]
         assert "created_at" in entry
         assert isinstance(entry["created_at"], float)
 
@@ -90,7 +92,8 @@ class TestAgentSpawnTool:
 
 class TestAgentSendTool:
     def setup_method(self):
-        _SPAWNED_AGENTS.clear()
+        reset_subagent_manager()
+        agent_tools._SPAWNED_AGENTS.clear()
 
     def test_spec(self):
         tool = AgentSendTool()
@@ -108,7 +111,7 @@ class TestAgentSendTool:
         assert "not found" in result.content
 
     def test_send_to_valid_agent_succeeds(self):
-        _SPAWNED_AGENTS["agent-x"] = {
+        agent_tools._SPAWNED_AGENTS["agent-x"] = {
             "agent_id": "agent-x",
             "agent_type": "simple",
             "status": "running",
@@ -127,7 +130,7 @@ class TestAgentSendTool:
         assert not result.success
 
     def test_send_no_message(self):
-        _SPAWNED_AGENTS["agent-y"] = {
+        agent_tools._SPAWNED_AGENTS["agent-y"] = {
             "agent_id": "agent-y",
             "agent_type": "simple",
             "status": "running",
@@ -146,7 +149,8 @@ class TestAgentSendTool:
 
 class TestAgentListTool:
     def setup_method(self):
-        _SPAWNED_AGENTS.clear()
+        reset_subagent_manager()
+        agent_tools._SPAWNED_AGENTS.clear()
 
     def test_spec(self):
         tool = AgentListTool()
@@ -162,13 +166,13 @@ class TestAgentListTool:
         assert result.content == "No agents spawned."
 
     def test_list_after_spawn(self):
-        _SPAWNED_AGENTS["a1"] = {
+        agent_tools._SPAWNED_AGENTS["a1"] = {
             "agent_id": "a1",
             "agent_type": "orchestrator",
             "status": "running",
             "created_at": 1000.0,
         }
-        _SPAWNED_AGENTS["a2"] = {
+        agent_tools._SPAWNED_AGENTS["a2"] = {
             "agent_id": "a2",
             "agent_type": "native_react",
             "status": "stopped",
@@ -183,7 +187,7 @@ class TestAgentListTool:
         assert ids == {"a1", "a2"}
 
     def test_list_shows_status(self):
-        _SPAWNED_AGENTS["b1"] = {
+        agent_tools._SPAWNED_AGENTS["b1"] = {
             "agent_id": "b1",
             "agent_type": "simple",
             "status": "running",
@@ -203,7 +207,8 @@ class TestAgentListTool:
 
 class TestAgentKillTool:
     def setup_method(self):
-        _SPAWNED_AGENTS.clear()
+        reset_subagent_manager()
+        agent_tools._SPAWNED_AGENTS.clear()
 
     def test_spec(self):
         tool = AgentKillTool()
@@ -221,7 +226,7 @@ class TestAgentKillTool:
         assert "not found" in result.content
 
     def test_kill_marks_stopped(self):
-        _SPAWNED_AGENTS["k1"] = {
+        agent_tools._SPAWNED_AGENTS["k1"] = {
             "agent_id": "k1",
             "agent_type": "simple",
             "status": "running",
@@ -232,10 +237,10 @@ class TestAgentKillTool:
         assert result.success
         data = json.loads(result.content)
         assert data["status"] == "stopped"
-        assert _SPAWNED_AGENTS["k1"]["status"] == "stopped"
+        assert agent_tools._SPAWNED_AGENTS["k1"]["status"] == "stopped"
 
     def test_kill_already_stopped(self):
-        _SPAWNED_AGENTS["k2"] = {
+        agent_tools._SPAWNED_AGENTS["k2"] = {
             "agent_id": "k2",
             "agent_type": "orchestrator",
             "status": "stopped",
@@ -244,7 +249,7 @@ class TestAgentKillTool:
         tool = AgentKillTool()
         result = tool.execute(agent_id="k2")
         assert result.success
-        assert _SPAWNED_AGENTS["k2"]["status"] == "stopped"
+        assert agent_tools._SPAWNED_AGENTS["k2"]["status"] == "stopped"
 
     def test_kill_no_agent_id(self):
         tool = AgentKillTool()

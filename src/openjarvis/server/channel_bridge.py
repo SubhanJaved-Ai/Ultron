@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from typing import Any, Dict, List, Optional
@@ -63,7 +62,7 @@ class ChannelBridge:
         self._system = system
         self._agent_manager = agent_manager
         self._deep_research_agent = deep_research_agent
-        self._notification_timestamps: Dict[str, float] = {}\
+        self._notification_timestamps: Dict[str, float] = {}
         self._subscribe_notifications()
 
     # --------------------------------------------------------------

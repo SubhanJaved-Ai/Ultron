@@ -51,3 +51,26 @@ class TestHologramRoutes:
         resp = client.get("/sw.js")
         assert resp.status_code == 200
         assert "jarvis-pwa" in resp.text
+
+    def test_hologram_directive_endpoint(self):
+        engine = _make_engine()
+        app = create_app(engine, "test-model")
+        client = TestClient(app)
+
+        resp = client.post(
+            "/api/hologram/directive", json={"directive": "Who are you?"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "reply" in data
+        assert "JARVIS" in data["reply"]
+
+    def test_hologram_tts_endpoint(self):
+        engine = _make_engine()
+        app = create_app(engine, "test-model")
+        client = TestClient(app)
+
+        resp = client.get("/api/tts?text=Systems+operational")
+        assert resp.status_code == 200
+        assert resp.headers.get("content-type") == "audio/wav"
+        assert len(resp.content) > 1000

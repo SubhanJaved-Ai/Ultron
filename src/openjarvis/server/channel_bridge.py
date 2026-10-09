@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any, Dict, List, Optional
@@ -22,6 +23,9 @@ Available commands:
 /agent <id> <message> — send a message to an agent
 /agent <id> pause — pause an agent
 /agent <id> resume — resume an agent
+/subagents — list autonomous subagents and their progress
+/subagent <id> — inspect subagent status and findings
+/subagent <id> kill — terminate a subagent
 /notify <channel> — set where to receive notifications
 /sessions — list your active sessions
 /more — get the rest of a truncated response
@@ -59,7 +63,7 @@ class ChannelBridge:
         self._system = system
         self._agent_manager = agent_manager
         self._deep_research_agent = deep_research_agent
-        self._notification_timestamps: Dict[str, float] = {}
+        self._notification_timestamps: Dict[str, float] = {}\
         self._subscribe_notifications()
 
     # --------------------------------------------------------------
@@ -165,6 +169,21 @@ class ChannelBridge:
         if cmd == "/agents":
             return self._handle_agents_list()
 
+        if cmd == "/subagents":
+            return self._handle_subagents_list()
+
+        if cmd == "/subagent" and len(parts) >= 2:
+            subagent_id = parts[1]
+            rest = parts[2] if len(parts) > 2 else "status"
+            return self._handle_subagent_command(subagent_id, rest)
+
+        if cmd == "/pipeline" and len(parts) >= 2:
+            return self._handle_pipeline_command(parts[1], parts[2] if len(parts) > 2 else "")
+
+        if cmd == "/blackboard":
+            swarm_id = parts[1] if len(parts) >= 2 else "default"
+            return self._handle_blackboard_command(swarm_id)
+
         if cmd == "/agent" and len(parts) >= 2:
             agent_id = parts[1]
             rest = parts[2] if len(parts) > 2 else "status"
@@ -214,6 +233,93 @@ class ChannelBridge:
         # Treat as a message to the agent
         result = self._agent_manager.send_message(agent_id, action)
         return str(result) if result else f"Message sent to agent '{agent_id}'."
+
+    def _handle_subagents_list(self) -> str:
+        try:
+            from openjarvis.agents.subagents import get_subagent_manager
+
+            mgr = get_subagent_manager()
+            subagents = mgr.list_subagents()
+            if not subagents:
+                return "No active or recent subagents found."
+            lines = []
+            for s in subagents:
+                data = s.to_dict()
+                dur = f" ({data.get('duration_seconds', 0)}s)" if s.started_at else ""
+                lines.append(f"  [{s.id}] {s.name} — {s.status}{dur}\n    Task: {s.task[:80]}")
+            return "Subagents:\n" + "\n".join(lines)
+        except Exception as exc:
+            return f"Error listing subagents: {exc}"
+
+    def _handle_subagent_command(self, subagent_id: str, action: str) -> str:
+        try:
+            from openjarvis.agents.subagents import get_subagent_manager
+
+            mgr = get_subagent_manager()
+            record = mgr.get(subagent_id)
+            if not record:
+                return f"Subagent '{subagent_id}' not found."
+
+            act = action.strip().lower()
+            if act in ("kill", "stop"):
+                mgr.kill(subagent_id)
+                return f"Subagent '{subagent_id}' stopped."
+            if act == "result":
+                return record.result or f"Subagent status is '{record.status}'. No results yet."
+
+            status_line = (
+                f"Subagent [{record.id}] {record.name}\n"
+                f"Status: {record.status}\n"
+                f"Task: {record.task}"
+            )
+            if record.result:
+                preview = record.result[:800]
+                status_line += f"\n\nFindings:\n{preview}"
+                if len(record.result) > 800:
+                    status_line += "\n... (send '/subagent <id> result' for full output)"
+            elif record.error:
+                status_line += f"\nError: {record.error}"
+            return status_line
+        except Exception as exc:
+            return f"Error inspecting subagent: {exc}"
+
+    def _handle_blackboard_command(self, swarm_id: str) -> str:
+        try:
+            from openjarvis.agents.subagents import get_subagent_manager
+
+            mgr = get_subagent_manager()
+            bb = mgr.get_blackboard(swarm_id)
+            return f"Swarm Blackboard [{swarm_id}]:\n" + bb.to_summary_text()
+        except Exception as exc:
+            return f"Error retrieving blackboard: {exc}"
+
+    def _handle_pipeline_command(self, first_arg: str, rest: str) -> str:
+        try:
+            from openjarvis.agents.subagents import get_subagent_manager
+
+            mgr = get_subagent_manager()
+            raw = f"{first_arg} {rest}".strip()
+            if raw.startswith("["):
+                stages = json.loads(raw)
+            else:
+                stages = [
+                    {"name": "Researcher", "task": f"Research information on: {raw}"},
+                    {
+                        "name": "Analyst",
+                        "task": (
+                            "Synthesize findings and create a concise summary:\n\n"
+                            "{previous_result}"
+                        ),
+                    },
+                ]
+            result = mgr.execute_pipeline(stages)
+            return (
+                f"Pipeline '{result.pipeline_name}' [{result.status}]:\n"
+                f"Stages completed: {result.stages_completed}/{result.total_stages}\n\n"
+                f"{result.final_output[:900]}"
+            )
+        except Exception as exc:
+            return f"Error running pipeline: {exc}"
 
     # --------------------------------------------------------------
     # Chat handling

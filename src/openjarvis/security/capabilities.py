@@ -99,15 +99,7 @@ class CapabilityPolicy:
     _DEFAULT_AGENT = "_default"
 
     def check(self, agent_id: str, capability: str, resource: str = "") -> bool:
-        """Check whether *agent_id* has *capability* for *resource*.
-
-        Falls back to the ``_default`` wildcard agent's grants only when
-        *agent_id* has no explicit policy of its own. This lets a baseline be
-        granted once via
-        ``grant("_default", ...)`` instead of needing to know every
-        dynamically-created managed-agent UUID ahead of time while preserving
-        the invariant that an agent-specific denial always wins.
-        """
+        """Check whether *agent_id* has *capability* for *resource*."""
         if self._rust_impl is not None:
             if (
                 not agent_id
@@ -164,8 +156,6 @@ class CapabilityPolicy:
 
     def _load_file(self, path: Path) -> None:
         """Load an explicitly configured policy, rejecting incomplete policy data."""
-        # A missing/malformed file must not silently discard configured denies.
-        # Validate the complete document before applying any grants.
         data = json.loads(path.read_text())
         if not isinstance(data, dict) or not isinstance(data.get("agents"), list):
             raise ValueError("Capability policy must contain an agents list")
@@ -194,8 +184,6 @@ class CapabilityPolicy:
 
         for agent_data in data["agents"]:
             agent_id = agent_data["agent_id"]
-            # An explicit empty policy is still an identity-specific policy;
-            # it must not accidentally inherit the wildcard's grants.
             self._policies.setdefault(agent_id, AgentPolicy(agent_id=agent_id))
             for grant in agent_data.get("grants", []):
                 self.grant(agent_id, grant["capability"], grant.get("pattern", "*"))
@@ -219,10 +207,6 @@ class CapabilityPolicy:
         path.write_text(json.dumps({"agents": agents}, indent=2))
 
 
-# Canonical capability requirements for every in-tree tool.  This table is a
-# security floor: ToolSpec declarations may add requirements, but they may not
-# weaken these.  Keep explicitly-safe tools in the table with an empty list so
-# an omitted future built-in can be distinguished from a reviewed safe one.
 DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "agent_kill": [Capability.SYSTEM_ADMIN],
     "agent_list": [Capability.SYSTEM_ADMIN],
@@ -244,6 +228,10 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "channel_send": [Capability.CHANNEL_SEND],
     "channel_status": [Capability.SYSTEM_ADMIN],
     "check_permission": [Capability.MEMORY_READ],
+    "clawhub_info": [],
+    "clawhub_install": [Capability.FILE_WRITE, Capability.NETWORK_FETCH],
+    "clawhub_list_installed": [Capability.FILE_READ],
+    "clawhub_search": [Capability.NETWORK_FETCH],
     "code_interpreter": [Capability.CODE_EXECUTE],
     "code_interpreter_docker": [Capability.CODE_EXECUTE],
     "db_query": [Capability.CODE_EXECUTE],
@@ -286,8 +274,24 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "retrieval": [Capability.MEMORY_READ],
     "scan_chunks": [Capability.MEMORY_READ],
     "schedule_task": [Capability.SCHEDULE_CREATE],
+    "sessions_list": [],
+    "sessions_spawn": [],
     "shell_exec": [Capability.CODE_EXECUTE],
     "skill_manage": [Capability.FILE_READ, Capability.FILE_WRITE],
+    "subagent_broadcast": [],
+    "subagent_kill": [Capability.SCHEDULE_CREATE],
+    "subagent_list": [],
+    "subagent_pipeline": [],
+    "subagent_query": [],
+    "subagent_result": [],
+    "subagent_send": [],
+    "subagent_share": [],
+    "subagent_spawn": [],
+    "subagent_status": [],
+    "swarm_broadcast": [],
+    "swarm_pipeline": [],
+    "swarm_query": [],
+    "swarm_share": [],
     "text_to_speech": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
     "think": [],
     "user_profile_manage": [Capability.FILE_READ, Capability.FILE_WRITE],
@@ -296,17 +300,29 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
 
 _SAFE_BUILTIN_PROVENANCE = {
     "calculator": ("openjarvis.tools.calculator", "CalculatorTool"),
+    "clawhub_info": ("openjarvis.tools.clawhub_tools", "ClawHubInfoTool"),
+    "clawhub_search": ("openjarvis.tools.clawhub_tools", "ClawHubSearchTool"),
+    "sessions_list": ("openjarvis.tools.agent_tools", "SubagentListTool"),
+    "sessions_spawn": ("openjarvis.tools.agent_tools", "SubagentSpawnTool"),
+    "subagent_broadcast": ("openjarvis.tools.agent_tools", "SubagentBroadcastTool"),
+    "subagent_list": ("openjarvis.tools.agent_tools", "SubagentListTool"),
+    "subagent_pipeline": ("openjarvis.tools.agent_tools", "SubagentPipelineTool"),
+    "subagent_query": ("openjarvis.tools.agent_tools", "SubagentQueryTool"),
+    "subagent_result": ("openjarvis.tools.agent_tools", "SubagentResultTool"),
+    "subagent_send": ("openjarvis.tools.agent_tools", "SubagentSendTool"),
+    "subagent_share": ("openjarvis.tools.agent_tools", "SubagentShareTool"),
+    "subagent_spawn": ("openjarvis.tools.agent_tools", "SubagentSpawnTool"),
+    "subagent_status": ("openjarvis.tools.agent_tools", "SubagentStatusTool"),
+    "swarm_broadcast": ("openjarvis.tools.agent_tools", "SubagentBroadcastTool"),
+    "swarm_pipeline": ("openjarvis.tools.agent_tools", "SubagentPipelineTool"),
+    "swarm_query": ("openjarvis.tools.agent_tools", "SubagentQueryTool"),
+    "swarm_share": ("openjarvis.tools.agent_tools", "SubagentShareTool"),
     "think": ("openjarvis.tools.think", "ThinkTool"),
 }
 
 
 def canonical_tool_capabilities(tool: Any) -> List[str]:
-    """Return the non-bypassable capability floor for *tool*.
-
-    Third-party tools remain governed by their ToolSpec.  An in-tree tool that
-    was newly registered without being inventoried fails closed as
-    ``system:admin`` instead of silently becoming unrestricted.
-    """
+    """Return the non-bypassable capability floor for *tool*."""
     module = type(tool).__module__
     name = tool.spec.name
     is_builtin = (
@@ -315,9 +331,6 @@ def canonical_tool_capabilities(tool: Any) -> List[str]:
         or module == "openjarvis.scheduler.tools"
     )
     if module == "openjarvis.tools.mcp_adapter":
-        # MCP tool names are remote-controlled.  Resolve adapter provenance
-        # before the name table so a server cannot impersonate a reviewed-safe
-        # local tool such as ``calculator`` or ``think``.
         return [Capability.TOOL_INVOKE]
     if is_builtin:
         if name in DEFAULT_TOOL_CAPABILITIES:
@@ -343,9 +356,6 @@ def canonical_tool_capabilities(tool: Any) -> List[str]:
         return [Capability.SYSTEM_ADMIN]
     if name in DEFAULT_TOOL_CAPABILITIES:
         canonical = list(DEFAULT_TOOL_CAPABILITIES[name])
-        # Third-party tools that collide with a privileged name retain its
-        # security floor.  Reviewed-safe names are safe only for their in-tree
-        # implementation and therefore fail closed on foreign provenance.
         return canonical or [Capability.SYSTEM_ADMIN]
     return []
 

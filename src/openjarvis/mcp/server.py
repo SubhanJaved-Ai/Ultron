@@ -37,6 +37,14 @@ _TOOL_ANNOTATIONS: Dict[str, Dict[str, Any]] = {
     "channel_send": {"destructiveHint": True, "readOnlyHint": False},
     "channel_list": {"readOnlyHint": True, "destructiveHint": False},
     "channel_status": {"readOnlyHint": True, "destructiveHint": False},
+    "subagent_spawn": {"destructiveHint": False, "readOnlyHint": False},
+    "sessions_spawn": {"destructiveHint": False, "readOnlyHint": False},
+    "subagent_status": {"readOnlyHint": True, "destructiveHint": False},
+    "subagent_list": {"readOnlyHint": True, "destructiveHint": False},
+    "sessions_list": {"readOnlyHint": True, "destructiveHint": False},
+    "subagent_result": {"readOnlyHint": True, "destructiveHint": False},
+    "subagent_kill": {"destructiveHint": True, "readOnlyHint": False},
+    "subagent_send": {"destructiveHint": False, "readOnlyHint": False},
 }
 
 

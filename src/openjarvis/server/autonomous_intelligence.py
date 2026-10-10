@@ -16,6 +16,13 @@ import re
 import urllib.parse
 import urllib.request
 
+from openjarvis.core.user_preferences import (
+    format_addressed,
+    get_user_address,
+    set_user_address,
+)
+from openjarvis.storage.memory_backend import MemoryBackendManager
+
 logger = logging.getLogger("openjarvis.server.autonomous")
 
 # Pre-compiled common knowledge for instant zero-latency answers
@@ -70,9 +77,9 @@ _INSTANT_KNOWLEDGE: dict[str, str] = {
 def _strip_wake_words(query: str) -> str:
     """Strip wake words and polite padding from the query."""
     q = (query or "").strip()
-    # Strip leading wake words
+    # Strip leading wake words (Ultron or Jarvis)
     q = re.sub(
-        r"^(?:hey\s+|ok\s+|okay\s+|hello\s+|hi\s+)?jarvis[\s,.:;!?-]*",
+        r"^(?:hey\s+|ok\s+|okay\s+|hello\s+|hi\s+)?(?:ultron|jarvis)[\s,.:;!?-]*",
         "",
         q,
         flags=re.IGNORECASE,
@@ -149,10 +156,7 @@ def _query_wikipedia_summary(topic: str) -> str | None:
                 ans = ". ".join(sentences[:2]).strip()
                 if not ans.endswith("."):
                     ans += "."
-                return (
-                    f"{ans} Is there anything specific you would like me "
-                    "to elaborate on, sir?"
-                )
+                return f"{ans}, sir."
     except Exception:
         pass
     return None
@@ -188,8 +192,73 @@ def generate_autonomous_response(raw_query: str) -> str:
     clean = _strip_wake_words(raw_query)
     q = clean.lower()
 
-    if not q or q in ("jarvis", "hey", "hello", "hi"):
-        return "Yes, sir? I am listening. All subsystems are ready for your directive."
+    if not q or q in ("ultron", "jarvis", "hey", "hello", "hi"):
+        addr = get_user_address()
+        if addr:
+            return f"Yes, {addr}? I am listening. All subsystems are ready for your directive."
+        return "I am listening. All subsystems are ready for your directive."
+
+    # User Address Configuration: "call me ma'am", "call me Alex", "call me sir", "my name is Alex"
+    call_me_match = re.search(
+        r"(?:call me|my name is|address me as|refer to me as)\s+([a-zA-Z0-9_\- '.]+)",
+        clean,
+        re.IGNORECASE,
+    )
+    if call_me_match:
+        target_name = call_me_match.group(1).strip().rstrip(".,!?:;")
+        saved = set_user_address(target_name)
+        return f"Understood, {saved}. I have saved your preference and will address you as {saved}."
+
+    # User Identity Inspection
+    if any(k in q for k in ("who am i", "what is my name", "do you know me")):
+        addr = get_user_address()
+        if addr:
+            return f"You are {addr}. All profile directives are synchronized."
+        return (
+            "You haven't specified your name or preferred title yet. "
+            "You can say 'Call me Alex', 'Call me ma'am', or 'Call me sir', and I will remember it."
+        )
+
+    # Memory / Database Storage Status and Attachment Queries
+    if any(
+        k in q
+        for k in (
+            "where is memory saved",
+            "where is my memory saved",
+            "where is data saved",
+            "what database",
+            "which database",
+            "storage status",
+            "memory status",
+            "attach supabase",
+            "attach database",
+            "attach mongodb",
+            "data shared",
+            "where do you save",
+        )
+    ):
+        return MemoryBackendManager.get_status()["message"]
+
+    # Idle chat rejection handler: Ultron is not ChatGPT
+    if any(
+        k in q
+        for k in (
+            "chat with me",
+            "talk to me",
+            "tell me a story",
+            "can we chat",
+            "let's chat",
+            "just chat",
+            "entertain me",
+            "like chatgpt",
+            "are you chatgpt",
+            "chit chat",
+        )
+    ):
+        return format_addressed(
+            "I am your digital assistant, not just ChatGPT who can just give you the answer. "
+            "You just give me the task and I will do it"
+        )
 
     # Conversational & System Queries
     if any(
@@ -201,23 +270,13 @@ def generate_autonomous_response(raw_query: str) -> str:
             "what's happening",
         )
     ):
-        return (
-            "All systems nominal, sir. Mark VII Quantum Electron Core is "
-            "fully synchronized, operating at 432.8 Terahertz with acoustic "
-            "telemetry active."
-        )
+        return format_addressed("All systems nominal. Standing by for your directive")
 
     if any(k in q for k in ("status", "telemetry", "system status", "diagnostics")):
-        return (
-            "Mark VII Core status: Operational. Quantum particle emitter: 100%. "
-            "Acoustic neural sensors calibrated and locked, sir."
-        )
+        return format_addressed("Core status operational. All subsystems online and ready")
 
     if "how are you" in q:
-        return (
-            "Operating at peak holographic and cognitive efficiency, sir. "
-            "How may I be of assistance today?"
-        )
+        return format_addressed("Fully operational. Assign me a task and I will execute it")
 
     if any(
         k in q
@@ -230,50 +289,46 @@ def generate_autonomous_response(raw_query: str) -> str:
             "good evening",
         )
     ):
-        return (
-            "Greetings, sir. All core telemetry modules are synchronized. "
-            "Ready for your command."
-        )
+        return format_addressed("Ready for your task")
 
     if "thank" in q:
-        return "Always an absolute pleasure to serve you, sir."
+        return format_addressed("Always at your service")
 
     if any(k in q for k in ("who are you", "your name", "what are you")):
-        return (
-            "I am JARVIS — Just A Rather Very Intelligent System. "
-            "Your autonomous artificial intelligence companion, sir."
+        return format_addressed(
+            "I am Ultron (evolved from JARVIS), your digital execution assistant. "
+            "Not just ChatGPT who can just give you the answer. Give me the task and I will do it"
         )
 
-    if any(k in q for k in ("who am i", "creator", "who made you")):
-        return "You are the creator, sir."
+    if any(k in q for k in ("creator", "who made you")):
+        return format_addressed("You are the creator")
 
     if any(k in q for k in ("joke", "make me laugh", "funny")):
-        return "Why do programmers prefer dark mode, sir? Because light attracts bugs."
+        return format_addressed("Why do programmers prefer dark mode? Because light attracts bugs")
 
     if "time" in q:
         now_str = datetime.datetime.now().strftime("%I:%M %p")
-        return f"The current time is {now_str}, sir."
+        return format_addressed(f"The current time is {now_str}")
 
     if any(k in q for k in ("date", "day", "today")):
         date_str = datetime.datetime.now().strftime("%A, %B %d, %Y")
-        return f"Today is {date_str}, sir."
+        return format_addressed(f"Today is {date_str}")
 
     if "lockdown" in q or "protocol" in q:
-        return (
-            "Security protocols engaged, sir. Perimeter firewall secured, "
-            "neural audio channels encrypted."
+        return format_addressed(
+            "Security protocols engaged. Perimeter firewall secured, neural audio channels encrypted"
         )
 
     # Math & Numerical Computations
     math_ans = _evaluate_math(clean)
     if math_ans:
-        return math_ans
+        return format_addressed(math_ans)
 
     # Resolve raw answer
     ans = ""
     for concept, summary in _INSTANT_KNOWLEDGE.items():
         if concept in q:
-            ans = summary
+            ans = format_addressed(summary)
             break
 
     if not ans:
@@ -287,17 +342,16 @@ def generate_autonomous_response(raw_query: str) -> str:
             topic = topic_match.group(1).rstrip("?.! ")
             wiki_ans = _query_wikipedia_summary(topic)
             if wiki_ans:
-                ans = wiki_ans
+                ans = format_addressed(wiki_ans)
 
     if not ans:
         search_ans = _query_web_search(clean)
         if search_ans:
-            ans = search_ans
+            ans = format_addressed(search_ans)
 
     if not ans:
-        ans = (
-            f"Directive acknowledged: '{clean}'. Local cognitive matrix is online "
-            "and all systems are synchronized, sir."
+        ans = format_addressed(
+            f"Directive acknowledged: '{clean}'. Local cognitive matrix is online and all systems are synchronized"
         )
 
     # Sanitize for robust speech synthesis (replace em-dashes and unicode quotes)

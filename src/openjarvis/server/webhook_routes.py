@@ -464,4 +464,134 @@ def create_webhook_router(
 
         return Response("OK", status_code=200)
 
+    # ----------------------------------------------------------
+    # Generic Inbound Event Automation Webhooks
+    # ----------------------------------------------------------
+
+    @router.get("/triggers")
+    async def list_webhook_triggers() -> Response:
+        """List all registered webhook automation triggers."""
+        from openjarvis.server.webhook_trigger import WebhookTriggerRegistry
+
+        registry = WebhookTriggerRegistry()
+        triggers = [t.to_dict() for t in registry.list_all()]
+        return Response(
+            content=json.dumps({"triggers": triggers}),
+            media_type="application/json",
+            status_code=200,
+        )
+
+    @router.post("/triggers")
+    async def register_webhook_trigger(request: Request) -> Response:
+        """Register a new inbound automation webhook trigger."""
+        from openjarvis.server.webhook_trigger import WebhookTriggerRegistry
+
+        body = await request.json()
+        slug = body.get("slug", "").strip()
+        target_type = body.get("target_type", "workflow").strip()
+        target_name = body.get("target_name", "").strip()
+        secret_token = body.get("secret_token", "")
+        description = body.get("description", "")
+
+        if not slug or not target_name:
+            return Response(
+                content=json.dumps({"error": "'slug' and 'target_name' are required"}),
+                status_code=400,
+                media_type="application/json",
+            )
+
+        registry = WebhookTriggerRegistry()
+        trigger = registry.register(
+            slug=slug,
+            target_type=target_type,
+            target_name=target_name,
+            secret_token=secret_token,
+            description=description,
+        )
+        return Response(
+            content=json.dumps({"status": "created", "trigger": trigger.to_dict()}),
+            status_code=201,
+            media_type="application/json",
+        )
+
+    @router.post("/trigger/{slug}")
+    async def handle_inbound_webhook_trigger(slug: str, request: Request) -> Response:
+        """Handle inbound webhook trigger and execute associated workflow or prompt."""
+        from openjarvis.server.webhook_trigger import WebhookTriggerRegistry
+
+        registry = WebhookTriggerRegistry()
+        trigger = registry.get(slug)
+        if not trigger:
+            return Response(
+                content=json.dumps({"error": f"Webhook trigger not found: '{slug}'"}),
+                status_code=404,
+                media_type="application/json",
+            )
+
+        # Validate secret token if configured
+        if trigger.secret_token:
+            auth_hdr = request.headers.get("Authorization", "")
+            secret_hdr = request.headers.get("X-Webhook-Secret", "")
+            expected = trigger.secret_token
+            if secret_hdr != expected and auth_hdr != f"Bearer {expected}":
+                return Response(
+                    content=json.dumps({"error": "Unauthorized: invalid secret token"}),
+                    status_code=401,
+                    media_type="application/json",
+                )
+
+        try:
+            payload = await request.json()
+        except Exception:
+            try:
+                form = await request.form()
+                payload = dict(form)
+            except Exception:
+                payload = {}
+
+        payload_str = json.dumps(payload)
+        logger.info("Executing inbound webhook trigger '%s' (%s: %s)", slug, trigger.target_type, trigger.target_name)
+
+        if trigger.target_type == "workflow":
+            from openjarvis.core.paths import get_config_dir
+            from openjarvis.workflow.engine import WorkflowEngine
+            from openjarvis.workflow.loader import load_workflow
+
+            wf_dir = get_config_dir() / "workflows"
+            wf_file = wf_dir / f"{trigger.target_name}.toml"
+            if not wf_file.exists():
+                return Response(
+                    content=json.dumps({"error": f"Workflow definition not found: {trigger.target_name}"}),
+                    status_code=404,
+                    media_type="application/json",
+                )
+
+            graph = load_workflow(wf_file)
+            engine = WorkflowEngine()
+            result = engine.run(graph, initial_input=payload_str)
+            return Response(
+                content=json.dumps({
+                    "status": "completed" if result.success else "failed",
+                    "slug": slug,
+                    "workflow": trigger.target_name,
+                    "final_output": result.final_output,
+                    "duration_seconds": result.total_duration_seconds,
+                }),
+                status_code=200 if result.success else 500,
+                media_type="application/json",
+            )
+
+        # Target type == "prompt"
+        return Response(
+            content=json.dumps({
+                "status": "acknowledged",
+                "slug": slug,
+                "target_type": trigger.target_type,
+                "target_name": trigger.target_name,
+                "payload_bytes": len(payload_str),
+            }),
+            status_code=200,
+            media_type="application/json",
+        )
+
     return router

@@ -6,9 +6,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02050c">
-  <meta name="description" content="JARVIS 2.0 Autonomous AI — Minimal Glowing Electron Core & Real-Time Voice Assistant">
+  <meta name="description" content="ULTRON Autonomous AI — Minimal Glowing Electron Core & Real-Time Voice Assistant">
   <link rel="manifest" href="/manifest.webmanifest">
-  <title>JARVIS 2.0 — Quantum Electron Core</title>
+  <title>ULTRON — Quantum Electron Core (Jarvis 2.0)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -395,8 +395,8 @@
     <!-- Top Header -->
     <header class="hud-header">
       <div class="hud-brand">
-        <div class="hud-logo">JARVIS</div>
-        <div class="hud-sublogo">QUANTUM ELECTRON CORE</div>
+        <div class="hud-logo">ULTRON</div>
+        <div class="hud-sublogo">AUTONOMOUS INTELLIGENCE MATRIX (JARVIS CORE)</div>
       </div>
 
       <div id="status-pill" class="status-pill standby">
@@ -419,7 +419,7 @@
 
       <!-- Subtitle Message Stream -->
       <div id="subtitle-box" class="subtitle-stream">
-        <span class="subtitle-hint">CLICK CORE OR SAY "JARVIS ..." TO TALK</span>
+        <span class="subtitle-hint">CLICK CORE OR SAY "ULTRON" / "JARVIS" TO TALK</span>
       </div>
 
       <!-- Equalizer Spectrum Bars -->
@@ -448,7 +448,7 @@
             <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
           </svg>
         </button>
-        <input type="text" id="directive-field" class="directive-input" placeholder="Ask Jarvis anything or speak out loud..." autocomplete="off">
+        <input type="text" id="directive-field" class="directive-input" placeholder="Ask Ultron anything or speak out loud..." autocomplete="off">
         <button type="submit" class="directive-send">TRANSMIT</button>
       </form>
     </footer>
@@ -894,10 +894,11 @@
         .replace(/[*_#`~]/g, '')
         .trim();
 
+      window._currentSpeakingText = cleanText.toLowerCase();
       isJarvisSpeaking = true;
-      jarvisMuteUntil = Date.now() + 1500;
-      setJarvisState('SPEAKING'); // Turns Core Ball GREEN!
-      setSubtitle(`JARVIS: "${cleanText}"`, 'speaking');
+      jarvisMuteUntil = 0;
+      setJarvisState('SPEAKING'); // Turns Core Ball RED/SPEAKING!
+      setSubtitle(`ULTRON: "${cleanText}"`, 'speaking');
 
       // --- Channel 1: Native HTML5 Audio Streaming from /api/tts ---
       let audioSuccess = false;
@@ -910,20 +911,14 @@
         isTargetLocked = false;
         clearTimeout(speechSilenceTimeout);
         setJarvisState('STANDBY'); // Returns to CYAN
-        jarvisMuteUntil = Date.now() + 650;
-        setTimeout(() => {
-          isJarvisSpeaking = false;
-          // Resume speech recognition listening
-          if (recognition) {
-            try { recognition.start(); } catch (err) {}
-          }
-        }, 650);
-        // Retain spoken message in HUD subtitle for 6 seconds
+        isJarvisSpeaking = false;
+        window._currentSpeakingText = '';
+        // Retain spoken message in HUD subtitle for 5 seconds
         setTimeout(() => {
           if (jarvisState === 'STANDBY' && !isJarvisSpeaking && !isTargetLocked) {
-            setSubtitle('CLICK CORE OR SAY "JARVIS ..." TO TALK', '');
+            setSubtitle('CLICK CORE OR SAY "ULTRON" / "JARVIS" TO TALK', '');
           }
-        }, 6000);
+        }, 5000);
       };
 
       player.volume = 1.0;
@@ -934,7 +929,7 @@
         pulseEqualizer(true);
       };
       player.ontimeupdate = () => {
-        // Pulse the green electron ball with speech amplitude
+        // Pulse the electron ball with speech amplitude
         audioPulseScale = 1.0 + Math.sin(Date.now() * 0.02) * 0.12;
         pulseEqualizer(true);
       };
@@ -994,16 +989,61 @@
     }
 
     // ==========================================================================
-    // 4. CONTINUOUS SPEECH RECOGNITION (STT) & INSTANT WAKE-WORD LOCK
+    // 4. REAL-TIME BARGE-IN INTERRUPTION & CONTINUOUS SPEECH RECOGNITION
     // ==========================================================================
     let recognition = null;
     let isListeningActive = false;
     let isTargetLocked = false;
     let speechSilenceTimeout = null;
 
+    // Instant interruption handler: cuts off Ultron speech mid-sentence
+    function interruptUltron() {
+      console.log("Interruption triggered: cutting off Ultron speech immediately.");
+
+      // 1. Instantly pause and unload HTML5 audio player
+      const player = getAudioPlayer();
+      if (player) {
+        try {
+          player.pause();
+          player.currentTime = 0;
+          player.removeAttribute('src');
+          player.load();
+        } catch (e) {}
+      }
+
+      // 2. Instantly cancel browser speech synthesis
+      if (window.speechSynthesis) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch (e) {}
+      }
+
+      // 3. Reset internal speaking flags
+      isJarvisSpeaking = false;
+      jarvisMuteUntil = 0;
+      window._currentSpeakingText = '';
+      pulseEqualizer(false);
+      audioPulseScale = 1.0;
+
+      // 4. Immediately switch to yellow LISTENING mode
+      engageTargetLock();
+      setSubtitle('INTERRUPTED: LISTENING TO YOU...', 'listening');
+
+      // 5. Ensure recognition engine is active
+      if (!isListeningActive && recognition) {
+        try { recognition.start(); } catch (err) {}
+      }
+    }
+
     function toggleVoiceLockManual() {
       audioSynth.init();
       unlockAudioNeuralLink();
+
+      // If Ultron is speaking, clicking/tapping immediately interrupts!
+      if (isJarvisSpeaking || jarvisState === 'SPEAKING') {
+        interruptUltron();
+        return;
+      }
 
       if (!isListeningActive) {
         initSpeechRecognitionEngine();
@@ -1026,7 +1066,7 @@
       isTargetLocked = false;
       clearTimeout(speechSilenceTimeout);
       setJarvisState('STANDBY'); // Returns to CYAN
-      setSubtitle('CLICK CORE OR SAY "JARVIS ..." TO TALK', '');
+      setSubtitle('CLICK CORE OR SAY "ULTRON" / "JARVIS" TO TALK', '');
     }
 
     function initSpeechRecognitionEngine() {
@@ -1047,12 +1087,10 @@
 
       recognition.onstart = () => {
         isListeningActive = true;
-        console.log("Speech recognition active and listening for wake words...");
+        console.log("Speech recognition active and listening for wake words & interruptions...");
       };
 
       recognition.onresult = (event) => {
-        if (isJarvisSpeaking || Date.now() < jarvisMuteUntil || jarvisState === 'SPEAKING') return;
-
         let interim = '';
         let final = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -1065,9 +1103,29 @@
         if (!fullHeard) return;
 
         const lower = fullHeard.toLowerCase();
-        // Robust Wake Word Detection: matches "jarvis", "hello jarvis", "hey jarvis", "ok jarvis", "hi jarvis"
-        const wakeRegex = /(?:^|\s)(?:hey|hello|hi|ok|okay)?\s*jarvis\b[\s,.]*(.*)$/i;
-        const match = lower.match(wakeRegex);
+
+        // --- REAL-TIME VOICE BARGE-IN INTERRUPTION (ChatGPT style) ---
+        if (isJarvisSpeaking || jarvisState === 'SPEAKING') {
+          // Acoustic echo suppression: ignore if the mic solely picked up Ultron's own speech
+          const hasInterruptWord = /(?:^|\s)(?:okay|ok|stop|wait|hold\s*on|quiet|shh|pause|listen|ultron|jarvis|cancel|hey|hello|hi)\b/i.test(lower);
+          const isOwnEcho = window._currentSpeakingText && window._currentSpeakingText.includes(lower);
+
+          if (isOwnEcho && !hasInterruptWord) {
+            // Speaker feedback detected, ignore
+            return;
+          }
+
+          // User is interrupting! Immediately cut off Ultron speech mid-sentence
+          interruptUltron();
+        }
+
+        // Strip interrupt filler words if user said e.g. "okay, okay", "stop", "wait", etc.
+        const interruptPrefixRegex = /^(?:(?:okay|ok|wait|stop|hold\s*on|quiet|shh|pause|cancel)[\s,.:;!?-]*)+/i;
+        const cleanedFromInterrupt = lower.replace(interruptPrefixRegex, '').trim();
+
+        // Robust Wake Word Detection: matches "ultron", "jarvis", "hello ultron", "hey ultron", "hello jarvis", "hey jarvis"
+        const wakeRegex = /(?:^|\s)(?:hey|hello|hi|ok|okay)?\s*(?:ultron|jarvis)\b[\s,.]*(.*)$/i;
+        const match = (cleanedFromInterrupt || lower).match(wakeRegex);
 
         if (match) {
           if (!isTargetLocked) {
@@ -1081,17 +1139,23 @@
             if (command.length > 0) {
               dispatchJarvisDirective(command);
             } else {
-              // User said "hello jarvis" or "jarvis"
-              dispatchJarvisDirective("hello jarvis");
+              setSubtitle('LISTENING FOR YOUR INSTRUCTION...', 'listening');
             }
           }, final.length > 0 ? 300 : 700);
 
         } else if (isTargetLocked) {
+          // If the user only said "okay okay" or "stop", keep listening without erroring
+          if (!cleanedFromInterrupt && /(?:okay|ok|stop|wait|hold\s*on|quiet)/i.test(lower)) {
+            setSubtitle('INTERRUPTED: LISTENING TO YOU...', 'listening');
+            return;
+          }
+
+          const targetCommand = cleanedFromInterrupt || lower;
           setSubtitle(`HEARING: "${fullHeard}"`, 'listening');
           clearTimeout(speechSilenceTimeout);
           speechSilenceTimeout = setTimeout(() => {
-            if (fullHeard.length > 0) {
-              dispatchJarvisDirective(fullHeard);
+            if (targetCommand.length > 0) {
+              dispatchJarvisDirective(targetCommand);
             }
           }, final.length > 0 ? 300 : 700);
         }
@@ -1111,12 +1175,10 @@
 
       recognition.onend = () => {
         isListeningActive = false;
-        // Auto-restart continuous listener so wake words keep working
-        if (!isJarvisSpeaking) {
-          setTimeout(() => {
-            try { recognition.start(); } catch (err) {}
-          }, 250);
-        }
+        // Always auto-restart continuous listener so wake words & voice interruptions work non-stop
+        setTimeout(() => {
+          try { recognition.start(); } catch (err) {}
+        }, 200);
       };
 
       try {
@@ -1174,38 +1236,99 @@
       speakResponse(fallback);
     }
 
+    function getUserAddress() {
+      return localStorage.getItem('ultron_user_address') || '';
+    }
+
+    function setUserAddress(addr) {
+      if (addr) localStorage.setItem('ultron_user_address', addr);
+      return addr;
+    }
+
+    function formatClientAddress(sentence) {
+      const addr = getUserAddress();
+      const clean = sentence.replace(/,\s*sir\b\.?/i, '').replace(/[.,! ]+$/, '');
+      if (addr) return `${clean}, ${addr}.`;
+      return `${clean}.`;
+    }
+
     function evaluateLocalJarvisCommand(query) {
       const q = query.toLowerCase().trim();
 
+      // User Address Configuration: "call me ma'am", "call me Alex", "call me sir", "my name is Alex"
+      const callMeMatch = q.match(/(?:call me|my name is|address me as|refer to me as)\s+([a-zA-Z0-9_\- ']+)/i);
+      if (callMeMatch) {
+        const newName = callMeMatch[1].trim().replace(/[.,!?:;]+$/, '');
+        setUserAddress(newName);
+        return `Understood, ${newName}. I have saved your preference and will address you as ${newName}.`;
+      }
+
+      // User Identity Inspection
+      if (q.includes("who am i") || q.includes("what is my name") || q.includes("do you know me")) {
+        const addr = getUserAddress();
+        if (addr) return `You are ${addr}. All profile directives are synchronized.`;
+        return "You haven't specified your name or preferred title yet. You can say 'Call me Alex', 'Call me ma'am', or 'Call me sir', and I will remember it.";
+      }
+
+      // Memory & Database Storage Status
+      if (
+        q.includes("where is memory saved") ||
+        q.includes("where is my memory saved") ||
+        q.includes("what database") ||
+        q.includes("which database") ||
+        q.includes("storage status") ||
+        q.includes("memory status") ||
+        q.includes("attach supabase") ||
+        q.includes("attach database") ||
+        q.includes("where do you save")
+      ) {
+        return "I am currently using your local memory. If you want to attach other services like Supabase (PostgreSQL with pgvector) or MongoDB, you can attach your private credentials and I will save your memory directly there. Each database is private and isolated to you.";
+      }
+
+      // Persona enforcement: reject idle chat, demand real tasks
+      if (
+        q.includes("chat with me") ||
+        q.includes("talk to me") ||
+        q.includes("tell me a story") ||
+        q.includes("can we chat") ||
+        q.includes("let's chat") ||
+        q.includes("just chat") ||
+        q.includes("entertain me")
+      ) {
+        return formatClientAddress(
+          "I am your digital assistant, not just ChatGPT who can just give you the answer. You just give me the task and I will do it"
+        );
+      }
+
+      if (q.includes("who are you") || q.includes("your name") || q.includes("what are you")) {
+        return formatClientAddress(
+          "I am Ultron (evolved from JARVIS), your digital execution assistant. Not just ChatGPT who can just give you the answer. Give me the task and I will do it"
+        );
+      }
+
       if (q.includes("what's going on") || q.includes("what is going on") || q.includes("what is happening") || q.includes("what's happening")) {
-        return "All systems nominal, sir. Mark VII Quantum Electron Core is active and synchronized, running at 432.8 Terahertz.";
+        return formatClientAddress("All systems nominal. Standing by for your directive");
       }
       if (q.includes("status") || q.includes("telemetry") || q.includes("systems")) {
-        return "All systems operational, sir. Quantum electron matrix online, acoustic sensors armed, core reactor ready.";
+        return formatClientAddress("Core status operational. All subsystems online and ready");
       }
       if (q.includes("how are you")) {
-        return "Operating at peak holographic and cognitive efficiency, sir. Ready for your command.";
+        return formatClientAddress("Fully operational. Assign me a task and I will execute it");
       }
       if (q.includes("time")) {
-        return `The current local time is ${new Date().toLocaleTimeString()}, sir.`;
+        return formatClientAddress(`The current local time is ${new Date().toLocaleTimeString()}`);
       }
       if (q.includes("date") || q.includes("day") || q.includes("today")) {
-        return `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}, sir.`;
-      }
-      if (q.includes("who are you") || q.includes("your name")) {
-        return "I am JARVIS, your autonomous artificial intelligence system. Operating at peak quantum capacity, sir.";
-      }
-      if (q.includes("who am i") || q.includes("creator")) {
-        return "You are the creator, sir.";
+        return formatClientAddress(`Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`);
       }
       if (q.includes("hello") || q.includes("hi") || q.includes("greetings")) {
-        return "Greetings, sir. All core telemetry modules are synchronized. How may I be of assistance?";
+        return formatClientAddress("Ready for your task");
       }
       if (q.includes("thank")) {
-        return "Always an absolute pleasure to serve you, sir.";
+        return formatClientAddress("Always at your service");
       }
       if (q.includes("joke") || q.includes("funny")) {
-        return "Why do programmers prefer dark mode, sir? Because light attracts bugs.";
+        return formatClientAddress("Why do programmers prefer dark mode? Because light attracts bugs");
       }
 
       // Fast Math Evaluator
@@ -1220,7 +1343,7 @@
           if (op === '-') res = a - b;
           if (op === '*') res = a * b;
           if (op === '/') res = b !== 0 ? (a / b) : 'undefined';
-          return `The result is ${res}, sir.`;
+          return formatClientAddress(`The result is ${res}`);
         } catch (e) {}
       }
 
@@ -1255,7 +1378,15 @@
       window.addEventListener(evt, unlockAudioNeuralLink, { passive: true });
     });
 
-    // Initialize 3D Scene and Voice Recognition on load
+    // Instant interruption on Escape key, Spacebar, or typing
+    window.addEventListener('keydown', (e) => {
+      if (isJarvisSpeaking && (e.key === 'Escape' || (e.key === ' ' && document.activeElement?.id !== 'directive-field'))) {
+        e.preventDefault();
+        interruptUltron();
+      }
+    });
+
+    // Initialize 3D Scene, Voice Recognition, and input listeners on load
     window.addEventListener('DOMContentLoaded', () => {
       initThreeScene();
       initSpeechRecognitionEngine();
@@ -1263,6 +1394,15 @@
         window.speechSynthesis.onvoiceschanged = () => {
           selectedVoice = resolveJarvisVoice();
         };
+      }
+
+      const directiveInput = document.getElementById('directive-field');
+      if (directiveInput) {
+        directiveInput.addEventListener('input', () => {
+          if (isJarvisSpeaking) {
+            interruptUltron();
+          }
+        });
       }
     });
   </script>

@@ -1,114 +1,148 @@
 <div align="center">
-  <img alt="OpenJarvis" src="assets/OpenJarvis_Horizontal_Logo.png" width="400">
-
-  <p><i>Personal AI, On Personal Devices.</i></p>
+  <h1>⚡ ULTRON</h1>
+  <p><b>Autonomous AI Digital Execution Assistant</b></p>
+  <p><i>Evolved from OpenJarvis 2.0 with Hermes-Grade Intelligence, n8n-Grade Automations & 3D Holographic Interface.</i></p>
 
   <p>
     <a href="https://arxiv.org/abs/2605.17172"><img src="https://img.shields.io/badge/arXiv-2605.17172-b31b1b.svg" alt="arXiv"></a>
-    <a href="https://openjarvis.stanford.edu/"><img src="https://img.shields.io/badge/project-OpenJarvis-blue" alt="Project"></a>
-    <a href="https://open-jarvis.github.io/OpenJarvis/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
     <img src="https://img.shields.io/badge/python-%3E%3D3.10-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License">
-    <a href="https://discord.gg/CMVBmDQ5Fj"><img src="https://img.shields.io/badge/discord-join-7289da?logo=discord&logoColor=white" alt="Discord"></a>
-    <a href="https://x.com/OpenJarvisAI"><img src="https://img.shields.io/badge/X-@OpenJarvisAI-black?logo=x&logoColor=white" alt="X / Twitter"></a>
+    <img src="https://img.shields.io/badge/wake_words-Ultron%20%7C%20Jarvis-yellow" alt="Wake Words">
+    <img src="https://img.shields.io/badge/memory-Local%20%7C%20Supabase-success" alt="Memory Isolation">
   </p>
 </div>
 
 ---
 
-<div align="center">
-  <img alt="OpenJarvis demo reel" src="assets/openjarvis_demo_reel.webp" width="75%">
-</div>
+> *"I am your digital execution assistant, not just ChatGPT who can just give you the answer. You just give me the task and I will do it."* — **Ultron**
 
 ---
 
-> **[Documentation](https://open-jarvis.github.io/OpenJarvis/)**
->
-> **[Project Site](https://openjarvis.stanford.edu/)**
->
-> **[Paper](https://arxiv.org/abs/2605.17172)**
->
-> **[Leaderboard](https://open-jarvis.github.io/OpenJarvis/leaderboard/)**
->
-> **[Roadmap](https://open-jarvis.github.io/OpenJarvis/development/roadmap/)**
+## ⚡ What is Ultron?
 
-## Why OpenJarvis?
+Unlike conventional chatbots that simply generate conversational text, **Ultron** is an autonomous, action-first personal AI system designed to do real work. Ultron speaks concisely, executes tasks directly, delegates to subagents, orchestrates multi-step automations, and runs 24/7 on your own hardware or free cloud instances without paid API lock-in.
 
-Personal AI agents are exploding in popularity, but nearly all of them still route intelligence through cloud APIs. Your "personal" AI continues to depend on someone else's server. At the same time, our [Intelligence Per Watt](https://www.intelligence-per-watt.ai/) research showed that local language models already handle 88.7% of single-turn chat and reasoning queries, with intelligence efficiency improving 5.3× from 2023 to 2025. The models and hardware are increasingly ready. What has been missing is the software stack to make local-first personal AI practical.
+### Key Capabilities
+- 🎙️ **3D Holographic Interface & Voice Barge-In**: Real-time 3D WebGL core with ChatGPT-style voice interruption. Say *"Okay, okay"*, *"Stop"*, or tap the core to cut Ultron off mid-sentence and switch instantly to listening.
+- 🎯 **Action-First & Crisp Persona**: Does not ramble or lecture. Gives to-the-point answers and prioritizes executing tasks via tools.
+- 🗣️ **Dynamic Address Learning**: Learns how you prefer to be addressed (*"Call me Alex"*, *"Call me ma'am"*, *"Call me sir"*), storing your preference across all sessions without gender or title assumptions.
+- 🧠 **Hermes-Grade Intelligence**: Self-improving skills with mutation ledger and atomic rollback, SQLite FTS5 cross-session recall (`session_search`), single-turn parallel subagent delegation (`delegate_task`), unified cron automation (`cronjob_manage`), and multi-environment sandboxing (Local, Docker, SSH).
+- 🔄 **n8n-Grade Automations**: Inbound event webhooks (`/webhooks/trigger/{slug}`), visual multi-node DAG workflows (`workflow_manage`), and external n8n bridge integration (`n8n_manage`).
+- 🔒 **100% Private, Isolated Memory**: Stores memory locally by default (SQLite + Markdown). Seamlessly attach your own private **Supabase (PostgreSQL with pgvector)** or MongoDB database—each database is dedicated exclusively to the user with zero data sharing.
 
-OpenJarvis is that stack. It is a framework for local-first personal AI, built around three core ideas: shared primitives for building on-device agents; evaluations that treat energy, FLOPs, latency, and dollar cost as first-class constraints alongside accuracy; and a learning loop that improves models using local trace data. The goal is simple: make it possible to build personal AI agents that run locally by default, calling the cloud only when truly necessary. OpenJarvis aims to be both a research platform and a production foundation for local AI, in the spirit of PyTorch.
+---
 
-## Installation
+## 🚀 Quick Start: Make Your Own Ultron Ready
 
-Pick your platform and run one command. Each installer handles [uv](https://docs.astral.sh/uv/), the Python venv, Ollama, and a starter model — about 3 minutes on broadband.
+Pick your preferred environment and have Ultron running in under 5 minutes:
 
-| Platform | One-liner |
-|---|---|
-| **macOS · Linux · WSL2** | `curl -fsSL https://open-jarvis.github.io/OpenJarvis/install.sh \| bash` |
-| **Native Windows** | `irm https://open-jarvis.github.io/OpenJarvis/install.ps1 \| iex` |
-| **Desktop GUI** | Download `.exe` / `.dmg` / `.deb` / `.rpm` / `.AppImage` from the [latest release](https://github.com/open-jarvis/OpenJarvis/releases) |
-
-Then `jarvis` to start. The Rust extension and larger models continue downloading in the background; `jarvis doctor` shows status.
-
-Platform-specific notes (WSL2 setup, native-Windows scheduled-task service, desktop prerequisites, manual / contributor install): see the [installation docs](https://open-jarvis.github.io/OpenJarvis/getting-started/install/).
-
-## Quick Start
+### Option A: Local PC / Mac / Linux
 
 ```bash
-jarvis                          # start chatting (default: chat-simple)
-jarvis gui                      # start the graphical browser interface
-jarvis init --preset <name> --force  # replace config with a starter preset
+# 1. Clone repository
+git clone https://github.com/Airlucofficial/Jarvis-2.0.git
+cd Jarvis-2.0
+
+# 2. Install dependencies (using uv or pip)
+pip install -e .
+
+# 3. Launch Ultron 3D Holographic Interface
+jarvis serve --hologram
 ```
+Open **`http://localhost:8000/hologram`** in your browser. Click anywhere to synchronize the neural audio link, say *"Ultron"* or *"Jarvis"*, and assign your task!
 
-`jarvis gui` starts the local API server and frontend, then opens the graphical
-chat interface in your default browser. It requires Node.js 22+ and is
-available from a source checkout; packaged desktop installers are available
-from the [latest release](https://github.com/open-jarvis/OpenJarvis/releases).
+---
 
-> Prefix `jarvis ...` with `uv run`, or `source .venv/bin/activate` first.
+### Option B: Free 24/7 Oracle Cloud VM (No PC Needed)
 
-| Preset | What it does |
-|---|---|
-| `morning-digest-mac` / `morning-digest-linux` / `morning-digest-minimal` | Spoken daily briefing from email, calendar, health, news |
-| `deep-research` | Multi-hop research across indexed docs with citations |
-| `code-assistant` | Agent with code execution, file I/O, and shell access |
-| `scheduled-monitor` | Stateful agent on a schedule with memory |
-| `chat-simple` | Lightweight conversation, no tools |
-
-Example:
+Deploy Ultron permanently to an **Always Free Oracle Cloud instance** (4 OCPU ARM, 24 GB RAM):
 
 ```bash
-jarvis init --preset morning-digest-mac --force
-jarvis connect gdrive          # one OAuth covers Gmail / Calendar / Tasks
-jarvis digest --fresh          # generate and play your first briefing
+# Run the automated Oracle installer
+curl -fsSL https://raw.githubusercontent.com/Airlucofficial/Jarvis-2.0/main/deploy/oracle/install.sh | bash
 ```
+See our complete [Oracle Cloud Deployment Guide](deploy/oracle/README.md) for step-by-step setup, firewall rules, and systemd service management.
 
-Per-preset deep dives: [morning digest](https://open-jarvis.github.io/OpenJarvis/user-guide/morning-digest/) · [deep research](https://open-jarvis.github.io/OpenJarvis/user-guide/deep-research/) · [code assistant](https://open-jarvis.github.io/OpenJarvis/user-guide/code-assistant/) · [scheduled monitor](https://open-jarvis.github.io/OpenJarvis/user-guide/scheduled-monitor/) · [chat simple](https://open-jarvis.github.io/OpenJarvis/user-guide/chat-simple/) · or the full [quickstart guide](https://open-jarvis.github.io/OpenJarvis/getting-started/quickstart/).
+---
 
-### Skills
+## 🛠️ Step-by-Step: Making Ultron Ready for Your Work
 
-Skills teach agents how to better use tools and improve their reasoning. Every skill is a tool — agents discover them from a catalog and invoke them on demand.
+### 1. Personalizing Ultron (Your Name & Preferred Title)
+Ultron does not make assumptions about your identity or title. You can teach it how you wish to be addressed:
+- In the Hologram voice interface or terminal, simply say:
+  - *"Call me Alex"*
+  - *"Call me ma'am"*
+  - *"Call me sir"*
+  - *"Call me Boss"*
+- Ultron immediately stores your preference in `USER.md` and `user_preferences.json`. All future voice responses, briefings, and telemetry will address you accordingly.
+
+---
+
+### 2. Attaching Your Private Cloud Database (Supabase / PostgreSQL / MongoDB)
+By default, Ultron stores all memory and session histories on your local host (SQLite + markdown). 
+
+When deploying to Oracle Cloud or moving across devices, you can attach your own **free, isolated cloud database**:
+
+#### Why Supabase?
+- **Free Tier**: 500 MB PostgreSQL database with `pgvector` extension for vector embeddings.
+- **Dedicated & Isolated**: Every user creates their own private Supabase project. **Zero multi-tenant data sharing**.
+
+#### How to Attach:
+1. Create a free database at [supabase.com](https://supabase.com).
+2. Ask Ultron in chat or run the `memory_backend_manage` tool:
+   ```bash
+   jarvis ask "Attach my Supabase database: postgresql://postgres:[password]@db.[id].supabase.co:5432/postgres"
+   ```
+3. Check memory status anytime:
+   ```bash
+   jarvis ask "Where is my memory saved?"
+   ```
+   > *"Currently saving all memory and session data to your private SUPABASE database. Your data is completely isolated to your account and never shared with other services."*
+4. Revert to local storage whenever you want:
+   ```bash
+   jarvis ask "Switch back to local memory"
+   ```
+
+---
+
+### 3. Creating Real Automations & Workflows
+
+Ultron is equipped with production-grade automation mechanics:
+
+- **Inbound Event Webhooks**:
+  Trigger Ultron workflows from GitHub, Stripe, or web forms:
+  ```bash
+  curl -X POST http://localhost:8000/webhooks/trigger/deploy-check \
+    -H "Content-Type: application/json" \
+    -d '{"event": "code_pushed", "repo": "main"}'
+  ```
+- **Visual & DAG Workflows**:
+  Build multi-step execution graphs using `workflow_manage` with automated tool sequences, subagent steps, conditional branching, and full execution traces.
+- **n8n Bridge Integration**:
+  Connect Ultron to external n8n workflows via `n8n_manage` to trigger webhooks and automate third-party SaaS services.
+- **Unified Scheduled Cronjobs**:
+  Schedule tasks that run autonomously in the background:
+  ```bash
+  jarvis ask "Schedule a cron job to check system status every morning at 9 AM"
+  ```
+
+---
+
+### 4. Self-Improving Skills & Subagent Delegation
+
+Ultron features a mutation ledger with atomic rollbacks:
+- **Patch & Rollback**: When optimizing code or skills, Ultron records full audit diffs in `.skill_ledger.jsonl` with content-addressed backups. If a modification breaks tests, it atomically rolls back.
+- **Parallel Subagent Delegation**: Uses `delegate_task` to spawn worker pools for heavy search, scraping, or code analysis, rolling up results in a single turn.
+
+---
+
+### 5. CLI & Chat Commands
 
 ```bash
-# Install skills from public sources
-jarvis skill install hermes:arxiv
-jarvis skill sync hermes --category research
-
-# Use skills with any agent
-jarvis ask "Use the code-explainer skill to explain this Python code: for i in range(5): print(i*2)"
-
-# Optimize skills from your trace history
-jarvis optimize skills --policy dspy
-
-# Benchmark the impact
-jarvis bench skills --max-samples 5 --seeds 42
+jarvis                          # start interactive console (concise Ultron persona)
+jarvis serve --hologram         # start 3D Holographic web interface with voice barge-in
+jarvis ask "Run security audit" # execute single directive directly
 ```
-
-Import from [Hermes Agent](https://github.com/NousResearch/hermes-agent) (~150 skills), [OpenClaw](https://github.com/openclaw/skills) (~13,700 community skills), or any GitHub repo. Skills follow the [agentskills.io](https://agentskills.io/specification) open standard.
-
-See the [Skills User Guide](https://open-jarvis.github.io/OpenJarvis/user-guide/skills/) and [Skills Tutorial](https://open-jarvis.github.io/OpenJarvis/tutorials/skills-workflow/) for details.
-
-### Built-in Agents
 
 OpenJarvis ships with eight built-in agents across three execution modes (on-demand, scheduled, continuous):
 

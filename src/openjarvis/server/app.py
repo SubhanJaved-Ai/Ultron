@@ -177,6 +177,7 @@ def create_app(
     api_key: str = "",
     webhook_config: dict | None = None,
     cors_origins: list[str] | None = None,
+    system: Any = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application."""
     if engine is None:
@@ -318,6 +319,7 @@ def create_app(
     # Exposed so WebSocket handlers can authenticate the handshake (the HTTP
     # AuthMiddleware never sees WS upgrade requests). Empty = auth disabled.
     app.state.api_key = api_key
+    app.state.system = system
 
     @app.on_event("shutdown")
     async def _shutdown_managed_runtime() -> None:

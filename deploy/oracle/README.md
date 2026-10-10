@@ -34,26 +34,47 @@ Jarvis 2.0 is specifically optimized to fit within OCI Always-Free resource limi
 
 ---
 
-## 3. Configuring Secrets & BYOK API Keys
+## 3. Running 100% Free Local Models with Ollama (Zero API Keys)
 
-Edit `/etc/jarvis/env` to add your optional BYOK keys:
+To run completely free without paying for any cloud API keys, install **Ollama** directly on your Oracle Cloud instance (the Ampere A1 shape includes 24 GB of RAM, which is more than enough for 3B, 7B, and 14B models):
+
+```bash
+# 1. Install Ollama on your Oracle VM
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. Pull your preferred local model (Qwen 2.5 or Llama 3.2 recommended)
+ollama pull qwen2.5:7b     # High intelligence, tool calling (~4.7 GB RAM)
+# or for snappy real-time voice:
+ollama pull qwen2.5:3b     # Fast response, conversational (~2.2 GB RAM)
+
+# 3. Jarvis automatically connects to Ollama on localhost:11434 with zero configuration!
+sudo systemctl restart jarvis
+```
+
+---
+
+## 4. Configuring Secrets & Optional Cloud Keys (BYOK)
+
+If you prefer cloud models or optional external integrations, edit `/etc/jarvis/env`:
 
 ```bash
 sudo nano /etc/jarvis/env
 ```
 
 ```ini
-# Voice Synthesis & Transcription (Lifelike Voice)
+# Voice Synthesis & Transcription (Optional Lifelike Voice)
 ELEVENLABS_API_KEY=your_elevenlabs_key_here
 ELEVENLABS_VOICE_ID=JBFqnCBsd6RMkjVDRZzb
 
-# Messaging Channels
+# Messaging Channels (Optional)
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHI...
 WHATSAPP_ACCESS_TOKEN=EAAG...
 WHATSAPP_PHONE_NUMBER_ID=1092837465...
 
-# LLM Providers (Google AI Studio free tier recommended)
+# Cloud LLM Providers (Optional — leave blank if using Ollama)
 GEMINI_API_KEY=AIzaSy...
+OPENAI_API_KEY=
+GROQ_API_KEY=
 ```
 
 Then restart the service:

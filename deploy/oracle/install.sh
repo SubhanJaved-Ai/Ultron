@@ -77,6 +77,13 @@ sudo -u jarvis -H bash -c "
   uv pip install -e \".[server]\"
 "
 
+# 6b. Optional Ollama setup for 100% Free Local AI inference
+if [ "${INSTALL_OLLAMA:-false}" = "true" ] || [ "${1:-}" = "--with-ollama" ]; then
+  echo -e "${YELLOW}Installing Ollama for local LLM inference...${NC}"
+  curl -fsSL https://ollama.com/install.sh | sh || true
+  systemctl enable --now ollama || true
+fi
+
 # 7. Environment & Secrets setup
 echo -e "${YELLOW}[6/7] Configuring environment secrets (/etc/jarvis/env)...${NC}"
 if [ ! -f /etc/jarvis/env ]; then
@@ -154,4 +161,5 @@ echo -e "  ✦ Service Status:      ${CYAN}sudo systemctl status jarvis${NC}"
 echo -e "  ✦ View Logs:           ${CYAN}sudo journalctl -u jarvis -f${NC}"
 echo -e "  ✦ Edit Secrets:        ${CYAN}sudo nano /etc/jarvis/env${NC}"
 echo ""
-echo -e "${YELLOW}Tip: To add voice replies, paste your ElevenLabs or Gemini key into /etc/jarvis/env and run 'sudo systemctl restart jarvis'.${NC}"
+echo -e "${YELLOW}Tip (100% Free Local AI): Run 'ollama pull qwen2.5:7b' to load free local intelligence.${NC}"
+echo -e "${YELLOW}Tip (Optional Cloud Keys): Edit /etc/jarvis/env and run 'sudo systemctl restart jarvis'.${NC}"

@@ -6,6 +6,8 @@ Supports consolidation and decay.
 from __future__ import annotations
 
 import json
+import logging
+import re
 import sqlite3
 import time
 import uuid
@@ -14,6 +16,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from openjarvis.core.config import DEFAULT_CONFIG_DIR
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -104,7 +108,37 @@ class SessionStore:
                 ON session_messages(session_id);
             CREATE INDEX IF NOT EXISTS idx_sessions_user
                 ON sessions(user_id);
+            CREATE VIRTUAL TABLE IF NOT EXISTS session_messages_fts USING fts5(
+                content,
+                session_id UNINDEXED,
+                role UNINDEXED,
+                channel UNINDEXED,
+                tokenize='unicode61'
+            );
+            CREATE TRIGGER IF NOT EXISTS trg_session_messages_ai AFTER INSERT ON session_messages BEGIN
+                INSERT INTO session_messages_fts(rowid, content, session_id, role, channel)
+                VALUES (new.id, new.content, new.session_id, new.role, new.channel);
+            END;
+            CREATE TRIGGER IF NOT EXISTS trg_session_messages_ad AFTER DELETE ON session_messages BEGIN
+                INSERT INTO session_messages_fts(session_messages_fts, rowid, content, session_id, role, channel)
+                VALUES('delete', old.id, old.content, old.session_id, old.role, old.channel);
+            END;
+            CREATE TRIGGER IF NOT EXISTS trg_session_messages_au AFTER UPDATE ON session_messages BEGIN
+                INSERT INTO session_messages_fts(session_messages_fts, rowid, content, session_id, role, channel)
+                VALUES('delete', old.id, old.content, old.session_id, old.role, old.channel);
+                INSERT INTO session_messages_fts(rowid, content, session_id, role, channel)
+                VALUES (new.id, new.content, new.session_id, new.role, new.channel);
+            END;
         """)
+        # Backfill any pre-existing messages not yet in FTS5
+        try:
+            self._conn.execute("""
+                INSERT INTO session_messages_fts(rowid, content, session_id, role, channel)
+                SELECT id, content, session_id, role, channel FROM session_messages
+                WHERE id NOT IN (SELECT rowid FROM session_messages_fts);
+            """)
+        except Exception:
+            pass
         self._conn.commit()
 
     def get_or_create(
@@ -355,6 +389,131 @@ class SessionStore:
             )
             for row in rows
         ]
+
+    def search_messages(
+        self,
+        query: str,
+        limit: int = 20,
+        session_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Perform full-text search across session messages using SQLite FTS5."""
+        if not query.strip():
+            return []
+
+        # Sanitize FTS5 query: replace punctuation with space so terms match token boundaries
+        clean_query = re.sub(r"[^\w\s]", " ", query)
+        safe_terms = [t for t in clean_query.split() if t]
+        if not safe_terms:
+            return []
+        fts_query = " ".join(f'"{t}"' for t in safe_terms)
+
+        try:
+            if session_id:
+                cur = self._conn.execute(
+                    """
+                    SELECT m.id, m.session_id, m.role, m.content, m.channel, m.timestamp,
+                           snippet(session_messages_fts, 0, '<b>', '</b>', '...', 20),
+                           rank
+                    FROM session_messages_fts f
+                    JOIN session_messages m ON f.rowid = m.id
+                    WHERE session_messages_fts MATCH ? AND m.session_id = ?
+                    ORDER BY rank
+                    LIMIT ?
+                    """,
+                    (fts_query, session_id, limit),
+                )
+            else:
+                cur = self._conn.execute(
+                    """
+                    SELECT m.id, m.session_id, m.role, m.content, m.channel, m.timestamp,
+                           snippet(session_messages_fts, 0, '<b>', '</b>', '...', 20),
+                           rank
+                    FROM session_messages_fts f
+                    JOIN session_messages m ON f.rowid = m.id
+                    WHERE session_messages_fts MATCH ?
+                    ORDER BY rank
+                    LIMIT ?
+                    """,
+                    (fts_query, limit),
+                )
+            rows = cur.fetchall()
+            return [
+                {
+                    "message_id": row[0],
+                    "session_id": row[1],
+                    "role": row[2],
+                    "content": row[3],
+                    "channel": row[4],
+                    "timestamp": row[5],
+                    "snippet": row[6],
+                    "rank": row[7],
+                }
+                for row in rows
+            ]
+        except Exception as e:
+            logger.warning("FTS search error: %s", e)
+            return []
+
+    def get_message_context(
+        self,
+        session_id: str,
+        around_message_id: int,
+        window: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve a window of messages around a target message id."""
+        min_id = max(1, around_message_id - window)
+        max_id = around_message_id + window
+        cur = self._conn.execute(
+            """
+            SELECT id, session_id, role, content, channel, timestamp
+            FROM session_messages
+            WHERE session_id = ? AND id BETWEEN ? AND ?
+            ORDER BY id ASC
+            """,
+            (session_id, min_id, max_id),
+        )
+        return [
+            {
+                "message_id": row[0],
+                "session_id": row[1],
+                "role": row[2],
+                "content": row[3],
+                "channel": row[4],
+                "timestamp": row[5],
+            }
+            for row in cur.fetchall()
+        ]
+
+    def get_session_transcript(
+        self,
+        session_id: str,
+        max_chars_per_msg: int = 2000,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve bounded messages for a complete session transcript."""
+        cur = self._conn.execute(
+            """
+            SELECT id, role, content, channel, timestamp
+            FROM session_messages
+            WHERE session_id = ?
+            ORDER BY timestamp ASC
+            LIMIT ?
+            """,
+            (session_id, limit),
+        )
+        results = []
+        for row in cur.fetchall():
+            content = row[2]
+            if len(content) > max_chars_per_msg:
+                content = content[:max_chars_per_msg] + "... [truncated]"
+            results.append({
+                "message_id": row[0],
+                "role": row[1],
+                "content": content,
+                "channel": row[3],
+                "timestamp": row[4],
+            })
+        return results
 
     def close(self) -> None:
         self._conn.close()

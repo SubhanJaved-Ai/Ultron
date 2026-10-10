@@ -172,4 +172,39 @@ try:
 except ImportError:
     pass
 
+try:
+    import openjarvis.tools.session_search  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.tools.delegate_task  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.tools.cronjob_manage  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.tools.ssh_exec  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.tools.workflow_manage  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.tools.n8n_tool  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.tools.memory_backend_manage  # noqa: F401
+except ImportError:
+    pass
+
 __all__ = ["BaseTool", "ToolExecutor", "ToolSpec"]

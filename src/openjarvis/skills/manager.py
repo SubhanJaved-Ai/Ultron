@@ -455,6 +455,93 @@ class SkillManager:
         self._skills.pop(name, None)
         return paths
 
+    def get_ledger(self, skills_dir: Optional[Path] = None) -> Any:
+        """Return the SkillLedger instance for managing skill mutations and rollbacks."""
+        from openjarvis.skills.ledger import SkillLedger
+
+        target_dir = skills_dir or (get_config_dir() / "skills")
+        return SkillLedger(skills_dir=target_dir)
+
+    def patch_skill(
+        self,
+        name: str,
+        *,
+        old_string: Optional[str] = None,
+        new_string: Optional[str] = None,
+        content: Optional[str] = None,
+        description: str = "",
+        skills_dir: Optional[Path] = None,
+    ) -> bool:
+        """Patch an existing skill file in place and record the mutation in the ledger."""
+        target_root = skills_dir or (get_config_dir() / "skills")
+        ledger = self.get_ledger(target_root)
+
+        # Locate skill file
+        candidate_toml = target_root / f"{name}.toml"
+        candidate_dir = target_root / name
+        candidate_skill_md = candidate_dir / "SKILL.md"
+
+        target_file = None
+        if candidate_toml.exists():
+            target_file = candidate_toml
+            snap_dir = target_root
+        elif candidate_skill_md.exists():
+            target_file = candidate_skill_md
+            snap_dir = candidate_dir
+        elif candidate_dir.exists():
+            target_file = candidate_dir / "skill.toml"
+            snap_dir = candidate_dir
+        else:
+            return False
+
+        before_snap = ledger.capture_snapshot(snap_dir)
+
+        current_text = target_file.read_text(encoding="utf-8")
+        if old_string is not None and new_string is not None:
+            if old_string not in current_text:
+                return False
+            updated_text = current_text.replace(old_string, new_string, 1)
+        elif content is not None:
+            updated_text = content
+        else:
+            return False
+
+        target_file.write_text(updated_text, encoding="utf-8")
+        after_snap = ledger.capture_snapshot(snap_dir)
+
+        ledger.record_mutation(
+            skill_name=name,
+            action="patch",
+            before_manifest=before_snap,
+            after_manifest=after_snap,
+            description=description or f"Patch applied to {target_file.name}",
+        )
+        return True
+
+    def rollback_skill(
+        self,
+        name: str,
+        entry_id: Optional[str] = None,
+        skills_dir: Optional[Path] = None,
+    ) -> bool:
+        """Rollback the latest or specific mutation of a skill using the ledger."""
+        target_root = skills_dir or (get_config_dir() / "skills")
+        ledger = self.get_ledger(target_root)
+        if entry_id:
+            return ledger.rollback_entry(entry_id)
+        return ledger.rollback_latest(name)
+
+    def get_skill_history(
+        self,
+        name: Optional[str] = None,
+        skills_dir: Optional[Path] = None,
+        limit: int = 50,
+    ) -> List[Any]:
+        """Return chronological mutation history for a skill."""
+        target_root = skills_dir or (get_config_dir() / "skills")
+        ledger = self.get_ledger(target_root)
+        return ledger.get_history(skill_name=name, limit=limit)
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers

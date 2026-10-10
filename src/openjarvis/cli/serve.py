@@ -581,6 +581,7 @@ def serve(
 
     # Set up agent scheduler for cron/interval agents
     agent_scheduler = None
+    _running_system = None
     if agent_manager is not None:
         try:
             from openjarvis.agents.executor import AgentExecutor
@@ -662,6 +663,7 @@ def serve(
                 _mcp_clients=mcp_clients,
             )
             executor.set_system(system)
+            _running_system = system
 
             agent_scheduler = AgentScheduler(
                 manager=agent_manager,
@@ -765,6 +767,7 @@ def serve(
         api_key=api_key,
         webhook_config=webhook_config,
         cors_origins=cors_origins,
+        system=_running_system,
     )
 
     console.print(

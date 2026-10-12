@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator, Optional
 
 from fastapi.responses import StreamingResponse
 
@@ -74,11 +74,13 @@ class AgentStreamBridge:
         bus: EventBus,
         model: str,
         request: ChatCompletionRequest,
+        cancellation_token: Optional[Any] = None,
     ) -> None:
         self._agent = agent
         self._bus = bus
         self._model = model
         self._request = request
+        self._cancellation_token = cancellation_token
         self._chunk_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
         self._queue: asyncio.Queue = asyncio.Queue()
         self._callbacks: dict[EventType, object] = {}
@@ -181,15 +183,33 @@ class AgentStreamBridge:
 
             # Drain queue until the agent finishes
             while True:
+                if self._cancellation_token is not None and getattr(
+                    self._cancellation_token, "is_cancelled", False
+                ):
+                    yield "data: [DONE]\n\n"
+                    return
+
                 item = await self._queue.get()
 
                 if item is _DONE:
                     break
 
+                if self._cancellation_token is not None and getattr(
+                    self._cancellation_token, "is_cancelled", False
+                ):
+                    yield "data: [DONE]\n\n"
+                    return
+
                 if isinstance(item, Event):
                     sse_name = _EVENT_MAP.get(item.event_type)
                     if sse_name:
                         yield self._format_named_event(sse_name, item.data)
+
+            if self._cancellation_token is not None and getattr(
+                self._cancellation_token, "is_cancelled", False
+            ):
+                yield "data: [DONE]\n\n"
+                return
 
             # Agent is done -- retrieve result
             try:
@@ -317,9 +337,12 @@ async def create_agent_stream(
     bus: EventBus,
     model: str,
     request: ChatCompletionRequest,
+    cancellation_token: Optional[Any] = None,
 ) -> StreamingResponse:
     """Create an AgentStreamBridge and return a FastAPI StreamingResponse."""
-    bridge = AgentStreamBridge(agent, bus, model, request)
+    bridge = AgentStreamBridge(
+        agent, bus, model, request, cancellation_token=cancellation_token
+    )
     return StreamingResponse(
         bridge.stream(),
         media_type="text/event-stream",

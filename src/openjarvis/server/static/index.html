@@ -177,6 +177,47 @@
       border-color: var(--accent-emerald);
       box-shadow: 0 0 24px rgba(16, 185, 129, 0.35);
     }
+    /* Emergency Stop — CANCELLING state (TSK-P5-01) */
+    .status-pill.cancelling {
+      color: #fb923c;
+      background: rgba(251, 146, 60, 0.15);
+      border-color: rgba(251, 146, 60, 0.7);
+      box-shadow: 0 0 28px rgba(251, 146, 60, 0.45);
+      animation: cancel-pulse 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes cancel-pulse {
+      from { box-shadow: 0 0 18px rgba(251, 146, 60, 0.3); }
+      to   { box-shadow: 0 0 36px rgba(251, 146, 60, 0.6); border-color: rgba(251, 146, 60, 0.9); }
+    }
+    /* HALT button — visible only when an active execution is running */
+    #halt-btn {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.6);
+      color: #f87171;
+      cursor: pointer;
+      pointer-events: auto;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: background 0.2s, box-shadow 0.2s, border-color 0.2s;
+      animation: halt-glow 1.2s ease-in-out infinite alternate;
+    }
+    #halt-btn:hover {
+      background: rgba(239, 68, 68, 0.28);
+      border-color: rgba(239, 68, 68, 0.9);
+      box-shadow: 0 0 22px rgba(239, 68, 68, 0.45);
+    }
+    @keyframes halt-glow {
+      from { box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+      to   { box-shadow: 0 0 22px rgba(239, 68, 68, 0.5); }
+    }
     .status-dot {
       width: 6px;
       height: 6px;
@@ -1001,6 +1042,11 @@
           <span>💬</span>
           <span>CHAT LOG (<span id="chat-pill-count">0</span>)</span>
         </button>
+        <!-- Emergency Stop HALT Button (TSK-P5-01) — shown when active -->
+        <button id="halt-btn" onclick="triggerEmergencyStop()" title="Emergency Stop — also press Escape">
+          <span>⏹</span>
+          <span>EMERGENCY STOP</span>
+        </button>
         <div id="status-pill" class="status-pill standby">
           <div class="status-dot"></div>
           <span id="status-text">STANDBY</span>
@@ -1241,7 +1287,7 @@
     const particleCount = 3200;
     let particlePositions, particleVelocities, particleOriginalRadii, particleAngles;
 
-    let jarvisState = 'STANDBY'; // 'STANDBY' | 'LISTENING' | 'THINKING' | 'SPEAKING'
+    let jarvisState = 'STANDBY'; // 'STANDBY' | 'LISTENING' | 'THINKING' | 'SPEAKING' | 'CANCELLING'
     let mouseX = 0, mouseY = 0;
     let targetRotationX = 0, targetRotationY = 0;
     let audioPulseScale = 1.0;
@@ -1591,6 +1637,22 @@
         if (form) form.className = 'directive-form speaking';
         if (bars) bars.className = 'spectrum-bars speaking';
         pulseEqualizer(true);
+      } else if (state === 'CANCELLING') {
+        // Emergency Stop in progress (TSK-P5-01)
+        targetColor.copy(new THREE.Color(0xff6820)); // Amber-orange abort
+        if (text) text.innerText = '⏹ CANCELLING...';
+        if (pill) pill.className = 'status-pill cancelling';
+        if (reticle) reticle.className = 'reticle-ring';
+        if (form) form.className = 'directive-form';
+        if (bars) bars.className = 'spectrum-bars';
+        pulseEqualizer(false);
+      }
+
+      // Show / hide HALT button based on active execution states
+      const haltBtn = document.getElementById('halt-btn');
+      if (haltBtn) {
+        const isActive = (state === 'THINKING' || state === 'SPEAKING' || state === 'CANCELLING');
+        haltBtn.style.display = isActive ? 'flex' : 'none';
       }
     }
 
@@ -2682,7 +2744,70 @@
           }
         });
       }
+
+      // -----------------------------------------------------------------------
+      // Global Emergency Stop — Escape key listener (TSK-P5-01 / AC-GES-02)
+      // -----------------------------------------------------------------------
+      document.addEventListener('keydown', (evt) => {
+        // Escape triggers emergency stop only when an active execution is running
+        if (
+          evt.key === 'Escape' &&
+          !evt.defaultPrevented &&
+          (jarvisState === 'THINKING' || jarvisState === 'SPEAKING')
+        ) {
+          evt.preventDefault();
+          triggerEmergencyStop();
+        }
+      });
     });
+
+    // =========================================================================
+    // GLOBAL EMERGENCY STOP (TSK-P5-01 / AC-GES-02, AC-GES-03)
+    // =========================================================================
+
+    /**
+     * triggerEmergencyStop()
+     *
+     * 1. Immediately transitions the HUD to the amber CANCELLING state.
+     * 2. Cancels browser-side TTS speech synthesis.
+     * 3. POSTs to /api/execution/cancel with context_id "active".
+     * 4. After 1.5 s returns the HUD to STANDBY with a spoken acknowledgment.
+     *
+     * The function is idempotent: calling it while already in CANCELLING is a
+     * no-op so rapid double-presses do not loop.
+     */
+    async function triggerEmergencyStop() {
+      if (jarvisState === 'CANCELLING') return;
+
+      // Immediately update the visual HUD
+      setJarvisState('CANCELLING');
+      setSubtitle('⏹ Emergency stop initiated. Terminating active execution...', 'cancelling');
+
+      // Cancel browser speech synthesis instantly
+      try {
+        if (window.speechSynthesis && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
+          window.speechSynthesis.cancel();
+        }
+      } catch (_) { /* best effort */ }
+
+      // Signal the backend
+      try {
+        await fetch('/api/execution/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ context_id: 'active' }),
+        });
+      } catch (_) {
+        // Network error or no active context — still safe to reset HUD
+      }
+
+      // Return to STANDBY after 1.5 s
+      setTimeout(() => {
+        setJarvisState('STANDBY');
+        setSubtitle('Directive aborted cleanly by operator.', 'standby');
+      }, 1500);
+    }
   </script>
 </body>
 </html>

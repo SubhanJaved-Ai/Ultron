@@ -52,6 +52,19 @@ class _BrowserSession:
             self._playwright.stop()
         self._playwright = self._browser = self._page = None
 
+    def close_on_cancel(self) -> None:
+        """Emergency-stop hook: close the browser session immediately.
+
+        Called by the Global Emergency Stop (TSK-P5-01) when a cancellation
+        token is set.  Uses a best-effort try/except so that a Playwright
+        exception never masks the cancellation signal to higher layers.
+        """
+        try:
+            self.close()
+        except Exception:
+            # Forcefully null out references so subsequent page access fails fast
+            self._playwright = self._browser = self._page = None
+
 
 _session = _BrowserSession()
 

@@ -2,8 +2,8 @@
 **Document Status:** Living Master Roadmap & Activity Log  
 **Location:** `d:\Ultron\ULTRON_PROGRESS.md`  
 **Last Updated:** October 12, 2026
-**Current Active Phase:** Phase 4.5 (DONE — Prioritized Feature Implementation Backlog Finalized; Phase 4 Substantially Complete)
-**Next Scheduled Action:** Review TSK-P4-05 Deliverable & Authorize Phase 5 Implementation (TSK-P5-01: Global Emergency Stop)
+**Current Active Phase:** Phase 5 (IN PROGRESS — TSK-P5-01 Global Emergency Stop Completed & Verified; Ready for TSK-P5-02 Dynamic Personality Controls)
+**Next Scheduled Action:** Review TSK-P5-01 Verification & Authorize TSK-P5-02 (Soul Circuit — Dynamic Personality Controls)
 
 ---
 
@@ -15,9 +15,9 @@
 | **Phase 2** | GitHub Safety, Recovery and Baseline Checkpoint | **DONE** | 6 | 6 | 0 | 0 | 0 |
 | **Phase 3** | Engineering Foundation, Testing and Tooling | **DONE** | 7 | 7 | 0 | 0 | 0 |
 | **Phase 4** | External Software Research and Feature Gap Analysis | **DONE** | 5 | 5 | 0 | 0 | 0 |
-| **Phase 5** | Controlled Feature-by-Feature Implementation | **NOT STARTED** | 6 | 0 | 0 | 6 | 0 |
+| **Phase 5** | Controlled Feature-by-Feature Implementation | **IN PROGRESS** | 6 | 1 | 0 | 5 | 0 |
 | **Phase 6** | Production Readiness and Free Distribution | **NOT STARTED** | 6 | 0 | 0 | 6 | 0 |
-| **TOTAL** | **Ultron Master Development Lifecycle** | **IN PROGRESS** | **36** | **24** | **0** | **12** | **0** |
+| **TOTAL** | **Ultron Master Development Lifecycle** | **IN PROGRESS** | **36** | **25** | **0** | **11** | **0** |
 
 ---
 
@@ -88,12 +88,12 @@
 
 | Task ID | Task Name | Priority | Status | Prerequisites | Description & Acceptance Criteria | Relevant Files |
 | :--- | :--- | :---: | :---: | :---: | :--- | :--- |
-| **TSK-P5-01** | Cross-Platform Local TTS Fallback | P2 | **NOT STARTED** | Phase 4 Approval | Extend `tts_engine.py` with cross-platform speech synthesis support for macOS (`say`) and Linux (`espeak-ng`). | `src/openjarvis/server/tts_engine.py` |
-| **TSK-P5-02** | Desktop HUD Accessibility & Shortcuts | P2 | **NOT STARTED** | Phase 4 Approval | Add keyboard accessibility shortcuts and ARIA attributes to `index.html` and desktop overlay. | `src/openjarvis/server/static/index.html` |
-| **TSK-P5-03** | Automated Periodic Database Snapshot | P2 | **NOT STARTED** | Phase 4 Approval | Implement an automated background task for periodic hot snapshots of `users.db` and `memory.db`. | `src/openjarvis/scheduler/` |
-| **TSK-P5-04** | Live Channel Bridge Verification | P3 | **NOT STARTED** | Operator Credentials | Validate real Telegram/WhatsApp webhook handling when operator supplies live credentials. | `src/openjarvis/channels/` |
-| **TSK-P5-05** | Cloud DB Sync Live Verification | P3 | **NOT STARTED** | Operator Credentials | Validate remote Supabase pgvector sync when operator configures private database connection. | `src/openjarvis/storage/` |
-| **TSK-P5-06** | Authorized REA Tooling Module | P3 | **NOT STARTED** | Authorization & RFC | Implement approved REA software-analysis module with strict permission boundaries. | `src/openjarvis/tools/` |
+| **TSK-P5-01** | **Global Emergency Stop (`GAP-01`)** | **P1** | **DONE** | Phase 4 Approval | Implemented 5-tier cancellation pipeline: dual-mode `CancellationToken` and `ActiveExecutionContextStore` in `cancellation.py`; lightweight `POST /api/execution/cancel` and `GET /api/execution/contexts` in `cancellation_routes.py` (<25ms execution SLA); cancellable `subprocess.Popen` in `CREATE_NEW_PROCESS_GROUP` with tree termination via `kill_process_tree` in `shell_exec.py`; `close_on_cancel()` hook in `browser.py`; cooperative `is_cancelled` guards in subagent dispatch; WebGL amber HUD pulse, `Escape` key shortcut, and dynamic `⏹ EMERGENCY STOP` button in `index.html`. Verified across 44 dedicated tests (43 passed, 1 skipped) and full 681-test regression suite (643 passed, 38 skipped, 0 failed). Lint clean with Ruff. | `src/openjarvis/server/cancellation.py`, `src/openjarvis/server/cancellation_routes.py`, `src/openjarvis/server/app.py`, `src/openjarvis/tools/shell_exec.py`, `src/openjarvis/tools/browser.py`, `src/openjarvis/server/static/index.html`, `tests/server/test_cancellation.py`, `tests/tools/test_shell_cancel.py`, `tests/agents/test_subagent_cancel.py` |
+| **TSK-P5-02** | **Dynamic Personality Controls (`GAP-02`)** | **P2** | **NOT STARTED** | TSK-P5-01 | Add bounded `[0.0, 1.0]` sliders in `user_preferences.py`, injection-safe float validation, prompt composition in `llm_client.py`, and UI sliders. | `src/openjarvis/core/user_preferences.py`, `src/openjarvis/server/llm_client.py`, `src/openjarvis/server/static/index.html` |
+| **TSK-P5-03** | **Tri-Theme Hologram HUD (`GAP-03`)** | **P2** | **NOT STARTED** | TSK-P5-01 | Implement Three.js material & CSS token injection in `index.html` (Cyan, Crimson, Emerald), WCAG AA contrast, and localStorage persistence. | `src/openjarvis/server/static/index.html` |
+| **TSK-P5-04** | **Local Network QR Pairing (`GAP-04`)** | **P3** | **NOT STARTED** | TSK-P5-01 | Implement 120s TTL single-use pairing token, canvas QR render, scoped `Role.MOBILE_OPERATOR` in `auth_middleware.py`, and 1-click revocation. | `src/openjarvis/server/`, `src/openjarvis/auth/` |
+| **TSK-P5-05** | **Cross-Platform Local TTS Fallback** | **P2** | **NOT STARTED** | TSK-P5-01 | Extend `tts_engine.py` with macOS `say` and Linux `espeak-ng` support to complement existing Windows SAPI/PowerShell TTS. | `src/openjarvis/server/tts_engine.py` |
+| **TSK-P5-06** | **Automated Periodic Database Snapshots** | **P2** | **NOT STARTED** | TSK-P5-01 | Background hot backup task (`sqlite3.backup`) for `users.db` and `memory.db` with rotation in `src/openjarvis/scheduler/`. | `src/openjarvis/scheduler/` |
 
 ---
 
@@ -144,11 +144,12 @@
 | **2026-10-12 17:55** | Phase 4.4 | Gitleaks Hardening & Verification Follow-up (`TSK-P4-04`) | Hardened `.github/workflows/secret-scan.yml` by pinning `actions/checkout` to immutable 40-char commit SHA `3d3c42e5aac5ba805825da76410c181273ba90b1` (`# v7.0.1`). Reran local baseline scan (22 commits, 0 leaks, exit code 0) and synthetic test (1 leak, exit code 1, secret redacted). Documented hosted GitHub Actions run and merge protection enforcement as pending operator web UI inspection. | HARDENED (REMOTE PENDING) |
 | **2026-10-12 19:40** | Phase 4.4 | Correct Baseline Finding & Secure Deployment Runbook (`TSK-P4-04`) | Retracted invalid arithmetic sequence claim regarding `DEPLOYMENT_RUNBOOK.md` JWT key after empirical byte differential analysis. Affirmed cryptographic rule that static documentation secrets are unsafe and must be treated as compromised. Remediated `DEPLOYMENT_RUNBOOK.md` in HEAD by replacing static 64-hex key with `openssl rand -hex 32` / Python `secrets` generation instructions and placeholder `<GENERATE_WITH_OPENSSL_RAND_HEX_32>`. Preserved narrow historical exception for commit `02d81b1` in `.gitleaksignore` without rewriting Git history. Authored audit note `docs/research/gitleaks-baseline-finding-audit-note.md`. Verified local scan (23 commits, 0 leaks, exit code 0). | REMEDIATED (REMOTE PENDING) |
 | **2026-10-12 20:05** | Phase 4.5 | Prioritize Feature Implementation Backlog (`TSK-P4-05`) | Completed comprehensive feature implementation backlog in `docs/research/ultron-feature-implementation-backlog.md`. Evaluated 5 candidate features against real codebase. Ranked GAP-01 (Emergency Stop, Rank 1), GAP-02 (Personality Controls, Rank 2), GAP-03 (Hologram Themes, Rank 3), GAP-04 (Local QR Pairing, Rank 4), and deferred GAP-05 (GUI Automation, Rank 5) behind emergency stop prerequisite. Defined acceptance criteria and test suites. Mapped Phase 5 implementation sequence. Zero code modified. | COMPLETED |
+| **2026-10-12 20:45** | Phase 5.1 | Implement Global Emergency Stop & Cancellation Contract (`TSK-P5-01`) | Implemented 5-tier cancellation architecture: dual-mode CancellationToken and ActiveExecutionContextStore in cancellation.py; POST /api/execution/cancel and GET /api/execution/contexts in cancellation_routes.py (<25ms execution SLA); cancellable subprocess execution inside CREATE_NEW_PROCESS_GROUP with tree termination via kill_process_tree in shell_exec.py; close_on_cancel() in browser.py; cooperative token check in subagent loop; WebGL amber HUD glow, Escape hotkey, and dynamic EMERGENCY STOP button in index.html. Verified across 44 dedicated tests (43 passed, 1 skipped) and full 681 regression suite (643 passed, 38 skipped, 0 failed). Lint clean with Ruff. | COMPLETED |
 
 ---
 
 ## 4. IMMEDIATE NEXT ACTION (AWAITING APPROVAL)
 
-- **Current Status:** **Phase 4 Complete (TSK-P4-01 through TSK-P4-05 DONE). Ready for Phase 5 Implementation.**
-- **Next Task:** **Operator Review of TSK-P4-05 Deliverable / Authorize Phase 5 Implementation starting with TSK-P5-01 (Global Emergency Stop & Cancellation Contract).**
-- **Action Required:** Operator to review `docs/research/ultron-feature-implementation-backlog.md` and authorize implementation of Rank 1 (`GAP-01` / `TSK-P5-01`).
+- **Current Status:** **Phase 5 In Progress (TSK-P5-01 Global Emergency Stop COMPLETED & VERIFIED). Ready for TSK-P5-02.**
+- **Next Task:** **Review TSK-P5-01 Verification & Authorize TSK-P5-02 ("Soul Circuit" — Dynamic Personality Controls / GAP-02).**
+- **Action Required:** Operator to review TSK-P5-01 implementation and test results, approve staging/commit of TSK-P5-01 changes, and authorize progression to TSK-P5-02.

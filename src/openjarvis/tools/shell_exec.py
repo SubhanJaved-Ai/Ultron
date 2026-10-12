@@ -1,11 +1,24 @@
-"""Shell execution tool — run shell commands with security constraints."""
+"""Shell execution tool — run shell commands with security constraints.
+
+Changes from baseline (TSK-P5-01 — Global Emergency Stop):
+- The subprocess path now uses ``subprocess.Popen`` (instead of
+  ``subprocess.run``) with ``CREATE_NEW_PROCESS_GROUP`` on Windows /
+  ``os.setsid`` on POSIX, so the process tree can be killed cleanly.
+- Accepts an optional ``cancellation_token`` keyword argument (a
+  ``CancellationToken`` from ``openjarvis.server.cancellation``).  When the
+  token is set the process tree is terminated immediately via
+  ``kill_process_tree`` from ``subprocess_sandbox``.
+- The ``execute`` method now polls the cancellation token during output
+  collection and aborts if signalled.
+"""
 
 from __future__ import annotations
 
 import os
 import subprocess
+import threading
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Optional
 
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
@@ -46,6 +59,121 @@ _WINDOWS_ENV_KEYS = (
     "APPDATA",
 )
 _BASE_ENV_KEYS = _PORTABLE_ENV_KEYS + (_WINDOWS_ENV_KEYS if os.name == "nt" else ())
+
+# Poll interval (seconds) when waiting for Popen to finish
+_POLL_INTERVAL = 0.1
+
+
+def _run_subprocess_cancellable(
+    command: str,
+    *,
+    timeout: int,
+    working_dir: Optional[str],
+    env: dict[str, str],
+    cancellation_token: Any = None,
+) -> tuple[int, str, str, bool]:
+    """Run *command* in a new process group; abort early if cancellation is signalled.
+
+    Returns:
+        (returncode, stdout, stderr, was_cancelled)
+    """
+    popen_kwargs: dict[str, Any] = {
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "shell": True,  # nosec B602
+        "cwd": working_dir,
+        "env": env,
+    }
+    if os.name == "nt":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    elif hasattr(os, "setsid"):
+        popen_kwargs["preexec_fn"] = os.setsid
+
+    proc = subprocess.Popen(command, **popen_kwargs)  # nosec B602
+
+    # Collect output in background threads so we can poll for cancellation
+    stdout_chunks: list[str] = []
+    stderr_chunks: list[str] = []
+
+    def _read_stdout() -> None:
+        if proc.stdout:
+            for chunk in iter(lambda: proc.stdout.read(4096), ""):
+                stdout_chunks.append(chunk)
+
+    def _read_stderr() -> None:
+        if proc.stderr:
+            for chunk in iter(lambda: proc.stderr.read(4096), ""):
+                stderr_chunks.append(chunk)
+
+    t_out = threading.Thread(target=_read_stdout, daemon=True)
+    t_err = threading.Thread(target=_read_stderr, daemon=True)
+    t_out.start()
+    t_err.start()
+
+    deadline = None
+    if timeout and timeout > 0:
+        import time
+
+        deadline = time.monotonic() + timeout
+
+    import time as _time
+
+    while True:
+        # Check cancellation token first
+        if cancellation_token is not None and getattr(
+            cancellation_token, "is_cancelled", False
+        ):
+            _kill_tree(proc.pid)
+            t_out.join(timeout=1)
+            t_err.join(timeout=1)
+            return (
+                -1,
+                "".join(stdout_chunks)[:_MAX_OUTPUT_BYTES],
+                "".join(stderr_chunks)[:_MAX_OUTPUT_BYTES],
+                True,
+            )
+
+        # Check timeout
+        if deadline is not None and _time.monotonic() > deadline:
+            _kill_tree(proc.pid)
+            t_out.join(timeout=1)
+            t_err.join(timeout=1)
+            return (
+                -1,
+                "(timed out)",
+                "",
+                False,
+            )
+
+        rc = proc.poll()
+        if rc is not None:
+            t_out.join(timeout=2)
+            t_err.join(timeout=2)
+            return (
+                rc,
+                "".join(stdout_chunks)[:_MAX_OUTPUT_BYTES],
+                "".join(stderr_chunks)[:_MAX_OUTPUT_BYTES],
+                False,
+            )
+
+        _time.sleep(_POLL_INTERVAL)
+
+
+def _kill_tree(pid: int) -> None:
+    """Kill process tree via subprocess_sandbox utility (best effort)."""
+    try:
+        from openjarvis.security.subprocess_sandbox import kill_process_tree
+
+        kill_process_tree(pid)
+    except Exception:
+        # Last-resort fallback
+        try:
+            import signal
+
+            os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+        except Exception:
+            pass
 
 
 @ToolRegistry.register("shell_exec")
@@ -147,6 +275,9 @@ class ShellExecTool(BaseTool):
             if val is not None:
                 env[key] = val
 
+        # Optional cancellation token passed by the orchestrator
+        cancellation_token = params.get("cancellation_token")
+
         try:
             from openjarvis._rust_bridge import get_rust_module
 
@@ -163,7 +294,7 @@ class ShellExecTool(BaseTool):
                 },
             )
         except ImportError:
-            pass  # Fall through to subprocess below
+            pass  # Fall through to Popen path below
         except Exception as exc:
             return ToolResult(
                 tool_name="shell_exec",
@@ -175,27 +306,15 @@ class ShellExecTool(BaseTool):
                     "working_dir": working_dir,
                 },
             )
+
+        # --- Cancellable Popen path (TSK-P5-01) ---
         try:
-            result = subprocess.run(
+            returncode, stdout, stderr, was_cancelled = _run_subprocess_cancellable(
                 command,
-                # This tool executes shell commands after its confirmation gate.
-                shell=True,  # nosec B602
-                capture_output=True,
-                text=True,
                 timeout=timeout,
-                cwd=working_dir,
+                working_dir=working_dir,
                 env=env,
-            )
-        except subprocess.TimeoutExpired:
-            return ToolResult(
-                tool_name="shell_exec",
-                content=f"Command timed out after {timeout} seconds.",
-                success=False,
-                metadata={
-                    "returncode": -1,
-                    "timeout_used": timeout,
-                    "working_dir": working_dir,
-                },
+                cancellation_token=cancellation_token,
             )
         except PermissionError as exc:
             return ToolResult(
@@ -210,9 +329,32 @@ class ShellExecTool(BaseTool):
                 success=False,
             )
 
+        if was_cancelled:
+            return ToolResult(
+                tool_name="shell_exec",
+                content="Command execution was cancelled by operator emergency stop.",
+                success=False,
+                metadata={
+                    "returncode": -1,
+                    "timeout_used": timeout,
+                    "working_dir": working_dir,
+                    "cancelled": True,
+                },
+            )
+
+        if returncode == -1 and stdout == "(timed out)":
+            return ToolResult(
+                tool_name="shell_exec",
+                content=f"Command timed out after {timeout} seconds.",
+                success=False,
+                metadata={
+                    "returncode": -1,
+                    "timeout_used": timeout,
+                    "working_dir": working_dir,
+                },
+            )
+
         # Truncate output if needed
-        stdout = result.stdout
-        stderr = result.stderr
         if len(stdout) > _MAX_OUTPUT_BYTES:
             stdout = stdout[:_MAX_OUTPUT_BYTES] + "\n... (stdout truncated)"
         if len(stderr) > _MAX_OUTPUT_BYTES:
@@ -229,9 +371,9 @@ class ShellExecTool(BaseTool):
         return ToolResult(
             tool_name="shell_exec",
             content=content,
-            success=result.returncode == 0,
+            success=returncode == 0,
             metadata={
-                "returncode": result.returncode,
+                "returncode": returncode,
                 "timeout_used": timeout,
                 "working_dir": working_dir,
             },

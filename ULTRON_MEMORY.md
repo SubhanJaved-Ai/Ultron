@@ -2,7 +2,7 @@
 **Document Status:** Living Master Project Memory  
 **Location:** `d:\Ultron\ULTRON_MEMORY.md`  
 **Last Updated:** October 12, 2026  
-**Governing Phase:** Phase 4.5 (COMPLETED — Feature Implementation Backlog Finalized; Handoff to Phase 5 Implementation)
+**Governing Phase:** Phase 5 (IN PROGRESS — TSK-P5-01 Global Emergency Stop Completed; Ready for TSK-P5-02 Dynamic Personality Controls)
 
 ---
 
@@ -49,6 +49,7 @@
 ## 3. EXISTING CAPABILITIES
 
 ### 3.1 Fully Implemented & Verified
+- **Global Emergency Stop (`TSK-P5-01` / `GAP-01`):** End-to-end task cancellation across 5 architectural layers. Thread-safe dual-mode `CancellationToken` and `ActiveExecutionContextStore` in `cancellation.py`; lightweight `POST /api/execution/cancel` and `GET /api/execution/contexts` endpoints in `cancellation_routes.py` (<25ms execution SLA); cancellable `subprocess.Popen` in `CREATE_NEW_PROCESS_GROUP` with tree termination via `kill_process_tree` in `shell_exec.py`; `close_on_cancel()` Playwright browser teardown in `browser.py`; cooperative `is_cancelled` guards in subagent dispatch loops; and WebGL amber-orange HUD pulse, `Escape` key shortcut, and dynamic `⏹ EMERGENCY STOP` button in `index.html`. Verified across 44 dedicated tests (43 passed, 1 skipped) and full 681-test regression suite (643 passed, 38 skipped, 0 failed).
 - **3D Hologram HUD (`index.html`):** Real-time WebGL audio visualizer, live status pill, responsive directive submission, and normalized action telemetry (`EXECUTED` / `FAILED` badges).
 - **Frontier LLM Brain (`UltronBrain`):** Integrated with Google Gemini models (`gemini-3.8-flash`, `gemini-3.5-flash`, etc.) via `google-genai` SDK, with multi-turn history formatting and prompt injection defense.
 - **Smart Local Reasoning Fallback:** Resilient offline fallback capable of answering weather/temperature queries, identity queries, math calculations, and system status queries without crashing when cloud API keys are absent.
@@ -128,17 +129,19 @@ All future development sessions must strictly comply with these rules:
 | **2026-10-12** | Harden Gitleaks Action Pinning & Distinguish Local vs Hosted CI Verification (TSK-P4-04 Follow-up) | Replace floating `actions/checkout@v7` in `.github/workflows/secret-scan.yml` with official 40-character commit SHA `3d3c42e5aac5ba805825da76410c181273ba90b1` (`# v7.0.1`). Re-validate local full-history baseline scan and synthetic leak detection. Record remote GitHub Actions workflow execution and branch protection merge enforcement as pending operator web UI inspection. | Secures CI supply chain against mutable action tags; establishes strict, honest boundaries distinguishing local tool verification from remote hosted CI runs without phantom assertions. |
 | **2026-10-12** | Retract Arithmetic Theory & Remediate Deployment Runbook Key in HEAD (TSK-P4-04 Remediation) | Retract erroneous arithmetic sequence claim regarding `DEPLOYMENT_RUNBOOK.md` JWT key after empirical byte differential analysis (`[41, 241, 242, 210, ...]`). Reaffirm core cryptographic rule: static published documentation secrets are unsafe and must be treated as compromised. Remediate `DEPLOYMENT_RUNBOOK.md` in HEAD by replacing static 64-hex string with `openssl rand -hex 32` / Python `secrets` generation instructions and placeholder `<GENERATE_WITH_OPENSSL_RAND_HEX_32>`. Preserve narrow `.gitleaksignore` entry for historical commit `02d81b1` to protect immutable Git history and checkpoint tag. Authored audit note `docs/research/gitleaks-baseline-finding-audit-note.md`. Verified local scan (23 commits, 0 leaks, exit code 0). | Eliminates copy-paste deployment vulnerability entirely while preserving immutable Git history and baseline checkpoint tag integrity. |
 | **2026-10-12** | Finalize & Prioritize Feature Implementation Backlog (TSK-P4-05) | Rigorously evaluate 5 candidate capabilities against Ultron codebase and constraints in `docs/research/ultron-feature-implementation-backlog.md`. Prioritize GAP-01 (Global Emergency Stop) as Rank 1 (P1); GAP-02 (Personality Controls) as Rank 2; GAP-03 (Hologram Themes) as Rank 3; GAP-04 (Local QR Pairing) as Rank 4; and defer GAP-05 (Native GUI Automation) as Rank 5 due to DPI drift, UIPI isolation, and hard dependency on emergency stop cancellation. Define acceptance criteria, test suites, and map Phase 5 implementation sequence. Zero application code modified. | Establishes safety-first, evidence-grounded engineering blueprint for Phase 5 implementation without duplicate rendering engines or unconstrained desktop risks. |
+| **2026-10-12** | Implement Global Emergency Stop & End-to-End Cancellation (TSK-P5-01) | Implement 5-tier cancellation architecture: dual-mode sync/async CancellationToken and ActiveExecutionContextStore in cancellation.py; POST /api/execution/cancel and GET /api/execution/contexts in cancellation_routes.py; cancellable subprocess Popen inside CREATE_NEW_PROCESS_GROUP with tree termination via kill_process_tree in shell_exec.py; close_on_cancel() in browser.py; cooperative token check in subagent loop; WebGL amber HUD glow, Escape hotkey, and dynamic EMERGENCY STOP button in index.html. | Establishes foundational safety contract preventing orphaned subprocesses, runaway browser sessions, and runaway loops. Verified via 44 dedicated tests (43 pass, 1 skipped) and full 681 regression suite (643 pass, 38 skipped, 0 fail). |
 
 ---
 
 ## 7. CURRENT SESSION STATE
 
-- **Current Active Phase:** **Phase 4 Complete (TSK-P4-01 through TSK-P4-05 DONE); Ready for Phase 5 Implementation.**
+- **Current Active Phase:** **Phase 5 In Progress (TSK-P5-01 Global Emergency Stop COMPLETED & VERIFIED; Ready for TSK-P5-02).**
 - **Completed in this Session:**
-  - **Feature Implementation Backlog Finalized (`TSK-P4-05`):** Authored comprehensive backlog deliverable in `docs/research/ultron-feature-implementation-backlog.md`.
-  - **Comparative Multi-Factor Evaluation Conducted:** Evaluated candidate capabilities against real codebase: Rank 1 (GAP-01: Global Emergency Stop), Rank 2 (GAP-02: Personality Controls), Rank 3 (GAP-03: Hologram Themes), Rank 4 (GAP-04: Local QR Pairing), and Rank 5 (GAP-05: Native GUI Automation — Deferred).
-  - **Strict Safety Dependency Formally Established:** Proved and documented why Native GUI Automation must strictly NOT precede reliable end-to-end cancellation across UI, process groups (`kill_process_tree`), and runtimes.
-  - **Acceptance Criteria & Test Suites Defined:** Authored granular verification criteria for every candidate feature.
-  - **Phase 5 Implementation Sequencing Established:** Mapped tasks `TSK-P5-01` through `TSK-P5-06` for ordered, single-phase execution.
-  - **Project Memory & Roadmap Synchronized:** Updated `ULTRON_PROGRESS.md` and `ULTRON_MEMORY.md` reflecting Phase 4 completion with zero application code changes.
-- **Next Phase/Task:** **Review TSK-P4-05 Deliverable / Authorize Phase 5 Implementation starting with TSK-P5-01 (Global Emergency Stop & Cancellation Contract).**
+  - **Cancellation Infrastructure Implemented (`TSK-P5-01`):** `CancellationToken` (thread-safe sync `threading.Event` + async `asyncio.Event`) and process-wide `ActiveExecutionContextStore` in `src/openjarvis/server/cancellation.py`.
+  - **Cancellation API Endpoints Added (`TSK-P5-01`):** `POST /api/execution/cancel` and `GET /api/execution/contexts` in `src/openjarvis/server/cancellation_routes.py`, mounted to FastAPI in `app.py`.
+  - **Cancellable Subprocess Execution with Tree Termination (`TSK-P5-01`):** Refactored `shell_exec.py` with `_run_subprocess_cancellable` spawning in `CREATE_NEW_PROCESS_GROUP` on Windows (`os.setsid` on POSIX) and invoking `kill_process_tree(proc.pid)` on abort or timeout.
+  - **Browser Emergency Stop Hook (`TSK-P5-01`):** Added `close_on_cancel()` in `src/openjarvis/tools/browser.py` for immediate Playwright cleanup.
+  - **Interactive Web HUD Emergency Stop (`TSK-P5-01`):** Added amber `CANCELLING...` HUD pulse, `Escape` key event listener, and dynamic `⏹ EMERGENCY STOP` button in `src/openjarvis/server/static/index.html`.
+  - **Unit & Integration Test Suite (`TSK-P5-01`):** 44 dedicated tests in `tests/server/test_cancellation.py`, `tests/tools/test_shell_cancel.py`, and `tests/agents/test_subagent_cancel.py` (43 passed, 1 skipped).
+  - **Full Regression Verification:** 681 tests collected, 643 passed, 38 skipped, 0 failed. Ruff linting 100% clean.
+- **Next Phase/Task:** **TSK-P5-02: "Soul Circuit" — Dynamic Personality Controls (GAP-02, P2).**

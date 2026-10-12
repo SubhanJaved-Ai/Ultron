@@ -115,22 +115,22 @@ All future development sessions must strictly comply with these rules:
 | **2026-10-12** | Complete Phase 3A Engineering & Tooling Baseline Audit | Establish empirical evidence baseline across CI workflows, test suites, technical debt, and developer tooling. | 9,175 tests collected; 19 auth + 34 hologram tests verified; 8/8 staging rehearsal passed; Ruff F811 and path debt confirmed. Prioritized implementation plan established. |
 | **2026-10-12** | Remediate TraceStore.close() Duplicate Definition | Consolidate TraceStore.close() in public methods with robust connection teardown; remove F811 duplicate. | `ruff check src/` passes with 0 errors; 62 trace tests pass. |
 | **2026-10-12** | Remediate Hardcoded LLM Client Path | Replace developer-specific Path("d:/Jarvis 2.0/.env") with portable resolution (process env, source root, OPENJARVIS_WORKSPACE, and get_config_dir()). | Eliminates machine coupling; 10/10 regression tests pass; ruff check src/ clean. |
+| **2026-10-12** | Reconcile Virtual Environment Editable Installation | Reinstall OpenJarvis editable package with --no-deps to point directly to D:\Ultron\src instead of historical junction. | Eliminates junction coupling; external imports resolve directly to D:\Ultron\src. |
 
 ---
 
 ## 7. CURRENT SESSION STATE
 
-- **Current Active Phase:** **Phase 3B.2: Remediate Hardcoded LLM Client Environment Path** (COMPLETED & VERIFIED).
+- **Current Active Phase:** **Phase 3B.3: Reconcile Virtual Environment Editable Installation** (COMPLETED & VERIFIED).
 - **Completed in this Session:**
-  - **TSK-P3-03 Remediated & Verified:**
-    - Root cause: Historical path `Path("d:/Jarvis 2.0/.env")` tied configuration to original development directory on local Windows drive.
-    - Solution: Replaced with multi-tier portable resolution in `src/openjarvis/server/llm_client.py`:
-      1. Process environment variables (`GEMINI_API_KEY` / `GOOGLE_API_KEY`) have highest precedence.
-      2. Workspace / Source checkout `.env` dynamically resolved via `_find_source_root()` from `openjarvis.core.paths` or `OPENJARVIS_WORKSPACE`.
-      3. User config directory fallback (`~/.openjarvis/cloud-keys.env` and `~/.openjarvis/.env`).
-      4. Safe fallback: missing files never crash application startup; `UltronBrain` falls back to smart local reasoning.
-    - Exported `find_source_root` in `src/openjarvis/core/paths.py`.
-    - Added comprehensive regression test suite in `tests/server/test_llm_client.py` (10 tests, 100% pass).
-    - Verified `ruff check src/` clean (0 errors).
-    - Verified `pytest tests/server/test_hologram.py` passes (24/24 passed).
-- **Next Phase/Task:** **TSK-P3-04: Reconcile Virtual Environment Editable Pointer (`.venv/Lib/site-packages/_editable_impl_openjarvis.pth`).**
+  - **TSK-P3-04 Remediated & Verified:**
+    - Confirmed issue: `.venv/Lib/site-packages/_editable_impl_openjarvis.pth` contained `D:\Jarvis 2.0\src` and `direct_url.json` contained `file:///D:/Jarvis%202.0`. External imports loaded through the `D:\Jarvis 2.0` directory junction.
+    - Packaging Backend: Project uses `hatchling.build` as configured in `pyproject.toml`.
+    - Safe Execution: Ran `pip3 install -e . --no-deps` from `D:\Ultron` without altering any third-party dependencies.
+    - Verification:
+      - `_editable_impl_openjarvis.pth` updated to `D:\Ultron\src`.
+      - `direct_url.json` updated to `{"dir_info": {"editable": true}, "url": "file:///D:/Ultron"}`.
+      - External import test (`python -c "import openjarvis; print(openjarvis.__file__)"` from `C:\Users\DELL`) resolves directly to `D:\Ultron\src\openjarvis\__init__.py`.
+      - `pip3 check` confirmed zero broken requirements.
+      - 27 regression tests passed (10 `test_llm_client.py` + 17 `test_store.py`).
+- **Next Phase/Task:** **TSK-P3-05: Install & Verify Frontend Dependencies (`frontend/` package-lock.json).**

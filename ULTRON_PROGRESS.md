@@ -61,7 +61,7 @@
 | **TSK-P3-01** | Audit Existing CI Workflows | P2 | **DONE** | Phase 2 Checkpoint | Audited all 13 GitHub Actions workflows in `.github/workflows/`, `pyproject.toml`, `frontend/package.json`, and `Cargo.toml`. Documented triggers, coverage, and operational gaps. | `.github/workflows/` |
 | **TSK-P3-02** | Remediate TraceStore Duplicate Method | P1 | **DONE** | Phase 2 Checkpoint | Consolidated `close()` in `store.py:296-304` using robust connection teardown; removed redundant definition at line 348. Verified `ruff check src/` passes (0 errors). Added `test_close_idempotent` in `tests/traces/test_store.py` (62/62 passed). | `src/openjarvis/traces/store.py` |
 | **TSK-P3-03** | Remediate Hardcoded LLM Client Path | P1 | **DONE** | Phase 2 Checkpoint | Replaced hardcoded `Path("d:/Jarvis 2.0/.env")` in `llm_client.py` with portable resolution: process env precedence, dynamic source checkout root (`_find_source_root`), `OPENJARVIS_WORKSPACE`, and `get_config_dir()`. Added `tests/server/test_llm_client.py` (10/10 passed). | `src/openjarvis/server/llm_client.py` |
-| **TSK-P3-04** | Reconcile Virtual Environment Link | P2 | **NOT STARTED** | Phase 2 Checkpoint | Update `.venv` editable pointer so it references `d:\Ultron\src` directly rather than the `D:\Jarvis 2.0` junction. | `.venv/Lib/site-packages/` |
+| **TSK-P3-04** | Reconcile Virtual Environment Link | P2 | **DONE** | Phase 2 Checkpoint | Reconciled `.venv` editable installation from `D:\Jarvis 2.0\src` to `D:\Ultron\src` via `pip3 install -e . --no-deps`. Verified `_editable_impl_openjarvis.pth` points directly to `D:\Ultron\src` and external import resolves to active repo. | `.venv/Lib/site-packages/` |
 | **TSK-P3-05** | Install & Verify Frontend Dependencies | P2 | **NOT STARTED** | User Approval | Run `npm ci` in `frontend/` after authorization; execute `npx tsc --noEmit` and `npm test` (Vitest) to verify desktop UI build. | `frontend/` |
 | **TSK-P3-06** | Evaluate External Engineering Tools | P3 | **NOT STARTED** | TSK-P3-01 | Assess suitability, privacy, and free-tier limitations of Greptile (code review), TestSprite (AI testing), and Site24x7. Do not install unapproved tools. | Tooling evaluation |
 | **TSK-P3-07** | Assess REA Integration Architecture | P3 | **NOT STARTED** | TSK-P3-01 | Evaluate design for integrating Reverse Engineer Anything (REA) via MCP server or CLI module without violating software licenses. | Architecture RFC |
@@ -132,11 +132,12 @@
 | **2026-10-12 05:25** | Phase 3A | Engineering Foundation, Testing & Tooling Audit | Audited all 13 CI workflows, pyproject.toml, package.json, Cargo.toml. Collected 9,175 tests. Executed 19 auth/tenant + 34 hologram tests (100% pass). Executed staging rehearsal (8/8 pass). Verified Ruff errors (1 in src/ F811, 5 in tests/). Verified LLM path, .venv pointer, frontend dependencies, and evaluated Greptile, TestSprite, Site24x7, Sentry/PostHog, and REA. Prioritized backlog created. | COMPLETED |
 | **2026-10-12 05:45** | Phase 3B.1 | Remediate TraceStore Duplicate close() Method | Consolidated TraceStore.close() in store.py. Removed F811 duplicate. ruff check src/ passes (0 errors). Added test_close_idempotent in test_store.py; all 62 trace tests passed. | COMPLETED |
 | **2026-10-12 06:15** | Phase 3B.2 | Remediate Hardcoded LLM Client Environment Path | Replaced developer-specific path with portable resolution in llm_client.py and exported find_source_root in paths.py. Added tests/server/test_llm_client.py (10/10 passed). Verified ruff check src/ clean. Verified test_hologram.py (24/24 passed). | COMPLETED |
+| **2026-10-12 06:35** | Phase 3B.3 | Reconcile Virtual Environment Editable Installation | Reinstalled OpenJarvis editable package with --no-deps. _editable_impl_openjarvis.pth updated to D:\Ultron\src. Verified external import resolves to D:\Ultron\src. pip check clean. 27/27 regression tests passed. | COMPLETED |
 
 ---
 
 ## 4. IMMEDIATE NEXT ACTION (AWAITING APPROVAL)
 
-- **Current Status:** **Phase 3B.2 Complete (TSK-P3-03 DONE).**
-- **Next Task:** **TSK-P3-04: Reconcile Virtual Environment Editable Pointer (`.venv/Lib/site-packages/_editable_impl_openjarvis.pth`).**
-- **Action Required:** Operator review of Phase 3B.2 commit and authorization to proceed with TSK-P3-04.
+- **Current Status:** **Phase 3B.3 Complete (TSK-P3-04 DONE).**
+- **Next Task:** **TSK-P3-05: Install & Verify Frontend Dependencies (`frontend/` package-lock.json).**
+- **Action Required:** Operator review of Phase 3B.3 commit and authorization to proceed with TSK-P3-05 (`npm ci` in `frontend/`).

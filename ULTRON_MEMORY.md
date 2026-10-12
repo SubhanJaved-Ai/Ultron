@@ -2,7 +2,7 @@
 **Document Status:** Living Master Project Memory  
 **Location:** `d:\Ultron\ULTRON_MEMORY.md`  
 **Last Updated:** October 12, 2026  
-**Governing Phase:** Phase 3B.4 (BLOCKED — Frontend Dependencies EBADENGINE Engine Check)
+**Governing Phase:** Phase 3B.5 (COMPLETED — Frontend Dependencies & Verification Verified)
 
 ---
 
@@ -78,7 +78,7 @@
 | **RISK-02** | **RESOLVED** | `src/openjarvis/server/llm_client.py:30` | Hardcoded historical path `Path("d:/Jarvis 2.0/.env")`. Works locally due to NTFS junction `D:\Jarvis 2.0` -> `D:\Ultron`, but will fail on any other computer. | RESOLVED & VERIFIED in Phase 3B.2 (portable resolution). |
 | **RISK-03** | **RESOLVED** | `src/openjarvis/traces/store.py:348` | Redefinition of `close(self)` (line 297 and line 348) causes Ruff lint failure `F811`. | RESOLVED & VERIFIED in Phase 3B.1 (consolidated method). |
 | **RISK-04** | **RESOLVED** | `.venv/Lib/site-packages/*.pth` | `.venv` has an editable link `_editable_impl_openjarvis.pth` pointing to `D:\Jarvis 2.0\src` via NTFS junction. | RESOLVED & VERIFIED in Phase 3B.3 (re-linked to `D:\Ultron\src`). |
-| **RISK-05** | **BLOCKED** | `frontend/package.json`, `.npmrc` | `npm ci` blocked by `EBADENGINE`: required node `>=22.22`, npm `>=11.19.0 <12`; host environment has node `v24.19.0`, npm `11.17.0`. Enforced by `frontend/.npmrc` (`engine-strict=true`). Lockfile verified valid via dry-run. | Operator resolution required (upgrade npm, run with `--engine-strict=false`, or relax engine range in package.json). |
+| **RISK-05** | **RESOLVED** | `frontend/package.json`, `.npmrc` | `npm ci` previously blocked by host npm `11.17.0` vs engine constraint `>=11.19.0 <12`. Resolved cleanly via project-pinned npm CLI `npm@11.19.0` with userconfig isolation. TypeScript check, Vitest suite (92/92 passed), and Vite production build verified. | RESOLVED & VERIFIED in Phase 3B.5. |
 | **RISK-06** | **LOW** | `deploy/nginx/openjarvis.conf` | Public internet exposure (`0.0.0.0`) lacks TLS termination and edge rate-limiting without reverse proxy. | Enforce loopback binding until production TLS reverse proxy is deployed. |
 
 *Note on Secrets:* Local `.env` contains `GEMINI_API_KEY` and `GOOGLE_API_KEY`. These keys are strictly excluded from source control by `.gitignore` (line 40) and must NEVER be printed, committed, or exposed.
@@ -117,21 +117,21 @@ All future development sessions must strictly comply with these rules:
 | **2026-10-12** | Remediate Hardcoded LLM Client Path | Replace developer-specific Path("d:/Jarvis 2.0/.env") with portable resolution (process env, source root, OPENJARVIS_WORKSPACE, and get_config_dir()). | Eliminates machine coupling; 10/10 regression tests pass; ruff check src/ clean. |
 | **2026-10-12** | Reconcile Virtual Environment Editable Installation | Reinstall OpenJarvis editable package with --no-deps to point directly to D:\Ultron\src instead of historical junction. | Eliminates junction coupling; external imports resolve directly to D:\Ultron\src. |
 | **2026-10-12** | Enforce Safety Protocol on Frontend Engine Mismatch | Rather than applying an uncontrolled bypass or modifying manifests without authorization, preserve exact error details and record TSK-P3-05 as blocked per engineering rules. | Protects lockfile and manifest integrity; presents operator with clean decision options. |
+| **2026-10-12** | Resolve Frontend Toolchain via Project-Pinned npm | Executed clean install and verification using project-pinned npm CLI (npm@11.19.0 via npx with userconfig isolation) without altering machine-wide npm, package.json, package-lock.json, or .npmrc. | Eliminates toolchain blocker safely; satisfies engine constraints; preserves manifest integrity. |
 
 ---
 
 ## 7. CURRENT SESSION STATE
 
-- **Current Active Phase:** **Phase 3B.4: Install & Verify Frontend Dependencies (`frontend/` package-lock.json)** (BLOCKED).
+- **Current Active Phase:** **Phase 3B.5: Resolve Frontend Toolchain Blocker (`TSK-P3-05`)** (COMPLETED & VERIFIED).
 - **Completed in this Session:**
-  - **TSK-P3-05 Preflight, Inspection & Execution Evidence:**
-    - Safety preflight verified: Repository `D:\Ultron`, branch `recovery/checkpoint-phase2-baseline`, HEAD `e03c1c2cfb80405f49658b34c2bf9ca032df7569` matching origin, tag `ultron-phase2-checkpoint-2026-10-12` dereferencing to `64851e2`, remote `main` untouched (`b4f05e2`), working tree clean.
-    - Pre-install inspection: Host Node `v24.19.0` (meets `>=22.22`), host npm `11.17.0` (below `>=11.19.0 <12`), `frontend/.npmrc` contains `engine-strict=true`. `frontend/package-lock.json` present (473 KB, 774 packages).
-    - Authorized `npm ci` executed from `frontend/`: Failed with Exit Code 1 (`EBADENGINE`):
-      `npm error notsup Required: {"node":">=22.22","npm":">=11.19.0 <12"}`
-      `npm error notsup Actual:   {"node":"v24.19.0","npm":"11.17.0"}`
-    - Safe verification without modifying dependencies:
-      - Ran `npm ci --engine-strict=false --dry-run` in `frontend/`: Exit Code 0, verified all 774 packages resolve cleanly without conflicts.
-      - Zero changes made to `package.json` or `package-lock.json`.
-      - Per safety rules, no uncontrolled workaround or manifest editing attempted.
-- **Next Phase/Task:** **TSK-P3-05: Operator Resolution & Resumption.**
+  - **TSK-P3-05 Remediated & Verified:**
+    - Toolchain Execution: Ran `npx --yes npm@11.19.0 --version` in `frontend/`, confirmed exact version output `11.19.0` (exit code 0).
+    - Userconfig Isolation: Overcame parent npm environment inheritance (`allow-scripts=@anthropic-ai/claude-code` from `C:\Users\DELL\.npmrc`) via session `$env:npm_config_userconfig = 'nul'`, preserving strict engine enforcement and manifest rules without editing user or repository files.
+    - Clean Installation: Ran `npx --yes npm@11.19.0 ci` in `frontend/`: exit code 0; 774 packages cleanly installed into `frontend/node_modules/`.
+    - Manifest Integrity: Confirmed `frontend/package.json` and `frontend/package-lock.json` are 100% unmodified.
+    - TypeScript Typecheck: Ran `npx --yes npm@11.19.0 exec -- tsc -b`: exit code 0, clean pass with zero errors.
+    - Vitest Test Suite: Ran `npx --yes npm@11.19.0 test`: exit code 0; 17/17 test files and 92/92 tests passed in 15.26s.
+    - Frontend Production Build: Ran `npx --yes npm@11.19.0 run build`: exit code 0; 3485 modules transformed and bundled in 37.38s.
+    - Build Artifact Cleanup: Removed untracked build outputs and restored static Hologram HUD files, ensuring zero build artifacts are staged.
+- **Next Phase/Task:** **TSK-P3-06: Evaluate External Engineering Tools (Greptile, TestSprite, Site24x7).**

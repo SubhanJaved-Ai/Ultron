@@ -58,8 +58,8 @@
 
 | Task ID | Task Name | Priority | Status | Prerequisites | Description & Acceptance Criteria | Relevant Files |
 | :--- | :--- | :---: | :---: | :---: | :--- | :--- |
-| **TSK-P3-01** | Audit Existing CI Workflows | P2 | **NOT STARTED** | Phase 2 Checkpoint | Inspect all 13 GitHub Actions in `.github/workflows/` (`ci.yml`, `desktop.yml`, `security-sast.yml`, etc.) and document active triggers. | `.github/workflows/` |
-| **TSK-P3-02** | Remediate TraceStore Duplicate Method | P1 | **NOT STARTED** | Phase 2 Checkpoint | Remove redundant `close(self)` at line 297 of `src/openjarvis/traces/store.py` to fix Ruff lint error `F811`. Verify `ruff check` passes. | `src/openjarvis/traces/store.py` |
+| **TSK-P3-01** | Audit Existing CI Workflows | P2 | **DONE** | Phase 2 Checkpoint | Audited all 13 GitHub Actions workflows in `.github/workflows/`, `pyproject.toml`, `frontend/package.json`, and `Cargo.toml`. Documented triggers, coverage, and operational gaps. | `.github/workflows/` |
+| **TSK-P3-02** | Remediate TraceStore Duplicate Method | P1 | **DONE** | Phase 2 Checkpoint | Consolidated `close()` in `store.py:296-304` using robust connection teardown; removed redundant definition at line 348. Verified `ruff check src/` passes (0 errors). Added `test_close_idempotent` in `tests/traces/test_store.py` (62/62 passed). | `src/openjarvis/traces/store.py` |
 | **TSK-P3-03** | Remediate Hardcoded LLM Client Path | P1 | **NOT STARTED** | Phase 2 Checkpoint | Replace hardcoded path `Path("d:/Jarvis 2.0/.env")` in `src/openjarvis/server/llm_client.py:30` with portable path resolution. | `src/openjarvis/server/llm_client.py` |
 | **TSK-P3-04** | Reconcile Virtual Environment Link | P2 | **NOT STARTED** | Phase 2 Checkpoint | Update `.venv` editable pointer so it references `d:\Ultron\src` directly rather than the `D:\Jarvis 2.0` junction. | `.venv/Lib/site-packages/` |
 | **TSK-P3-05** | Install & Verify Frontend Dependencies | P2 | **NOT STARTED** | User Approval | Run `npm ci` in `frontend/` after authorization; execute `npx tsc --noEmit` and `npm test` (Vitest) to verify desktop UI build. | `frontend/` |
@@ -129,11 +129,13 @@
 | **2026-10-12 04:36** | Phase 2 | Checkpoint Commit 1 on Recovery Branch | Created branch `recovery/checkpoint-phase2-baseline` from HEAD `7379e51`. Committed 86 files (71 modified + 15 untracked) at `02d81b17dab80ad35758ec013bcc6c8b599a4bb7`. | COMPLETED |
 | **2026-10-12 04:37** | Phase 2 | Remote Push & Ancestry Verification | Pushed `recovery/checkpoint-phase2-baseline` to `origin`. Read-only verified remote SHA matches `02d81b1`. Verified remote `main` remains untouched. | COMPLETED |
 | **2026-10-12 04:53** | Phase 2 | Checkpoint Tag Finalization | Created annotated tag `ultron-phase2-checkpoint-2026-10-12` on commit `64851e2`. Pushed to GitHub `origin` and verified via `ls-remote` pointing to dereferenced commit `64851e2`. | COMPLETED |
+| **2026-10-12 05:25** | Phase 3A | Engineering Foundation, Testing & Tooling Audit | Audited all 13 CI workflows, pyproject.toml, package.json, Cargo.toml. Collected 9,175 tests. Executed 19 auth/tenant + 34 hologram tests (100% pass). Executed staging rehearsal (8/8 pass). Verified Ruff errors (1 in src/ F811, 5 in tests/). Verified LLM path, .venv pointer, frontend dependencies, and evaluated Greptile, TestSprite, Site24x7, Sentry/PostHog, and REA. Prioritized backlog created. | COMPLETED |
+| **2026-10-12 05:45** | Phase 3B.1 | Remediate TraceStore Duplicate close() Method | Consolidated TraceStore.close() in store.py. Removed F811 duplicate. ruff check src/ passes (0 errors). Added test_close_idempotent in test_store.py; all 62 trace tests passed. | COMPLETED |
 
 ---
 
 ## 4. IMMEDIATE NEXT ACTION (AWAITING APPROVAL)
 
-- **Current Status:** **Phase 2 Complete & Fully Verified.**
-- **Next Phase:** **Phase 3: Engineering Foundation, Testing and Tooling.**
-- **Action Required:** Operator review of Phase 2 recovery checkpoint before authorizing Phase 3 execution.
+- **Current Status:** **Phase 3B.1 Complete (TSK-P3-02 DONE).**
+- **Next Task:** **TSK-P3-03: Remediate Hardcoded LLM Client Path (`src/openjarvis/server/llm_client.py:30`).**
+- **Action Required:** Operator review of Phase 3B.1 commit and authorization to proceed with TSK-P3-03.

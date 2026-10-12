@@ -112,20 +112,22 @@ All future development sessions must strictly comply with these rules:
 | **2026-10-11** | Adopt Six-Phase Controlled Development Roadmap | Ensure disciplined, verifiable progress without uncontrolled code generation or destructive changes. | Phased progression with review gates between phases. |
 | **2026-10-12** | Establish Recovery Checkpoint on Dedicated Branch | Safely preserve all 71 tracked modifications and 15 untracked project files without touching remote `main`. | Checkpoint commit `02d81b17dab80ad35758ec013bcc6c8b599a4bb7` pushed to `origin/recovery/checkpoint-phase2-baseline` and verified. |
 | **2026-10-12** | Finalize Checkpoint Tag ultron-phase2-checkpoint-2026-10-12 | Establish an immutable annotated release tag on verified checkpoint commit `64851e282d96b648f9bbb6864dc029ab88257da0`. | Tag pushed to `origin` and verified via `ls-remote`. Remote `main` 100% untouched. |
+| **2026-10-12** | Complete Phase 3A Engineering & Tooling Baseline Audit | Establish empirical evidence baseline across CI workflows, test suites, technical debt, and developer tooling. | 9,175 tests collected; 19 auth + 34 hologram tests verified; 8/8 staging rehearsal passed; Ruff F811 and path debt confirmed. Prioritized implementation plan established. |
+| **2026-10-12** | Remediate TraceStore.close() Duplicate Definition | Consolidate TraceStore.close() in public methods with robust connection teardown; remove F811 duplicate. | `ruff check src/` passes with 0 errors; 62 trace tests pass. |
 
 ---
 
 ## 7. CURRENT SESSION STATE
 
-- **Current Active Phase:** **Phase 2: GitHub Safety, Recovery and Baseline Checkpoint** (COMPLETED & VERIFIED).
+- **Current Active Phase:** **Phase 3B.1: Remediate TraceStore Duplicate close() Method** (COMPLETED & VERIFIED).
 - **Completed in this Session:**
-  - Resolved commit-SHA discrepancy: verified `b4f05e244093c8340d877eeb0c969562725ad5aa` was an earlier text transcription artifact; actual local tracking and parent SHA is `b4f05e2562798d3b09ad3a624ef84e2bc1a5d9d3`, matching live remote `origin/main` 100%.
-  - Confirmed local HEAD `7379e512cf31cf0d2de620e1e8bfade198b220c7` is a direct single-commit descendant of remote `main`.
-  - Created complete external working-state backup outside the repository at `C:\Users\DELL\Ultron-recovery-backups\phase2-baseline-20261012\` containing `tracked_modifications.patch` (238,303 bytes), `untracked_files/` (all 17 files), `HEAD_SHA.txt`, `git_status_original.txt`, and `file_inventory.txt` with SHA256 checksums.
-  - Created dedicated branch `recovery/checkpoint-phase2-baseline` from HEAD `7379e51`.
-  - Staged and committed all 71 modified tracked files and 15 untracked project files in Checkpoint Commit 1: `02d81b17dab80ad35758ec013bcc6c8b599a4bb7` (`chore(checkpoint): preserve reviewed Ultron working state before production hardening`).
-  - Successfully pushed `recovery/checkpoint-phase2-baseline` to GitHub remote `origin` (`https://github.com/Airlucofficial/Jarvis-2.0.git`).
-  - Read-only verified via authenticated `ls-remote` that remote `recovery/checkpoint-phase2-baseline` points to `02d81b17dab80ad35758ec013bcc6c8b599a4bb7` and live remote `main` remains untouched at `b4f05e2562798d3b09ad3a624ef84e2bc1a5d9d3`.
-  - Governance documents updated and committed in a separate documentation-only commit on the recovery branch.
-  - Finalized and pushed annotated tag `ultron-phase2-checkpoint-2026-10-12` targeting commit `64851e282d96b648f9bbb6864dc029ab88257da0`, verified via `ls-remote`.
-- **Next Phase:** **Phase 3: Engineering Foundation, Testing and Tooling** (Gated on operator review).
+  - **Preflight Verified:** Confirmed branch `recovery/checkpoint-phase2-baseline`, clean working tree, remote checkpoint tag `ultron-phase2-checkpoint-2026-10-12`, remote `main` untouched.
+  - **Phase 3A Audit Complete:** Audited 13 CI workflows, collected 9,175 tests, verified 19 auth/tenant + 34 hologram tests, verified staging rehearsal (8/8), evaluated external developer tools (Greptile, TestSprite, Site24x7, REA).
+  - **TSK-P3-02 Remediated & Verified:**
+    - Consolidated `TraceStore.close()` in `src/openjarvis/traces/store.py:296-304` using robust connection teardown (`if hasattr(self, "_conn") and self._conn is not None: try: self._conn.close() except Exception: pass`).
+    - Removed redundant `close()` definition at line 348.
+    - Verified `ruff check src/openjarvis/traces/store.py` passes (0 errors).
+    - Verified `ruff check src/` passes with 0 errors across the entire codebase.
+    - Added `test_close_idempotent` in `tests/traces/test_store.py`.
+    - Executed `pytest tests/traces/ -q`: 62 passed in 11.15s (100% pass).
+- **Next Phase/Task:** **TSK-P3-03: Remediate Hardcoded LLM Client Path (`src/openjarvis/server/llm_client.py:30`).**

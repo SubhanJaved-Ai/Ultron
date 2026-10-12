@@ -217,6 +217,13 @@ class TestTraceStore:
         assert store2.count() == 1
         store2.close()
 
+    def test_close_idempotent(self, tmp_path: Path) -> None:
+        """Calling close multiple times should succeed safely without error."""
+        store = TraceStore(tmp_path / "test.db")
+        store.close()
+        # Repeated call must be a safe no-op
+        store.close()
+
     def test_metadata_roundtrip(self, tmp_path: Path) -> None:
         store = TraceStore(tmp_path / "test.db")
         trace = _make_trace()

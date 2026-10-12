@@ -1,0 +1,22 @@
+# Audited baseline exceptions for synthetic test fixtures and documentation examples.
+# Each line is an exact fingerprint: commit_sha:file_path:rule_id:line_number
+02d81b17dab80ad35758ec013bcc6c8b599a4bb7:docs/production-readiness/DEPLOYMENT_RUNBOOK.md:generic-api-key:53
+c3e04700f62d85da3fc07a2b3c55443e6f1c9fae:deploy/oracle/install.sh:generic-api-key:93
+ee2bdf5446b19a1d1876b9617db3808f2df41013:docs/user-guide/security.md:generic-api-key:278
+ee2bdf5446b19a1d1876b9617db3808f2df41013:src/openjarvis/evals/datasets/research_mining.py:generic-api-key:211
+ee2bdf5446b19a1d1876b9617db3808f2df41013:src/openjarvis/evals/datasets/security_scanner.py:generic-api-key:70
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/analytics/test_redaction.py:generic-api-key:137
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/analytics/test_redaction.py:jwt:68
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_boundary_guard.py:generic-api-key:73
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_boundary_guard.py:generic-api-key:86
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_boundary_guard.py:generic-api-key:94
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_log_sanitization.py:generic-api-key:72
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_scanner.py:stripe-access-token:80
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_guardrails.py:generic-api-key:405
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_guardrails.py:generic-api-key:452
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_guardrails.py:generic-api-key:469
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_guardrails.py:generic-api-key:487
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_taint.py:generic-api-key:111
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/security/test_taint.py:generic-api-key:140
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/server/test_webhook_routes.py:generic-api-key:119
+ee2bdf5446b19a1d1876b9617db3808f2df41013:tests/server/test_webhook_routes.py:generic-api-key:134

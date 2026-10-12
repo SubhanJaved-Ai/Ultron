@@ -2,7 +2,7 @@
 **Document Status:** Living Master Project Memory  
 **Location:** `d:\Ultron\ULTRON_MEMORY.md`  
 **Last Updated:** October 12, 2026  
-**Governing Phase:** Phase 3C.1 (COMPLETED — External Engineering Tools Evaluation Verified)
+**Governing Phase:** Phase 3C.2 (COMPLETED — REA Integration Architecture Assessment Verified)
 
 ---
 
@@ -119,22 +119,20 @@ All future development sessions must strictly comply with these rules:
 | **2026-10-12** | Enforce Safety Protocol on Frontend Engine Mismatch | Rather than applying an uncontrolled bypass or modifying manifests without authorization, preserve exact error details and record TSK-P3-05 as blocked per engineering rules. | Protects lockfile and manifest integrity; presents operator with clean decision options. |
 | **2026-10-12** | Resolve Frontend Toolchain via Project-Pinned npm | Executed clean install and verification using project-pinned npm CLI (npm@11.19.0 via npx with userconfig isolation) without altering machine-wide npm, package.json, package-lock.json, or .npmrc. | Eliminates toolchain blocker safely; satisfies engine constraints; preserves manifest integrity. |
 | **2026-10-12** | Adopt Evidence-Based Engineering Tooling Architecture (TSK-P3-06) | Complete comprehensive audit of 13 CI workflows and tool candidates. Recommend zero-cost, zero-leakage Gitleaks CLI for CI secret scanning (P1) and cargo-deny/pip-licenses for distribution (P2); decline Renovate (redundant with active Dependabot), CodeQL ($30/committer/mo), Greptile (privacy risk), TestSprite (WebGL incompatible), and Site24x7 (loopback desktop incompatible). | Clean, prioritized roadmap avoiding redundant subscriptions, CI bloat, and code exposure; documented in docs/research/external-engineering-tools-evaluation.md. |
+| **2026-10-12** | Reject REA Core Runtime Bundling & Adopt Isolated Developer MCP Architecture (TSK-P3-07) | Comprehensive assessment of morluto/rea v6.4.0. Bundling into desktop installer (Option C) would bloat installers by 500MB-1.5GB+, require Java/Node runtimes, and create binary parsing attack surfaces. Adopt Option B (isolated developer-side MCP using existing openjarvis.mcp.loader via stdio JSON-RPC) as an optional capability deferred to Phase 5 behind admin RBAC and human approval. Reconfirm Gitleaks automated CI secret scanning as governing P1 priority. | Clean desktop distribution, zero installer bloat, zero license contamination; documented in docs/research/rea-integration-architecture-assessment.md. Phase 3 engineering foundation 100% complete. |
 
 ---
 
 ## 7. CURRENT SESSION STATE
 
-- **Current Active Phase:** **Phase 3C.1: External Engineering Tools Evaluation (`TSK-P3-06`)** (COMPLETED & VERIFIED).
+- **Current Active Phase:** **Phase 3C.2: REA Integration Architecture Assessment (`TSK-P3-07`)** (COMPLETED & VERIFIED).
 - **Completed in this Session:**
-  - **TSK-P3-06 Audited, Evaluated & Documented:**
-    - Repository Capability Audit: Audited 13 GitHub Actions workflows, active `.github/dependabot.yml` (5 ecosystems with grouped PRs), multi-layer SAST (`security-sast.yml`: Semgrep + Bandit + pip-audit), Python testing (9,175 pytest tests, `sysmon` coverage >=60%), Frontend testing (Node 22, npm 11.19.0, Vitest 92/92 passed, `tsc -b`), and Claude PR review (`claude-review.yml`).
-    - Tool Candidate Evaluations with Verified Pricing & Privacy:
-      - Secret Scanning: Identified automated CI secret scanning as genuine P1 gap; recommended open-source Gitleaks standalone CLI binary in GitHub Actions ($0, zero network transmission).
-      - Dependency Updates: Confirmed Dependabot already manages npm, cargo, uv, and actions; declined Renovate as redundant.
-      - Deep SAST: Declined GitHub CodeQL ($30/committer/month on private repos) as cost-prohibitive and redundant with existing Bandit + Semgrep + pip-audit suite.
-      - AI Code Review: Confirmed rejection of Greptile due to source code transmission to external SaaS and redundancy with local linters and Claude PR review workflow.
-      - UI Automation & Monitoring: Confirmed rejection of TestSprite (incompatible with WebGL canvas) and Site24x7 (incompatible with loopback desktop assistant).
-      - REA Architecture: Confirmed REA must remain an isolated external MCP server / CLI tool to protect core runtime integrity and licensing (`TSK-P3-07`).
-    - Deliverable Created: Authored comprehensive report at `docs/research/external-engineering-tools-evaluation.md`.
-    - Governance Synchronized: Updated `ULTRON_PROGRESS.md` and `ULTRON_MEMORY.md`.
-- **Next Phase/Task:** **TSK-P3-07: Assess REA Integration Architecture (Reverse Engineer Anything RFC).**
+  - **TSK-P3-07 Audited, Evaluated & Documented:**
+    - Upstream Investigation: Researched `morluto/rea` v6.4.0 (MIT), Node.js engine constraints (`^22.19.0 || ^24.11.0 || >=26.0.0`), native C++ addons (`rea-windows-x64.node`), and analysis engine licenses (Ghidra Apache-2.0, Hopper commercial, IDA Pro commercial).
+    - Architecture Options Compared: Evaluated Option A (No Integration), Option B (Isolated Developer-Side MCP), and Option C (Core Runtime Bundling).
+    - Executive Decision: Rejected Option C to prevent installer bloat (+500MB-1.5GB) and binary security vulnerabilities; approved Option B in principle as an optional developer MCP adapter using Ultron's pre-existing `openjarvis.mcp.loader` and deferred to Phase 5.
+    - Security & Threat Model: Analyzed memory corruption risks in native parsers, indirect prompt injection via decompiled symbol strings, token blowout mitigation via compact schema profile, and strict workspace path sandboxing.
+    - Gitleaks P1 Priority Reaffirmed: Gitleaks automated CI secret scanning maintained as governing top-priority security action.
+    - Deliverable Created: Authored comprehensive RFC at `docs/research/rea-integration-architecture-assessment.md`.
+    - Phase 3 Completion: All 7 Phase 3 tasks (`TSK-P3-01` through `TSK-P3-07`) are 100% complete and verified.
+- **Next Phase/Task:** **Phase 4: External Software Research and Feature Gap Analysis (`TSK-P4-01`: Collect Public Stonic AI Capabilities).**

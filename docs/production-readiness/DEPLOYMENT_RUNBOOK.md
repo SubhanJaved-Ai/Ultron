@@ -44,13 +44,26 @@ python -m openjarvis.cli serve --hologram --port 8000
 ### 2.1 Multi-User Configuration & Environment Variables
 In multi-user mode, Open Jarvis activates the OWASP-compliant 600,000 iteration PBKDF2 authentication gateway, session token hashing, tenant data isolation, and RBAC tool execution.
 
-Set the following environment variables in `/etc/jarvis/env`:
+Generate a fresh, unique 32-byte (64 hex characters) cryptographic secret key before configuring the environment. **Every deployment must generate and use its own secret key stored strictly outside source control. Never use a shared or published example key, as any published key must be treated as compromised.**
+
+Generate a key using one of the following commands:
+```bash
+# Using OpenSSL (recommended):
+openssl rand -hex 32
+
+# Or using Python (built-in secrets module):
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Configure `/etc/jarvis/env` (ensure file permissions are strictly restricted to `chmod 600 /etc/jarvis/env` owned by `jarvis:jarvis`):
 ```bash
 # Enable multi-user authentication and tenant isolation
 OPENJARVIS_MULTI_USER=1
 
-# Secret key for server signing and token validation (generate with openssl rand -hex 32)
-OPENJARVIS_SECRET_KEY="c8f1e2d4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0"
+# Secret key for server signing and token validation.
+# Replace <GENERATE_WITH_OPENSSL_RAND_HEX_32> with the output of the generation command above.
+# WARNING: Do NOT use a static, default, or public key.
+OPENJARVIS_SECRET_KEY="<GENERATE_WITH_OPENSSL_RAND_HEX_32>"
 
 # Host and Port (binds locally behind reverse proxy)
 OPENJARVIS_HOST=127.0.0.1
@@ -62,8 +75,8 @@ OPENJARVIS_CONFIG_DIR=/var/lib/jarvis
 # Maximum request payload size (25MB)
 OPENJARVIS_MAX_BODY_SIZE=26214400
 
-# Optional: LLM brain key
-GEMINI_API_KEY="AIzaSy..."
+# Optional: LLM brain key (supply your own private API key)
+GEMINI_API_KEY="<YOUR_GEMINI_API_KEY>"
 ```
 
 ### 2.2 Systemd Service Configuration

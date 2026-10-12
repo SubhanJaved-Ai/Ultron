@@ -249,9 +249,7 @@ class WhatsAppChannel(BaseChannel):
                                 )
                                 meta_resp = httpx.get(
                                     meta_url,
-                                    headers={
-                                        "Authorization": f"Bearer {self._token}"
-                                    },
+                                    headers={"Authorization": f"Bearer {self._token}"},
                                     timeout=10.0,
                                 )
                                 if meta_resp.status_code < 300:
@@ -285,9 +283,7 @@ class WhatsAppChannel(BaseChannel):
                                     "WhatsApp voice transcription failed: %s",
                                     exc,
                                 )
-                                content = (
-                                    "[Voice Note received: transcription failed]"
-                                )
+                                content = "[Voice Note received: transcription failed]"
                         else:
                             content = "[Voice Note received]"
 

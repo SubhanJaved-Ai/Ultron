@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 fastapi = pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
-from openjarvis.core.user_preferences import get_user_address, set_user_address, format_addressed
 from openjarvis.server.app import create_app  # noqa: E402
-from openjarvis.storage.memory_backend import MemoryBackendManager
-from openjarvis.tools.memory_backend_manage import MemoryBackendManageTool
+from openjarvis.tools.memory_backend_manage import (  # noqa: E402
+    MemoryBackendManageTool,
+)
 
 
 def _make_engine():
@@ -23,7 +24,9 @@ def _make_engine():
 
 
 class TestUserAddressPreferences:
-    def test_first_chat_without_address_does_not_assume_sir(self, tmp_path, monkeypatch):
+    def test_first_chat_without_address_does_not_assume_sir(
+        self, tmp_path, monkeypatch
+    ):
         monkeypatch.setattr("openjarvis.core.paths.get_config_dir", lambda: tmp_path)
         app = create_app(_make_engine(), "test-model")
         client = TestClient(app)
@@ -40,13 +43,17 @@ class TestUserAddressPreferences:
         app = create_app(_make_engine(), "test-model")
         client = TestClient(app)
 
-        resp = client.post("/api/hologram/directive", json={"directive": "Call me ma'am"})
+        resp = client.post(
+            "/api/hologram/directive", json={"directive": "Call me ma'am"}
+        )
         assert resp.status_code == 200
         reply = resp.json()["reply"]
         assert "ma'am" in reply
 
         # Verify subsequent query addresses as ma'am
-        resp2 = client.post("/api/hologram/directive", json={"directive": "What is the status?"})
+        resp2 = client.post(
+            "/api/hologram/directive", json={"directive": "What is the status?"}
+        )
         assert resp2.status_code == 200
         assert "ma'am" in resp2.json()["reply"]
 
@@ -55,7 +62,9 @@ class TestUserAddressPreferences:
         app = create_app(_make_engine(), "test-model")
         client = TestClient(app)
 
-        resp = client.post("/api/hologram/directive", json={"directive": "My name is Alex"})
+        resp = client.post(
+            "/api/hologram/directive", json={"directive": "My name is Alex"}
+        )
         assert resp.status_code == 200
         reply = resp.json()["reply"]
         assert "Alex" in reply
@@ -72,7 +81,9 @@ class TestMemoryDatabaseBackend:
         app = create_app(_make_engine(), "test-model")
         client = TestClient(app)
 
-        resp = client.post("/api/hologram/directive", json={"directive": "Where is my memory saved?"})
+        resp = client.post(
+            "/api/hologram/directive", json={"directive": "Where is my memory saved?"}
+        )
         assert resp.status_code == 200
         reply = resp.json()["reply"]
         assert "local memory" in reply.lower()

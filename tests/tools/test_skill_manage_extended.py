@@ -1,7 +1,7 @@
 """Tests for SkillManageTool extended actions: patch, rollback, history, inspect."""
 
-import pytest
 from pathlib import Path
+
 from openjarvis.tools.skill_manage import SkillManageTool
 
 

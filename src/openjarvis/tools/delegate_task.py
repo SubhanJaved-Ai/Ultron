@@ -8,7 +8,6 @@ The parent only receives the synthesized outcome without intermediate context po
 from __future__ import annotations
 
 import concurrent.futures
-import json
 import logging
 import time
 import uuid
@@ -160,24 +159,30 @@ class DelegateTaskTool(BaseTool):
         context = params.get("context")
         batch_tasks = params.get("tasks")
         timeout = int(params.get("timeout") or self._default_timeout)
-        max_concurrency = int(params.get("max_concurrency") or self._default_max_concurrency)
+        max_concurrency = int(
+            params.get("max_concurrency") or self._default_max_concurrency
+        )
 
         # Assemble list of jobs
         jobs: List[Dict[str, Any]] = []
         if batch_tasks and isinstance(batch_tasks, list):
             for i, item in enumerate(batch_tasks):
                 if isinstance(item, dict) and item.get("task"):
-                    jobs.append({
-                        "id": item.get("id") or f"sub_{uuid.uuid4().hex[:8]}",
-                        "task": str(item["task"]).strip(),
-                        "context": item.get("context") or context,
-                    })
+                    jobs.append(
+                        {
+                            "id": item.get("id") or f"sub_{uuid.uuid4().hex[:8]}",
+                            "task": str(item["task"]).strip(),
+                            "context": item.get("context") or context,
+                        }
+                    )
         elif task:
-            jobs.append({
-                "id": f"sub_{uuid.uuid4().hex[:8]}",
-                "task": task,
-                "context": context,
-            })
+            jobs.append(
+                {
+                    "id": f"sub_{uuid.uuid4().hex[:8]}",
+                    "task": task,
+                    "context": context,
+                }
+            )
 
         if not jobs:
             return ToolResult(
@@ -206,21 +211,25 @@ class DelegateTaskTool(BaseTool):
                     res = future.result(timeout=timeout)
                     results.append(res)
                 except concurrent.futures.TimeoutError:
-                    results.append({
-                        "id": job["id"],
-                        "task": job["task"],
-                        "status": "timed_out",
-                        "error": f"Subagent execution exceeded {timeout}s timeout.",
-                        "duration_seconds": timeout,
-                    })
+                    results.append(
+                        {
+                            "id": job["id"],
+                            "task": job["task"],
+                            "status": "timed_out",
+                            "error": f"Subagent execution exceeded {timeout}s timeout.",
+                            "duration_seconds": timeout,
+                        }
+                    )
                 except Exception as exc:
-                    results.append({
-                        "id": job["id"],
-                        "task": job["task"],
-                        "status": "failed",
-                        "error": str(exc),
-                        "duration_seconds": 0.0,
-                    })
+                    results.append(
+                        {
+                            "id": job["id"],
+                            "task": job["task"],
+                            "status": "failed",
+                            "error": str(exc),
+                            "duration_seconds": 0.0,
+                        }
+                    )
 
         # Format output
         successful = [r for r in results if r["status"] == "completed"]
@@ -231,7 +240,9 @@ class DelegateTaskTool(BaseTool):
             "",
         ]
         for r in results:
-            summary_lines.append(f"### Subagent [{r['id']}] - Status: {r['status'].upper()} ({r.get('duration_seconds', 0)}s)")
+            summary_lines.append(
+                f"### Subagent [{r['id']}] - Status: {r['status'].upper()} ({r.get('duration_seconds', 0)}s)"
+            )
             summary_lines.append(f"**Task**: {r['task']}")
             if r["status"] == "completed":
                 summary_lines.append(f"**Result**:\n{r.get('output', '')}\n")

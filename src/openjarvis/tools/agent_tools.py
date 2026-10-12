@@ -12,7 +12,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
@@ -100,7 +100,9 @@ class SubagentSpawnTool(BaseTool):
         )
 
     def execute(self, **params: Any) -> ToolResult:
-        task = params.get("task") or params.get("query") or params.get("instruction", "")
+        task = (
+            params.get("task") or params.get("query") or params.get("instruction", "")
+        )
         if not task:
             return ToolResult(
                 tool_name="subagent_spawn",
@@ -476,7 +478,9 @@ class SubagentSendTool(BaseTool):
 
         return ToolResult(
             tool_name="subagent_send",
-            content=json.dumps({"subagent_id": subagent_id, "delivered": True, "message": message}),
+            content=json.dumps(
+                {"subagent_id": subagent_id, "delivered": True, "message": message}
+            ),
             success=True,
         )
 
@@ -1048,12 +1052,16 @@ class SubagentQueryTool(BaseTool):
             if entry is None:
                 return ToolResult(
                     tool_name="subagent_query",
-                    content=json.dumps({"swarm_id": swarm_id, "found": False, "key": str(key)}),
+                    content=json.dumps(
+                        {"swarm_id": swarm_id, "found": False, "key": str(key)}
+                    ),
                     success=False,
                 )
             return ToolResult(
                 tool_name="subagent_query",
-                content=json.dumps({"swarm_id": swarm_id, "found": True, "entry": entry.to_dict()}),
+                content=json.dumps(
+                    {"swarm_id": swarm_id, "found": True, "entry": entry.to_dict()}
+                ),
                 success=True,
             )
 

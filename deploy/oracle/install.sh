@@ -67,14 +67,30 @@ if [ ! -d "$INSTALL_DIR" ]; then
   chown -R jarvis:jarvis "$INSTALL_DIR"
 fi
 
-# 6. Build virtual environment
-echo -e "${YELLOW}[5/7] Creating optimized virtualenv...${NC}"
+# 6. Build virtual environment & Native Rust Acceleration
+echo -e "${YELLOW}[5/7] Creating optimized virtualenv and building native Rust core...${NC}"
 sudo -u jarvis -H bash -c "
   cd /opt/jarvis/app
   export PATH=\"\$HOME/.local/bin:\$PATH\"
+  
+  # Install Rust toolchain for native C/Rust high-performance execution
+  if ! command -v cargo &>/dev/null && [ ! -d \"\$HOME/.cargo\" ]; then
+    echo 'Installing Rust toolchain for native acceleration...'
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal || true
+  fi
+  [ -f \"\$HOME/.cargo/env\" ] && source \"\$HOME/.cargo/env\"
+  export PATH=\"\$HOME/.cargo/bin:\$PATH\"
+
   uv venv .venv --python 3.12
   source .venv/bin/activate
   uv pip install -e \".[server]\"
+  uv pip install \"maturin>=1.12.6,<2\"
+
+  # Compile native openjarvis_rust module if manifest is present
+  if [ -f \"rust/crates/openjarvis-python/Cargo.toml\" ] && command -v cargo &>/dev/null; then
+    echo 'Compiling native openjarvis_rust high-speed extension...'
+    maturin develop --release -m rust/crates/openjarvis-python/Cargo.toml || echo 'Rust extension build optional; continuing with Python runtime'
+  fi
 "
 
 # 6b. Optional Ollama setup for 100% Free Local AI inference
@@ -127,7 +143,7 @@ After=network.target
 Type=simple
 User=jarvis
 WorkingDirectory=/opt/jarvis/app
-ExecStart=/opt/jarvis/app/.venv/bin/python -m uvicorn openjarvis.server.app:create_app --factory --host 0.0.0.0 --port 8000
+ExecStart=/opt/jarvis/app/.venv/bin/jarvis serve --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=5
 EnvironmentFile=/etc/jarvis/env
@@ -146,6 +162,18 @@ EOF
 systemctl daemon-reload
 systemctl enable jarvis.service
 systemctl restart jarvis.service
+
+# 8b. Configure Oracle Cloud Host Firewall (Open port 8000)
+echo -e "${YELLOW}Configuring host firewall for port 8000...${NC}"
+if command -v ufw &>/dev/null; then
+  ufw allow 8000/tcp || true
+fi
+if command -v iptables &>/dev/null; then
+  iptables -I INPUT 6 -m state --state NEW -p tcp --dport 8000 -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport 8000 -j ACCEPT 2>/dev/null || true
+  if command -v netfilter-persistent &>/dev/null; then
+    netfilter-persistent save 2>/dev/null || true
+  fi
+fi
 
 # 9. Get Public IP
 PUBLIC_IP=$(curl -s -m 4 https://ifconfig.me || echo "YOUR-SERVER-IP")

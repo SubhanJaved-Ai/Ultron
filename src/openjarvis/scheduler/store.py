@@ -82,24 +82,40 @@ class SchedulerStore:
         )
         self._conn.commit()
 
-    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve a single task by ID, or ``None`` if not found."""
+    def get_task(
+        self, task_id: str, user_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Retrieve a single task by ID, or ``None`` if not found or unauthorized."""
         row = self._conn.execute(
             "SELECT * FROM scheduled_tasks WHERE id = ?", (task_id,)
         ).fetchone()
         if row is None:
             return None
-        return self._row_to_dict(row)
+        t = self._row_to_dict(row)
+        if user_id and user_id != "default":
+            owner = t.get("metadata", {}).get("owner_id")
+            if owner and owner != user_id:
+                return None
+        return t
 
-    def list_tasks(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Return all tasks, optionally filtered by *status*."""
+    def list_tasks(
+        self,
+        status: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return all tasks, optionally filtered by *status* and/or *user_id*."""
         if status is not None:
             rows = self._conn.execute(
                 "SELECT * FROM scheduled_tasks WHERE status = ?", (status,)
             ).fetchall()
         else:
             rows = self._conn.execute("SELECT * FROM scheduled_tasks").fetchall()
-        return [self._row_to_dict(r) for r in rows]
+        tasks = [self._row_to_dict(r) for r in rows]
+        if user_id and user_id != "default":
+            tasks = [
+                t for t in tasks if t.get("metadata", {}).get("owner_id") == user_id
+            ]
+        return tasks
 
     def get_due_tasks(self, now_iso: str) -> List[Dict[str, Any]]:
         """Return active tasks whose ``next_run`` is at or before *now_iso*."""
@@ -114,10 +130,15 @@ class SchedulerStore:
         """Update an existing task (same as save_task — uses INSERT OR REPLACE)."""
         self.save_task(task)
 
-    def delete_task(self, task_id: str) -> None:
-        """Delete a task by ID."""
+    def delete_task(self, task_id: str, user_id: Optional[str] = None) -> bool:
+        """Delete a task by ID with optional owner check."""
+        if user_id and user_id != "default":
+            existing = self.get_task(task_id, user_id=user_id)
+            if existing is None:
+                return False
         self._conn.execute("DELETE FROM scheduled_tasks WHERE id = ?", (task_id,))
         self._conn.commit()
+        return True
 
     # -- Run logs ------------------------------------------------------------
 

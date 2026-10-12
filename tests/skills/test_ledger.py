@@ -1,7 +1,7 @@
 """Tests for SkillLedger: mutation audit logging, blob storage, and atomic rollbacks."""
 
-import pytest
 from pathlib import Path
+
 from openjarvis.skills.ledger import SkillLedger
 
 
@@ -57,6 +57,7 @@ def test_ledger_patch_and_rollback(tmp_path: Path):
         after_manifest=snap_v2,
         description="Updated to modified",
     )
+    assert rec_v1.id and rec_v2.id
 
     assert skill_file.read_text(encoding="utf-8") == 'v1 = "modified"\n'
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from openjarvis.core.paths import get_config_dir
 from openjarvis.core.registry import ToolRegistry
@@ -34,9 +34,7 @@ class CronjobManageTool(BaseTool):
         store: Optional[SchedulerStore] = None,
         db_path: Optional[Path | str] = None,
     ) -> None:
-        self._db_path = (
-            Path(db_path) if db_path else get_config_dir() / "scheduler.db"
-        )
+        self._db_path = Path(db_path) if db_path else get_config_dir() / "scheduler.db"
         self._store = store
         self._scheduler = scheduler
 
@@ -128,6 +126,11 @@ class CronjobManageTool(BaseTool):
     def execute(self, **params: Any) -> ToolResult:
         action = params.get("action", "list")
         task_id = params.get("task_id") or params.get("id") or ""
+        user_id = (
+            params.get("user_id")
+            or params.get("operator_id")
+            or getattr(self, "_user_id", None)
+        )
         scheduler = self._get_scheduler()
         store = self._get_store()
 
@@ -149,6 +152,10 @@ class CronjobManageTool(BaseTool):
                     context_mode=params.get("context_mode", "isolated"),
                     tools=params.get("tools", ""),
                 )
+                if user_id:
+                    task_dict = task.to_dict()
+                    task_dict.setdefault("metadata", {})["owner_id"] = user_id
+                    store.update_task(task_dict)
                 return ToolResult(
                     tool_name=self.spec.name,
                     success=True,
@@ -169,7 +176,7 @@ class CronjobManageTool(BaseTool):
                 )
 
         elif action == "list":
-            tasks = store.list_tasks()
+            tasks = store.list_tasks(user_id=user_id)
             if not tasks:
                 return ToolResult(
                     tool_name=self.spec.name,
@@ -194,9 +201,16 @@ class CronjobManageTool(BaseTool):
                     success=False,
                     content="task_id is required to remove a scheduled task.",
                 )
+            existing = store.get_task(task_id, user_id=user_id)
+            if not existing:
+                return ToolResult(
+                    tool_name=self.spec.name,
+                    success=False,
+                    content=f"Task not found: {task_id}",
+                )
             try:
                 scheduler.cancel_task(task_id)
-                store.delete_task(task_id)
+                store.delete_task(task_id, user_id=user_id)
                 return ToolResult(
                     tool_name=self.spec.name,
                     success=True,
@@ -215,6 +229,13 @@ class CronjobManageTool(BaseTool):
                     tool_name=self.spec.name,
                     success=False,
                     content="task_id is required to pause.",
+                )
+            existing = store.get_task(task_id, user_id=user_id)
+            if not existing:
+                return ToolResult(
+                    tool_name=self.spec.name,
+                    success=False,
+                    content=f"Task not found: {task_id}",
                 )
             try:
                 scheduler.pause_task(task_id)
@@ -237,6 +258,13 @@ class CronjobManageTool(BaseTool):
                     success=False,
                     content="task_id is required to resume.",
                 )
+            existing = store.get_task(task_id, user_id=user_id)
+            if not existing:
+                return ToolResult(
+                    tool_name=self.spec.name,
+                    success=False,
+                    content=f"Task not found: {task_id}",
+                )
             try:
                 scheduler.resume_task(task_id)
                 return ToolResult(
@@ -258,7 +286,7 @@ class CronjobManageTool(BaseTool):
                     success=False,
                     content="task_id is required for status.",
                 )
-            task_dict = store.get_task(task_id)
+            task_dict = store.get_task(task_id, user_id=user_id)
             if not task_dict:
                 return ToolResult(
                     tool_name=self.spec.name,
@@ -278,7 +306,7 @@ class CronjobManageTool(BaseTool):
                     success=False,
                     content="task_id is required to run a task.",
                 )
-            task_dict = store.get_task(task_id)
+            task_dict = store.get_task(task_id, user_id=user_id)
             if not task_dict:
                 return ToolResult(
                     tool_name=self.spec.name,
@@ -303,6 +331,13 @@ class CronjobManageTool(BaseTool):
                     tool_name=self.spec.name,
                     success=False,
                     content="task_id is required to fetch history.",
+                )
+            existing = store.get_task(task_id, user_id=user_id)
+            if not existing:
+                return ToolResult(
+                    tool_name=self.spec.name,
+                    success=False,
+                    content=f"Task not found: {task_id}",
                 )
             logs = store.get_run_logs(task_id, limit=10)
             if not logs:

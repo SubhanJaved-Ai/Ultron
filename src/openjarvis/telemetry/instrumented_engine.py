@@ -98,6 +98,7 @@ class InstrumentedEngine(InferenceEngine):
         gpu_sample: Optional[GpuSample] = None
         energy_sample: Optional[Any] = None
         t0 = time.time()
+        t0_perf = time.perf_counter()
 
         # Prefer EnergyMonitor over legacy GpuMonitor
         if self._energy_monitor is not None:
@@ -127,12 +128,13 @@ class InstrumentedEngine(InferenceEngine):
                 **kwargs,
             )
 
-        latency = time.time() - t0
+        t_elapsed = time.perf_counter() - t0_perf
+        ttft = result.get("ttft", 0.0)
+        latency = max(t_elapsed, ttft) if ttft > 0 else (t_elapsed if t_elapsed > 0 else 1e-6)
 
         usage = result.get("usage", {})
         completion_tokens = usage.get("completion_tokens", 0)
         prompt_tokens_evaluated = usage.get("prompt_tokens_evaluated", 0)
-        ttft = result.get("ttft", 0.0)
         throughput = completion_tokens / latency if latency > 0 else 0.0
 
         # Energy / GPU metrics from sample

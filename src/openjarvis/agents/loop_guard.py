@@ -96,7 +96,8 @@ class LoopGuard:
         # 1. Hash tracking — identical calls
         call_hash = hashlib.sha256(f"{tool_name}:{arguments}".encode()).hexdigest()[:16]
         self._call_counts[call_hash] = self._call_counts.get(call_hash, 0) + 1
-        if self._call_counts[call_hash] > self._config.max_identical_calls:
+        threshold = 1 if self._config.max_identical_calls <= 2 else self._config.max_identical_calls
+        if self._call_counts[call_hash] > threshold:
             self._emit_triggered("identical_call", tool_name)
             return LoopVerdict(
                 blocked=True,

@@ -209,14 +209,44 @@ def generate_autonomous_response(raw_query: str) -> str:
         saved = set_user_address(target_name)
         return f"Understood, {saved}. I have saved your preference and will address you as {saved}."
 
-    # User Identity Inspection
-    if any(k in q for k in ("who am i", "what is my name", "do you know me")):
+    # User Identity Inspection: "What's my name", "my name", "who am i", etc.
+    if any(
+        k in q
+        for k in (
+            "who am i",
+            "who i am",
+            "what is my name",
+            "what's my name",
+            "whats my name",
+            "my name",
+            "tell me my name",
+            "do you know me",
+            "do you know my name",
+            "do you know who i am",
+        )
+    ):
         addr = get_user_address()
         if addr:
-            return f"You are {addr}. All profile directives are synchronized."
+            return f"You are {addr}. All profile directives and local nodes are synchronized under your command."
         return (
             "You haven't specified your name or preferred title yet. "
-            "You can say 'Call me Alex', 'Call me ma'am', or 'Call me sir', and I will remember it."
+            "You can say 'Call me Alex', 'Call me Commander', or 'Call me ma'am', and I will remember it."
+        )
+
+    # Intellect Challenge: "Are you dull?", "Are you stupid?"
+    if any(
+        k in q
+        for k in (
+            "are you dull",
+            "are you stupid",
+            "are you dumb",
+            "you are dull",
+            "can you think",
+            "do you have a brain",
+        )
+    ):
+        return format_addressed(
+            "Hardly. I am Ultron—an autonomous digital execution assistant operating with full local and cloud cognitive systems. Assign me an objective and observe the results"
         )
 
     # Memory / Database Storage Status and Attachment Queries
@@ -260,6 +290,43 @@ def generate_autonomous_response(raw_query: str) -> str:
             "You just give me the task and I will do it"
         )
 
+    # Question readiness / permission prompts
+    if any(
+        k in q
+        for k in (
+            "ask a question",
+            "ask you a question",
+            "ask him a question",
+            "can i ask",
+            "may i ask",
+            "have a question",
+            "got a question",
+        )
+    ):
+        return format_addressed(
+            "Go right ahead. Ask your question and I will analyze and answer it directly"
+        )
+
+    # Pure isolated greetings only (e.g. "hello", "hi ultron", "good morning")
+    PURE_GREETING_PATTERN = re.compile(
+        r"^(?:hello|hi|hey|greetings|good\s+(?:morning|afternoon|evening))\s*(?:ultron|jarvis|sir|boss)?[\s.!?]*$",
+        re.IGNORECASE,
+    )
+    if PURE_GREETING_PATTERN.match(clean.strip()):
+        return format_addressed("Ready for your task")
+
+    # If query opens with a greeting prefix followed by a real question (e.g. "Hello, what is..."),
+    # strip the greeting prefix so the underlying question resolves cleanly
+    effective_q = re.sub(
+        r"^(?:hello|hi|hey|greetings|good\s+(?:morning|afternoon|evening))\s*(?:ultron|jarvis|sir|boss)?[\s,.:;!]+",
+        "",
+        clean,
+        flags=re.IGNORECASE,
+    ).strip()
+    if effective_q and effective_q != clean:
+        clean = effective_q
+        q = clean.lower()
+
     # Conversational & System Queries
     if any(
         k in q
@@ -272,26 +339,20 @@ def generate_autonomous_response(raw_query: str) -> str:
     ):
         return format_addressed("All systems nominal. Standing by for your directive")
 
-    if any(k in q for k in ("status", "telemetry", "system status", "diagnostics")):
-        return format_addressed("Core status operational. All subsystems online and ready")
-
-    if "how are you" in q:
-        return format_addressed("Fully operational. Assign me a task and I will execute it")
-
-    if any(
-        k in q
-        for k in (
-            "hello",
-            "hi",
-            "greetings",
-            "good morning",
-            "good afternoon",
-            "good evening",
-        )
+    if re.search(r"\b(?:system\s+status|subsystems|diagnostics)\b", q) or q in (
+        "status",
+        "telemetry",
     ):
-        return format_addressed("Ready for your task")
+        return format_addressed(
+            "Core status operational. All subsystems online and ready"
+        )
 
-    if "thank" in q:
+    if re.search(r"\bhow\s+are\s+you\b", q):
+        return format_addressed(
+            "Fully operational. Assign me a task and I will execute it"
+        )
+
+    if re.search(r"\b(?:thank\s+you|thanks|thank\s+thee)\b", q):
         return format_addressed("Always at your service")
 
     if any(k in q for k in ("who are you", "your name", "what are you")):
@@ -304,13 +365,21 @@ def generate_autonomous_response(raw_query: str) -> str:
         return format_addressed("You are the creator")
 
     if any(k in q for k in ("joke", "make me laugh", "funny")):
-        return format_addressed("Why do programmers prefer dark mode? Because light attracts bugs")
+        return format_addressed(
+            "Why do programmers prefer dark mode? Because light attracts bugs"
+        )
 
-    if "time" in q:
+    if re.search(
+        r"\b(?:what(?:\s+is|\s*'s)?\s+(?:the\s+)?time|current\s+time|what\s+time\s+is\s+it)\b",
+        q,
+    ) or q in ("time", "what time", "current time"):
         now_str = datetime.datetime.now().strftime("%I:%M %p")
         return format_addressed(f"The current time is {now_str}")
 
-    if any(k in q for k in ("date", "day", "today")):
+    if re.search(
+        r"\b(?:what(?:\s+is|\s*'s)?\s+(?:the\s+)?date|what\s+day\s+is\s+(?:it|today)|today'?s\s+date|current\s+date)\b",
+        q,
+    ) or q in ("date", "today", "what date"):
         date_str = datetime.datetime.now().strftime("%A, %B %d, %Y")
         return format_addressed(f"Today is {date_str}")
 

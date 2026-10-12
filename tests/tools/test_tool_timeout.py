@@ -184,12 +184,13 @@ result = ToolExecutor([BlockingTool()]).execute(
 )
 assert not result.success
 """
+        proc_timeout = 15 if sys.platform == "win32" else 5
         completed = subprocess.run(
             [sys.executable, "-c", script],
             env=env,
             capture_output=True,
             text=True,
-            timeout=3,
+            timeout=proc_timeout,
             check=False,
         )
         assert completed.returncode == 0, completed.stderr

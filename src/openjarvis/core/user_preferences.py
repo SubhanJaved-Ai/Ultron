@@ -7,19 +7,29 @@ import logging
 import re
 from pathlib import Path
 
-from openjarvis.core.paths import get_config_dir
+from openjarvis.core import paths
 
 logger = logging.getLogger(__name__)
 
 
 def _get_pref_file() -> Path:
-    config_dir = get_config_dir()
+    config_dir = paths.get_config_dir()
     config_dir.mkdir(parents=True, exist_ok=True)
     return config_dir / "user_preferences.json"
 
 
-def get_user_address() -> str:
+def get_user_address(user_id: str | None = None) -> str:
     """Return the user's preferred address/title, or '' if not yet configured."""
+    if user_id and user_id != "default":
+        try:
+            from openjarvis.auth.manager import get_user_manager
+
+            val = get_user_manager().get_preference(user_id, "preferred_address")
+            if val:
+                return str(val).strip()
+        except Exception:
+            pass
+
     # 1. Check user_preferences.json
     f = _get_pref_file()
     if f.is_file():
@@ -32,7 +42,7 @@ def get_user_address() -> str:
             pass
 
     # 2. Fallback to USER.md inspection
-    user_md = get_config_dir() / "USER.md"
+    user_md = paths.get_config_dir() / "USER.md"
     if user_md.is_file():
         try:
             for raw_line in user_md.read_text(encoding="utf-8").splitlines():
@@ -57,8 +67,8 @@ def get_user_address() -> str:
     return ""
 
 
-def set_user_address(address: str) -> str:
-    """Save the user's preferred title or name in user_preferences.json and USER.md."""
+def set_user_address(address: str, user_id: str | None = None) -> str:
+    """Save the user's preferred title or name in user_preferences.json/USER.md or DB."""
     clean = (address or "").strip()
     if not clean:
         return ""
@@ -72,6 +82,24 @@ def set_user_address(address: str) -> str:
     ).strip()
     clean = clean.rstrip(".,!?:;").strip()
 
+    # Security sanitization: strip newlines, HTML tags, markdown controls, and cap length
+    clean = re.sub(r"[<>\r\n#*_`\[\]]", "", clean).strip()
+    clean = re.sub(r"\s+", " ", clean)
+    if len(clean) > 48:
+        clean = clean[:48].strip()
+
+    if not clean:
+        return ""
+
+    if user_id and user_id != "default":
+        try:
+            from openjarvis.auth.manager import get_user_manager
+
+            get_user_manager().set_preference(user_id, "preferred_address", clean)
+            return clean
+        except Exception as exc:
+            logger.debug("Failed to set per-user address preference: %s", exc)
+
     # Save to user_preferences.json
     f = _get_pref_file()
     data: dict[str, str] = {}
@@ -84,7 +112,7 @@ def set_user_address(address: str) -> str:
     f.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     # Sync to USER.md
-    user_md = get_config_dir() / "USER.md"
+    user_md = paths.get_config_dir() / "USER.md"
     try:
         content = (
             user_md.read_text(encoding="utf-8")
@@ -92,9 +120,9 @@ def set_user_address(address: str) -> str:
             else "# User Profile\n\n"
         )
         lines = [
-            l
-            for l in content.splitlines()
-            if not any(k in l.lower() for k in ("call me", "preferred address"))
+            line
+            for line in content.splitlines()
+            if not any(k in line.lower() for k in ("call me", "preferred address"))
         ]
         lines.append(f"- Preferred Address: {clean}")
         user_md.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")

@@ -82,6 +82,8 @@ def _execute_agent_admin_tool(request: Request, tool: Any, params: Dict[str, Any
     from openjarvis.security.runtime import execute_secured_tool
 
     state = request.app.state
+    user = getattr(request.state, "user", None)
+    operator_role = user.role if user else "admin"
     return execute_secured_tool(
         tool,
         params,
@@ -89,6 +91,7 @@ def _execute_agent_admin_tool(request: Request, tool: Any, params: Dict[str, Any
         capability_policy=getattr(state, "capability_policy", None),
         rate_limiter=getattr(state, "rate_limiter", None),
         agent_id="server:api",
+        operator_role=operator_role,
     )
 
 
@@ -591,12 +594,15 @@ sessions_router = APIRouter(prefix="/v1/sessions", tags=["sessions"])
 
 @sessions_router.get("")
 async def list_sessions(request: Request, limit: int = 20):
-    """List active sessions."""
+    """List active sessions for authenticated user."""
     try:
-        from openjarvis.sessions.store import SessionStore
+        from openjarvis.sessions import SessionStore
+
+        current_user = getattr(request.state, "user", None)
+        user_id = current_user.id if current_user else None
 
         store = SessionStore()
-        sessions = store.recent(limit=limit)
+        sessions = store.list_sessions(active_only=False, limit=limit, user_id=user_id)
         items = [s.to_dict() if hasattr(s, "to_dict") else str(s) for s in sessions]
         return {"sessions": items}
     except Exception as exc:
@@ -605,12 +611,15 @@ async def list_sessions(request: Request, limit: int = 20):
 
 @sessions_router.get("/{session_id}")
 async def get_session(session_id: str, request: Request):
-    """Get a specific session."""
+    """Get a specific session for authenticated user."""
     try:
-        from openjarvis.sessions.store import SessionStore
+        from openjarvis.sessions import SessionStore
+
+        current_user = getattr(request.state, "user", None)
+        user_id = current_user.id if current_user else None
 
         store = SessionStore()
-        session = store.get(session_id)
+        session = store.get_session(session_id, user_id=user_id)
         if session is None:
             raise HTTPException(status_code=404, detail="Session not found")
         return session.to_dict() if hasattr(session, "to_dict") else {"id": session_id}

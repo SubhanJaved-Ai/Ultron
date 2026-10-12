@@ -161,9 +161,7 @@ class SkillManageTool(BaseTool):
         path = self._skills_dir / f"{name}.toml"
 
         before_snap = (
-            self._ledger.capture_snapshot(self._skills_dir)
-            if path.exists()
-            else {}
+            self._ledger.capture_snapshot(self._skills_dir) if path.exists() else {}
         )
 
         lines = [
@@ -366,10 +364,16 @@ class SkillManageTool(BaseTool):
             return ToolResult(
                 tool_name=self.spec.name,
                 success=True,
-                content=f"No mutation history found for '{name}'." if name else "No mutation history found.",
+                content=f"No mutation history found for '{name}'."
+                if name
+                else "No mutation history found.",
             )
 
-        lines = [f"Mutation history for '{name}':" if name else "Global skill mutation history:"]
+        lines = [
+            f"Mutation history for '{name}':"
+            if name
+            else "Global skill mutation history:"
+        ]
         for r in records:
             lines.append(
                 f"- [{r.id}] {r.action.upper()} | {r.skill_name} | by {r.author} | {r.description}"
@@ -418,6 +422,7 @@ class SkillManageTool(BaseTool):
         before_snap = self._ledger.capture_snapshot(snap_target)
 
         import shutil
+
         if target_file.is_dir():
             shutil.rmtree(target_file)
         else:

@@ -133,6 +133,20 @@ def _resolve_server_model(
     default=None,
     help="Agent for chat requests (simple, orchestrator, react, openhands).",
 )
+@click.option(
+    "--hologram",
+    "open_hologram",
+    is_flag=True,
+    default=False,
+    help="Launch with 3D Holographic web interface enabled.",
+)
+@click.option(
+    "--multi-user",
+    "multi_user",
+    is_flag=True,
+    default=False,
+    help="Enable production multi-user authentication, session management, and tenant isolation.",
+)
 @click.pass_context
 def serve(
     ctx: click.Context,
@@ -141,6 +155,8 @@ def serve(
     engine_key: str | None,
     model_name: str | None,
     agent_name: str | None,
+    open_hologram: bool = False,
+    multi_user: bool = False,
 ) -> None:
     """Start the OpenAI-compatible API server."""
     print_banner(quiet=(ctx.obj or {}).get("quiet", False))
@@ -682,6 +698,43 @@ def serve(
         except Exception as exc:
             logger.debug("Agent scheduler init failed: %s", exc)
 
+    if _running_system is None:
+        try:
+            from openjarvis.system.core import JarvisSystem
+            from openjarvis.tools._stubs import ToolExecutor
+
+            fallback_tool_executor = (
+                ToolExecutor(
+                    resolved_tools,
+                    bus,
+                    capability_policy=sec.capability_policy,
+                    agent_id=agent_key or "serve",
+                    rate_limiter=sec.rate_limiter,
+                )
+                if resolved_tools
+                else None
+            )
+            _running_system = JarvisSystem(
+                config=config,
+                bus=bus,
+                engine=engine,
+                engine_key=engine_name,
+                model=model_name,
+                agent=agent,
+                agent_name=agent_key or "",
+                tools=resolved_tools,
+                mcp_tools=managed_mcp_tools,
+                tool_executor=fallback_tool_executor,
+                memory_backend=memory_backend,
+                telemetry_store=telem_store,
+                capability_policy=sec.capability_policy,
+                audit_logger=sec.audit_logger,
+                rate_limiter=sec.rate_limiter,
+                _mcp_clients=mcp_clients,
+            )
+        except Exception as exc:
+            logger.debug("Fallback JarvisSystem init skipped: %s", exc)
+
     # --- Channel Gateway: API key, sessions, ChannelBridge ---
     import os as _os
 
@@ -699,7 +752,7 @@ def serve(
 
     from openjarvis.server.auth_middleware import check_bind_safety
 
-    check_bind_safety(bind_host, api_key=api_key)
+    check_bind_safety(bind_host, api_key=api_key, multi_user=multi_user)
 
     # Log credential status at startup
     from openjarvis.core.credentials import TOOL_CREDENTIALS, get_credential_status
@@ -768,15 +821,32 @@ def serve(
         webhook_config=webhook_config,
         cors_origins=cors_origins,
         system=_running_system,
+        multi_user=multi_user,
     )
 
     console.print(
         f"[green]Starting OpenJarvis API server[/green]\n"
-        f"  Engine: [cyan]{engine_name}[/cyan]\n"
-        f"  Model:  [cyan]{model_name}[/cyan]\n"
-        f"  Agent:  [cyan]{agent_key or 'none'}[/cyan]\n"
-        f"  URL:    [cyan]http://{bind_host}:{bind_port}[/cyan]"
+        f"  Engine:   [cyan]{engine_name}[/cyan]\n"
+        f"  Model:    [cyan]{model_name}[/cyan]\n"
+        f"  Agent:    [cyan]{agent_key or 'none'}[/cyan]\n"
+        f"  API URL:  [cyan]http://{bind_host}:{bind_port}[/cyan]\n"
+        f"  Hologram: [cyan]http://{bind_host}:{bind_port}/hologram[/cyan]"
     )
+
+    if open_hologram:
+        import threading
+        import webbrowser
+
+        def _open_hologram_browser() -> None:
+            import time
+
+            time.sleep(1.2)
+            target_host = (
+                "localhost" if bind_host in ("0.0.0.0", "", "::") else bind_host
+            )
+            webbrowser.open(f"http://{target_host}:{bind_port}/hologram")
+
+        threading.Thread(target=_open_hologram_browser, daemon=True).start()
 
     # Warn about wildcard CORS on non-loopback
     import ipaddress as _ipa

@@ -12,7 +12,7 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
@@ -161,9 +161,7 @@ class N8NTool(BaseTool):
                 lines = [f"n8n Workflows ({len(workflows)} found):"]
                 for wf in workflows:
                     active = "ACTIVE" if wf.get("active") else "INACTIVE"
-                    lines.append(
-                        f"- [{wf.get('id')}] {wf.get('name')} ({active})"
-                    )
+                    lines.append(f"- [{wf.get('id')}] {wf.get('name')} ({active})")
                 return ToolResult(
                     tool_name=self.spec.name,
                     success=True,
@@ -193,7 +191,9 @@ class N8NTool(BaseTool):
             headers["X-N8N-API-KEY"] = api_key
 
         data_bytes = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
+        req = urllib.request.Request(
+            url, data=data_bytes, headers=headers, method="POST"
+        )
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 resp_text = resp.read().decode("utf-8")

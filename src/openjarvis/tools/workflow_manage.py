@@ -16,7 +16,6 @@ from openjarvis.core.paths import get_config_dir
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
 from openjarvis.tools._stubs import BaseTool, ToolSpec
-from openjarvis.workflow.builder import WorkflowBuilder
 from openjarvis.workflow.engine import WorkflowEngine
 from openjarvis.workflow.graph import WorkflowGraph
 from openjarvis.workflow.loader import load_workflow
@@ -109,23 +108,33 @@ class WorkflowManageTool(BaseTool):
     def execute(self, **params: Any) -> ToolResult:
         action = params.get("action", "list")
         name = (params.get("name") or "").strip()
+        user_id = (
+            params.get("user_id")
+            or params.get("operator_id")
+            or getattr(self, "_user_id", None)
+        )
 
         if action == "create":
             return self._create(
                 name,
                 params.get("nodes", []),
                 params.get("edges", []),
+                user_id=user_id,
             )
         elif action == "list":
-            return self._list()
+            return self._list(user_id=user_id)
         elif action == "inspect":
-            return self._inspect(name)
+            return self._inspect(name, user_id=user_id)
         elif action == "run":
-            return self._run(name, initial_input=params.get("input", ""))
+            return self._run(
+                name, initial_input=params.get("input", ""), user_id=user_id
+            )
         elif action == "delete":
-            return self._delete(name)
+            return self._delete(name, user_id=user_id)
         elif action == "register_webhook":
-            return self._register_webhook(name, slug=params.get("webhook_slug") or name)
+            return self._register_webhook(
+                name, slug=params.get("webhook_slug") or name, user_id=user_id
+            )
 
         return ToolResult(
             tool_name=self.spec.name,
@@ -133,14 +142,28 @@ class WorkflowManageTool(BaseTool):
             content=f"Unknown action: {action}",
         )
 
-    def _get_workflow_path(self, name: str) -> Path:
-        return self._workflows_dir / f"{name}.toml"
+    def _get_workflow_dir(self, user_id: Optional[str] = None) -> Path:
+        import re
+
+        if user_id and user_id != "default":
+            safe_uid = re.sub(r"[^\w\-]", "_", str(user_id))
+            target_dir = self._workflows_dir / safe_uid
+            target_dir.mkdir(parents=True, exist_ok=True)
+            return target_dir
+        return self._workflows_dir
+
+    def _get_workflow_path(self, name: str, user_id: Optional[str] = None) -> Path:
+        clean_name = Path(name).name
+        if clean_name.endswith(".toml"):
+            clean_name = clean_name[:-5]
+        return self._get_workflow_dir(user_id) / f"{clean_name}.toml"
 
     def _create(
         self,
         name: str,
         nodes: List[Dict[str, Any]],
         edges: List[Dict[str, Any]],
+        user_id: Optional[str] = None,
     ) -> ToolResult:
         if not name:
             return ToolResult(
@@ -233,7 +256,7 @@ class WorkflowManageTool(BaseTool):
                 lines.append(f'condition = "{e["condition"]}"')
             lines.append("")
 
-        wf_path = self._get_workflow_path(name)
+        wf_path = self._get_workflow_path(name, user_id=user_id)
         wf_path.write_text("\n".join(lines), encoding="utf-8")
 
         return ToolResult(
@@ -242,8 +265,8 @@ class WorkflowManageTool(BaseTool):
             content=f"Created workflow DAG '{name}' with {len(nodes)} nodes and {len(edges)} edges.",
         )
 
-    def _list(self) -> ToolResult:
-        files = sorted(self._workflows_dir.glob("*.toml"))
+    def _list(self, user_id: Optional[str] = None) -> ToolResult:
+        files = sorted(self._get_workflow_dir(user_id).glob("*.toml"))
         if not files:
             return ToolResult(
                 tool_name=self.spec.name,
@@ -254,7 +277,9 @@ class WorkflowManageTool(BaseTool):
         for f in files:
             try:
                 g = load_workflow(f)
-                lines.append(f"- **{g.name}**: {len(g.nodes)} nodes, {len(g.edges)} edges")
+                lines.append(
+                    f"- **{g.name}**: {len(g.nodes)} nodes, {len(g.edges)} edges"
+                )
             except Exception:
                 lines.append(f"- {f.stem}")
         return ToolResult(
@@ -263,14 +288,14 @@ class WorkflowManageTool(BaseTool):
             content="\n".join(lines),
         )
 
-    def _inspect(self, name: str) -> ToolResult:
+    def _inspect(self, name: str, user_id: Optional[str] = None) -> ToolResult:
         if not name:
             return ToolResult(
                 tool_name=self.spec.name,
                 success=False,
                 content="Workflow 'name' is required to inspect.",
             )
-        path = self._get_workflow_path(name)
+        path = self._get_workflow_path(name, user_id=user_id)
         if not path.exists():
             return ToolResult(
                 tool_name=self.spec.name,
@@ -286,7 +311,9 @@ class WorkflowManageTool(BaseTool):
                 "## Nodes:",
             ]
             for n in graph.nodes:
-                lines.append(f"- [{n.id}] Type: {n.node_type.value} | Agent: {n.agent or 'none'} | Tools: {n.tools}")
+                lines.append(
+                    f"- [{n.id}] Type: {n.node_type.value} | Agent: {n.agent or 'none'} | Tools: {n.tools}"
+                )
             lines.append("\n## Edges:")
             for e in graph.edges:
                 cond = f" (if: {e.condition})" if e.condition else ""
@@ -304,14 +331,16 @@ class WorkflowManageTool(BaseTool):
                 content=f"Error inspecting workflow: {e}",
             )
 
-    def _run(self, name: str, initial_input: str = "") -> ToolResult:
+    def _run(
+        self, name: str, initial_input: str = "", user_id: Optional[str] = None
+    ) -> ToolResult:
         if not name:
             return ToolResult(
                 tool_name=self.spec.name,
                 success=False,
                 content="Workflow 'name' is required to run.",
             )
-        path = self._get_workflow_path(name)
+        path = self._get_workflow_path(name, user_id=user_id)
         if not path.exists():
             return ToolResult(
                 tool_name=self.spec.name,
@@ -337,9 +366,13 @@ class WorkflowManageTool(BaseTool):
             ]
             for step in result.steps:
                 status_str = "SUCCESS" if step.success else "FAILED"
-                trace_lines.append(f"- **Node [{step.node_id}]**: {status_str} ({step.duration_seconds:.2f}s)")
+                trace_lines.append(
+                    f"- **Node [{step.node_id}]**: {status_str} ({step.duration_seconds:.2f}s)"
+                )
                 if step.output:
-                    snippet = step.output[:120] + ("..." if len(step.output) > 120 else "")
+                    snippet = step.output[:120] + (
+                        "..." if len(step.output) > 120 else ""
+                    )
                     trace_lines.append(f"  Output: {snippet}")
 
             trace_lines.append(f"\n## Final Output:\n{result.final_output}")
@@ -356,8 +389,8 @@ class WorkflowManageTool(BaseTool):
                 content=f"Execution error: {e}",
             )
 
-    def _delete(self, name: str) -> ToolResult:
-        path = self._get_workflow_path(name)
+    def _delete(self, name: str, user_id: Optional[str] = None) -> ToolResult:
+        path = self._get_workflow_path(name, user_id=user_id)
         if not path.exists():
             return ToolResult(
                 tool_name=self.spec.name,
@@ -371,10 +404,12 @@ class WorkflowManageTool(BaseTool):
             content=f"Deleted workflow: '{name}'",
         )
 
-    def _register_webhook(self, name: str, slug: str) -> ToolResult:
+    def _register_webhook(
+        self, name: str, slug: str, user_id: Optional[str] = None
+    ) -> ToolResult:
         from openjarvis.server.webhook_trigger import WebhookTriggerRegistry
 
-        path = self._get_workflow_path(name)
+        path = self._get_workflow_path(name, user_id=user_id)
         if not path.exists():
             return ToolResult(
                 tool_name=self.spec.name,

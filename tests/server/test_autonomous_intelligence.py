@@ -1,4 +1,13 @@
+import pytest
+
+from openjarvis.core.user_preferences import set_user_address
 from openjarvis.server.autonomous_intelligence import generate_autonomous_response
+
+
+@pytest.fixture(autouse=True)
+def _setup_address(tmp_path, monkeypatch):
+    monkeypatch.setattr("openjarvis.core.paths.get_config_dir", lambda: tmp_path)
+    set_user_address("sir")
 
 
 def test_autonomous_greeting():

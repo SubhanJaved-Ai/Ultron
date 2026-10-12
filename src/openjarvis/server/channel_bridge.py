@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any, Dict, List, Optional
@@ -177,7 +178,9 @@ class ChannelBridge:
             return self._handle_subagent_command(subagent_id, rest)
 
         if cmd == "/pipeline" and len(parts) >= 2:
-            return self._handle_pipeline_command(parts[1], parts[2] if len(parts) > 2 else "")
+            return self._handle_pipeline_command(
+                parts[1], parts[2] if len(parts) > 2 else ""
+            )
 
         if cmd == "/blackboard":
             swarm_id = parts[1] if len(parts) >= 2 else "default"
@@ -245,7 +248,9 @@ class ChannelBridge:
             for s in subagents:
                 data = s.to_dict()
                 dur = f" ({data.get('duration_seconds', 0)}s)" if s.started_at else ""
-                lines.append(f"  [{s.id}] {s.name} — {s.status}{dur}\n    Task: {s.task[:80]}")
+                lines.append(
+                    f"  [{s.id}] {s.name} — {s.status}{dur}\n    Task: {s.task[:80]}"
+                )
             return "Subagents:\n" + "\n".join(lines)
         except Exception as exc:
             return f"Error listing subagents: {exc}"
@@ -264,7 +269,10 @@ class ChannelBridge:
                 mgr.kill(subagent_id)
                 return f"Subagent '{subagent_id}' stopped."
             if act == "result":
-                return record.result or f"Subagent status is '{record.status}'. No results yet."
+                return (
+                    record.result
+                    or f"Subagent status is '{record.status}'. No results yet."
+                )
 
             status_line = (
                 f"Subagent [{record.id}] {record.name}\n"
@@ -275,7 +283,9 @@ class ChannelBridge:
                 preview = record.result[:800]
                 status_line += f"\n\nFindings:\n{preview}"
                 if len(record.result) > 800:
-                    status_line += "\n... (send '/subagent <id> result' for full output)"
+                    status_line += (
+                        "\n... (send '/subagent <id> result' for full output)"
+                    )
             elif record.error:
                 status_line += f"\nError: {record.error}"
             return status_line

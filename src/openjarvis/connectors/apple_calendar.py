@@ -239,12 +239,14 @@ class AppleCalendarConnector(BaseConnector):
             start_ts, end_ts, start_tz, bool(all_day)
         )
 
+        start_hour = start_dt.hour % 12 or 12
         if all_day:
-            date_str = start_dt.strftime("%A, %B %-d %Y (all day)")
+            date_str = f"{start_dt.strftime('%A, %B')} {start_dt.day} {start_dt.year} (all day)"
         else:
-            date_str = start_dt.strftime("%A, %B %-d %Y at %-I:%M %p")
+            date_str = f"{start_dt.strftime('%A, %B')} {start_dt.day} {start_dt.year} at {start_hour}:{start_dt.strftime('%M %p')}"
             if end_dt:
-                date_str += end_dt.strftime(" – %-I:%M %p")
+                end_hour = end_dt.hour % 12 or 12
+                date_str += f" – {end_hour}:{end_dt.strftime('%M %p')}"
             if start_tz and start_tz != "_float":
                 date_str += f" ({start_tz})"
 

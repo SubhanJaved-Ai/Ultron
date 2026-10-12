@@ -1,10 +1,8 @@
 """Tests for execution environment backends: Local, Docker, and SSH."""
 
-import pytest
-import shutil
 from openjarvis.sandbox.environments import (
-    LocalEnvironment,
     DockerEnvironment,
+    LocalEnvironment,
     SSHEnvironment,
     get_environment,
 )

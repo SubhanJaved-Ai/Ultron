@@ -6,7 +6,6 @@ OpenJarvis workflows or agent prompts on inbound HTTP POST requests.
 
 from __future__ import annotations
 
-import json
 import logging
 import sqlite3
 import time
@@ -107,7 +106,9 @@ class WebhookTriggerRegistry:
 
     def list_all(self) -> List[WebhookTrigger]:
         """List all active webhook triggers."""
-        rows = self._conn.execute("SELECT * FROM webhook_triggers ORDER BY created_at DESC").fetchall()
+        rows = self._conn.execute(
+            "SELECT * FROM webhook_triggers ORDER BY created_at DESC"
+        ).fetchall()
         return [
             WebhookTrigger(
                 slug=r["slug"],

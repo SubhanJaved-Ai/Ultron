@@ -209,6 +209,7 @@ class TestMemoryRustMissing:
         import openjarvis._rust_bridge as bridge
 
         monkeypatch.setattr(bridge, "get_rust_module", _boom)
+        monkeypatch.setattr(bridge, "RUST_AVAILABLE", True)
         return TestClient(_make_app())
 
     def test_store_is_not_a_silent_noop(self, monkeypatch):

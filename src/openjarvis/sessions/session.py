@@ -15,8 +15,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from openjarvis.core.config import DEFAULT_CONFIG_DIR
-
 logger = logging.getLogger(__name__)
 
 
@@ -65,17 +63,41 @@ class Session:
         )
         self.last_activity = time.time()
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "session_id": self.session_id,
+            "user_id": self.identity.user_id if self.identity else "",
+            "display_name": self.identity.display_name if self.identity else "",
+            "created_at": self.created_at,
+            "last_activity": self.last_activity,
+            "metadata": self.metadata,
+            "messages": [
+                {
+                    "role": m.role,
+                    "content": m.content,
+                    "channel": m.channel,
+                    "timestamp": m.timestamp,
+                }
+                for m in self.messages
+            ],
+            "message_count": len(self.messages),
+        }
+
 
 class SessionStore:
     """SQLite-backed session persistence with consolidation and decay."""
 
     def __init__(
         self,
-        db_path: Union[str, Path] = DEFAULT_CONFIG_DIR / "sessions.db",
+        db_path: Union[str, Path, None] = None,
         *,
         max_age_hours: float = 24.0,
         consolidation_threshold: int = 100,
     ) -> None:
+        if db_path is None:
+            from openjarvis.core.paths import get_config_dir
+
+            db_path = get_config_dir() / "sessions.db"
         self._db_path = Path(db_path)
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
@@ -120,12 +142,10 @@ class SessionStore:
                 VALUES (new.id, new.content, new.session_id, new.role, new.channel);
             END;
             CREATE TRIGGER IF NOT EXISTS trg_session_messages_ad AFTER DELETE ON session_messages BEGIN
-                INSERT INTO session_messages_fts(session_messages_fts, rowid, content, session_id, role, channel)
-                VALUES('delete', old.id, old.content, old.session_id, old.role, old.channel);
+                DELETE FROM session_messages_fts WHERE rowid = old.id;
             END;
             CREATE TRIGGER IF NOT EXISTS trg_session_messages_au AFTER UPDATE ON session_messages BEGIN
-                INSERT INTO session_messages_fts(session_messages_fts, rowid, content, session_id, role, channel)
-                VALUES('delete', old.id, old.content, old.session_id, old.role, old.channel);
+                DELETE FROM session_messages_fts WHERE rowid = old.id;
                 INSERT INTO session_messages_fts(rowid, content, session_id, role, channel)
                 VALUES (new.id, new.content, new.session_id, new.role, new.channel);
             END;
@@ -340,18 +360,26 @@ class SessionStore:
         *,
         active_only: bool = True,
         limit: int = 50,
+        user_id: Optional[str] = None,
     ) -> List[Session]:
-        """List sessions, optionally filtering to active only."""
+        """List sessions, optionally filtering to active only and/or specific user."""
         sql = (
             "SELECT session_id, user_id, display_name,"
             " channel_ids, created_at, last_activity,"
             " metadata FROM sessions"
         )
+        where_clauses = []
         params: list = []
         if active_only:
             cutoff = time.time() - (self._max_age_hours * 3600)
-            sql += " WHERE last_activity >= ?"
+            where_clauses.append("last_activity >= ?")
             params.append(cutoff)
+        if user_id:
+            where_clauses.append("user_id = ?")
+            params.append(user_id)
+
+        if where_clauses:
+            sql += " WHERE " + " AND ".join(where_clauses)
         sql += " ORDER BY last_activity DESC LIMIT ?"
         params.append(limit)
 
@@ -372,6 +400,43 @@ class SessionStore:
                 )
             )
         return sessions
+
+    def recent(self, limit: int = 20, user_id: Optional[str] = None) -> List[Session]:
+        """Get recent sessions for user."""
+        return self.list_sessions(active_only=False, limit=limit, user_id=user_id)
+
+    def get_session(
+        self,
+        session_id: str,
+        user_id: Optional[str] = None,
+    ) -> Optional[Session]:
+        """Get a specific session with optional user ownership check."""
+        row = self._conn.execute(
+            "SELECT session_id, user_id, display_name,"
+            " channel_ids, created_at, last_activity, metadata "
+            "FROM sessions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        if not row:
+            return None
+
+        # Enforce tenant isolation if user_id is provided
+        if user_id and row[1] != user_id:
+            return None
+
+        messages = self._load_messages(session_id)
+        return Session(
+            session_id=row[0],
+            identity=SessionIdentity(
+                user_id=row[1],
+                display_name=row[2] or "",
+                channel_ids=json.loads(row[3]) if row[3] else {},
+            ),
+            messages=messages,
+            created_at=row[4] or 0.0,
+            last_activity=row[5] or 0.0,
+            metadata=json.loads(row[6]) if row[6] else {},
+        )
 
     def _load_messages(self, session_id: str) -> List[SessionMessage]:
         rows = self._conn.execute(
@@ -506,13 +571,15 @@ class SessionStore:
             content = row[2]
             if len(content) > max_chars_per_msg:
                 content = content[:max_chars_per_msg] + "... [truncated]"
-            results.append({
-                "message_id": row[0],
-                "role": row[1],
-                "content": content,
-                "channel": row[3],
-                "timestamp": row[4],
-            })
+            results.append(
+                {
+                    "message_id": row[0],
+                    "role": row[1],
+                    "content": content,
+                    "channel": row[3],
+                    "timestamp": row[4],
+                }
+            )
         return results
 
     def close(self) -> None:

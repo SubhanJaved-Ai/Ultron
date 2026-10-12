@@ -87,7 +87,8 @@ class MemoryBackendManageTool(BaseTool):
             return ToolResult(
                 tool_name=self.spec.name,
                 success=result.get("success", False),
-                content=result.get("message") or result.get("error", "Failed to attach database"),
+                content=result.get("message")
+                or result.get("error", "Failed to attach database"),
                 metadata=result,
             )
 

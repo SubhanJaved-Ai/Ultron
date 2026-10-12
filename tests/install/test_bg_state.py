@@ -50,6 +50,13 @@ def test_get_status_rust_failed(tmp_openjarvis_home: Path) -> None:
     assert s.rust_error == "error tail here"
 
 
+import sys
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Colons in filenames are not supported on Windows NTFS (POSIX pull-model marker layout)",
+)
 def test_get_status_model_downloading(tmp_openjarvis_home: Path) -> None:
     (tmp_openjarvis_home / ".state" / "models" / "qwen3.5:9b.downloading").write_text(
         ""
@@ -58,12 +65,20 @@ def test_get_status_model_downloading(tmp_openjarvis_home: Path) -> None:
     assert s.models == {"qwen3.5:9b": "downloading"}
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Colons in filenames are not supported on Windows NTFS (POSIX pull-model marker layout)",
+)
 def test_get_status_model_ready(tmp_openjarvis_home: Path) -> None:
     (tmp_openjarvis_home / ".state" / "models" / "qwen3.5:9b.ready").write_text("")
     s = _bg_state.get_status()
     assert s.models == {"qwen3.5:9b": "ready"}
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Colons in filenames are not supported on Windows NTFS (POSIX pull-model marker layout)",
+)
 def test_get_status_model_failed(tmp_openjarvis_home: Path) -> None:
     (tmp_openjarvis_home / ".state" / "models" / "qwen3.5:9b.failed").write_text(
         "net error"
@@ -72,6 +87,10 @@ def test_get_status_model_failed(tmp_openjarvis_home: Path) -> None:
     assert s.models == {"qwen3.5:9b": "failed"}
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Colons in filenames are not supported on Windows NTFS (POSIX pull-model marker layout)",
+)
 def test_get_status_ready_supersedes_downloading(tmp_openjarvis_home: Path) -> None:
     """If both .downloading and .ready exist (race window), .ready wins."""
     models_dir = tmp_openjarvis_home / ".state" / "models"
@@ -81,6 +100,10 @@ def test_get_status_ready_supersedes_downloading(tmp_openjarvis_home: Path) -> N
     assert s.models["qwen3.5:9b"] == "ready"
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Colons in filenames are not supported on Windows NTFS (POSIX pull-model marker layout)",
+)
 def test_all_ready_true_when_all_ready(tmp_openjarvis_home: Path) -> None:
     (tmp_openjarvis_home / ".state" / "extension-built").write_text("")
     (tmp_openjarvis_home / ".state" / "models" / "qwen3.5:9b.ready").write_text("")
@@ -88,6 +111,10 @@ def test_all_ready_true_when_all_ready(tmp_openjarvis_home: Path) -> None:
     assert s.all_ready() is True
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Colons in filenames are not supported on Windows NTFS (POSIX pull-model marker layout)",
+)
 def test_all_ready_false_when_anything_pending(tmp_openjarvis_home: Path) -> None:
     (tmp_openjarvis_home / ".state" / "extension-built").write_text("")
     (tmp_openjarvis_home / ".state" / "models" / "qwen3.5:9b.downloading").write_text(

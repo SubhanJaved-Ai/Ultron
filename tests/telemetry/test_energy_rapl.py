@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux sysfs RAPL directory names contain colons not supported by Windows NTFS",
+)
 
 from openjarvis.telemetry.energy_rapl import (
     RaplEnergyMonitor,

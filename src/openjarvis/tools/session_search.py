@@ -9,9 +9,8 @@ Directly inspired by Hermes Agent's session_search_tool: provides four inferred 
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from openjarvis.core.config import DEFAULT_CONFIG_DIR
 from openjarvis.core.registry import ToolRegistry
@@ -85,7 +84,9 @@ class SessionSearchTool(BaseTool):
 
         # Mode 1: DISCOVERY
         if query:
-            results = store.search_messages(query, limit=limit, session_id=session_id or None)
+            results = store.search_messages(
+                query, limit=limit, session_id=session_id or None
+            )
             if not results:
                 return ToolResult(
                     tool_name=self.spec.name,
@@ -119,7 +120,9 @@ class SessionSearchTool(BaseTool):
                 f"Conversation window around message #{around_message_id} in session {session_id}:"
             ]
             for m in context_msgs:
-                marker = " >>> " if m["message_id"] == int(around_message_id) else "     "
+                marker = (
+                    " >>> " if m["message_id"] == int(around_message_id) else "     "
+                )
                 lines.append(
                     f"{marker}[Msg #{m['message_id']} | {m['role']}]: {m['content']}"
                 )

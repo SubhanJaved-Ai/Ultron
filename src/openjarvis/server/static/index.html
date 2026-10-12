@@ -11,30 +11,48 @@
   <title>ULTRON — Quantum Electron Core (Jarvis 2.0)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
   <!-- Three.js local library -->
   <script src="/three.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #02050c;
-      --cyan: #00f3ff;
-      --cyan-bright: #7df9ff;
-      --cyan-dim: rgba(0, 243, 255, 0.2);
-      --yellow: #ffea00;
-      --yellow-bright: #fff266;
-      --yellow-dim: rgba(255, 234, 0, 0.25);
-      --green: #00ff88;
-      --green-bright: #66ffb2;
-      --green-dim: rgba(0, 255, 136, 0.25);
-      --purple: #c800ff;
-      --text: #e0f8ff;
-      --muted: #4e7399;
+      --bg: #06080e;
+      --glass-panel: rgba(15, 23, 42, 0.72);
+      --glass-card: rgba(18, 26, 44, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --glass-border-hover: rgba(255, 255, 255, 0.22);
+      --glass-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.16);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-cyan: #38bdf8;
+      --accent-cyan-dim: rgba(56, 189, 248, 0.18);
+      --accent-amber: #f59e0b;
+      --accent-amber-dim: rgba(245, 158, 11, 0.18);
+      --accent-emerald: #10b981;
+      --accent-emerald-dim: rgba(16, 185, 129, 0.18);
+      --accent-violet: #818cf8;
+      --accent-violet-dim: rgba(129, 140, 248, 0.18);
+
+      /* Backward compatibility tokens */
+      --cyan: #38bdf8;
+      --cyan-bright: #7dd3fc;
+      --cyan-dim: rgba(56, 189, 248, 0.2);
+      --yellow: #f59e0b;
+      --yellow-bright: #fbbf24;
+      --yellow-dim: rgba(245, 158, 11, 0.2);
+      --green: #10b981;
+      --green-bright: #34d399;
+      --green-dim: rgba(16, 185, 129, 0.2);
+      --purple: #818cf8;
+      --text: #f8fafc;
+      --muted: #94a3b8;
     }
     body {
       background: var(--bg);
-      color: var(--text);
-      font-family: 'Share Tech Mono', monospace;
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
       min-height: 100vh;
       overflow: hidden;
       user-select: none;
@@ -61,7 +79,7 @@
       height: 100vh;
       z-index: 2;
       pointer-events: none;
-      background: radial-gradient(circle at center, transparent 35%, rgba(2, 5, 12, 0.85) 100%);
+      background: radial-gradient(circle at center, transparent 40%, rgba(6, 8, 14, 0.9) 100%);
     }
 
     /* Minimal UI Overlay */
@@ -76,15 +94,25 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 24px 32px;
+      padding: 20px 28px;
     }
 
-    /* Top Header Bar */
+    /* Top Floating Header Bar (Apple Glass Pill) */
     .hud-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       pointer-events: auto;
+      padding: 8px 18px;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.12);
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
     }
     .hud-brand {
       display: flex;
@@ -92,60 +120,62 @@
       gap: 12px;
     }
     .hud-logo {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 20px;
-      font-weight: 900;
-      letter-spacing: 0.25em;
-      color: var(--cyan);
-      text-shadow: 0 0 20px rgba(0, 243, 255, 0.7);
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      background: linear-gradient(135deg, #ffffff 40%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
     }
     .hud-sublogo {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      color: var(--muted);
-      border-left: 1px solid var(--muted);
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
       padding-left: 10px;
     }
 
     /* Dynamic Center Status Pill */
     .status-pill {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      padding: 6px 16px;
-      border-radius: 20px;
-      backdrop-filter: blur(12px);
-      transition: all 0.3s ease;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex;
       align-items: center;
       gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--accent-cyan);
     }
     .status-pill.standby {
-      color: var(--cyan);
-      background: rgba(0, 243, 255, 0.08);
-      border: 1px solid var(--cyan-dim);
-      box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.08);
+      border-color: rgba(56, 189, 248, 0.25);
     }
     .status-pill.listening {
-      color: var(--yellow);
-      background: rgba(255, 234, 0, 0.15);
-      border: 1px solid var(--yellow);
-      box-shadow: 0 0 25px rgba(255, 234, 0, 0.5);
+      color: var(--accent-amber);
+      background: var(--accent-amber-dim);
+      border-color: var(--accent-amber);
+      box-shadow: 0 0 24px rgba(245, 158, 11, 0.35);
     }
     .status-pill.thinking {
-      color: var(--purple);
-      background: rgba(200, 0, 255, 0.15);
-      border: 1px solid var(--purple);
-      box-shadow: 0 0 25px rgba(200, 0, 255, 0.5);
+      color: var(--accent-violet);
+      background: var(--accent-violet-dim);
+      border-color: var(--accent-violet);
+      box-shadow: 0 0 24px rgba(129, 140, 248, 0.35);
     }
     .status-pill.speaking {
-      color: var(--green);
-      background: rgba(0, 255, 136, 0.15);
-      border: 1px solid var(--green);
-      box-shadow: 0 0 25px rgba(0, 255, 136, 0.5);
+      color: var(--accent-emerald);
+      background: var(--accent-emerald-dim);
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 24px rgba(16, 185, 129, 0.35);
     }
     .status-dot {
       width: 6px;
@@ -161,73 +191,66 @@
       top: 76px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0, 243, 255, 0.12);
-      border: 1px solid var(--cyan);
-      box-shadow: 0 0 18px rgba(0, 243, 255, 0.4);
-      border-radius: 20px;
-      padding: 5px 16px;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.14em;
-      color: var(--cyan-bright);
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+      padding: 6px 18px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--accent-cyan);
       cursor: pointer;
       pointer-events: auto;
       display: flex;
       align-items: center;
-      gap: 6px;
-      backdrop-filter: blur(10px);
-      transition: all 0.3s;
+      gap: 8px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      transition: all 0.3s ease;
     }
     .audio-unlock-banner.unlocked {
-      border-color: #00ffaa;
-      color: #00ffaa;
-      background: rgba(0, 255, 170, 0.1);
-      box-shadow: 0 0 18px rgba(0, 255, 170, 0.4);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: var(--accent-emerald);
+      background: rgba(16, 185, 129, 0.1);
     }
 
-    /* Center Interactive Core Reticle & Subtitle Display */
-    .center-hud-announcer {
+    /* Central Interactive Core Reticle - Concentric and Snug INSIDE 3D Nucleus Ball */
+    .core-reticle-stage {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
+      width: 38px;
+      height: 38px;
       pointer-events: auto;
       cursor: pointer;
-      width: 100%;
-      max-width: 600px;
-      padding: 0 20px;
-    }
-    .lock-reticle-wrap {
-      position: relative;
-      width: 180px;
-      height: 180px;
+      z-index: 15;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: transform 0.2s ease;
     }
     .reticle-ring {
       position: absolute;
-      width: 100%;
-      height: 100%;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      border: 1px dashed var(--cyan-dim);
-      transition: all 0.4s ease;
-      animation: spin-slow 24s linear infinite;
+      border: 1px dashed rgba(56, 189, 248, 0.45);
+      box-shadow: 0 0 6px rgba(56, 189, 248, 0.25), inset 0 0 4px rgba(56, 189, 248, 0.2);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: spin-slow 28s linear infinite;
     }
     .reticle-ring.listening {
-      border-color: var(--yellow);
+      border-color: var(--accent-amber);
       border-style: solid;
-      box-shadow: 0 0 30px rgba(255, 234, 0, 0.5), inset 0 0 20px rgba(255, 234, 0, 0.3);
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.6), inset 0 0 6px rgba(245, 158, 11, 0.35);
       animation: spin-fast 8s linear infinite;
     }
     .reticle-ring.speaking {
-      border-color: var(--green);
+      border-color: var(--accent-emerald);
       border-style: solid;
-      box-shadow: 0 0 35px rgba(0, 255, 136, 0.6), inset 0 0 25px rgba(0, 255, 136, 0.3);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.6), inset 0 0 6px rgba(16, 185, 129, 0.35);
       animation: spin-fast 6s linear infinite;
     }
     @keyframes spin-slow {
@@ -239,57 +262,145 @@
       to { transform: rotate(360deg); }
     }
 
-    /* Minimal Live Subtitle Stream */
-    .subtitle-stream {
-      min-height: 48px;
+    /* Apple VisionOS Dynamic Spatial Glass Response Capsule - Ultra-Sleek & Low-Profile */
+    .response-glass-card {
+      position: absolute;
+      bottom: 58px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 480px;
+      background: rgba(15, 23, 42, 0.70);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.6), inset 0 1px 1px 0 rgba(255, 255, 255, 0.14);
+      border-radius: 14px;
+      padding: 6px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+      cursor: default;
+      z-index: 25;
+      max-height: 72px;
+    }
+    .response-glass-card.listening {
+      border-color: rgba(245, 158, 11, 0.45);
+      box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.6), 0 0 18px rgba(245, 158, 11, 0.2);
+    }
+    .response-glass-card.speaking {
+      border-color: rgba(16, 185, 129, 0.45);
+      box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.6), 0 0 18px rgba(16, 185, 129, 0.25);
+    }
+    .response-card-header {
       display: flex;
       align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 8px 18px;
-      border-radius: 12px;
-      background: rgba(2, 5, 12, 0.7);
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      font-size: 13px;
-      letter-spacing: 0.06em;
-      line-height: 1.5;
-      color: var(--text);
-      max-width: 540px;
-      transition: all 0.3s;
+      justify-content: space-between;
+      padding-bottom: 2px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .response-speaker-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+    }
+    .response-pulse-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .response-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .response-glass-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+      border-radius: 8px;
+      padding: 2px 7px;
+      font-size: 9px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.2s ease;
+    }
+    .response-glass-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Scrollable Subtitle Stream: Sleek Capsule Stream, Never Obstructs Ball */
+    .subtitle-stream {
+      max-height: 38px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 4px;
+      font-size: 11.5px;
+      line-height: 1.4;
+      letter-spacing: 0.01em;
+      color: var(--text-primary);
+      text-align: left;
+      word-break: break-word;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+      transition: color 0.3s ease;
+    }
+    .subtitle-stream::-webkit-scrollbar {
+      width: 3px;
+    }
+    .subtitle-stream::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
     }
     .subtitle-stream.listening {
-      border-color: var(--yellow-dim);
-      color: var(--yellow-bright);
+      color: #fde68a;
     }
     .subtitle-stream.speaking {
-      border-color: var(--green-dim);
-      color: var(--green-bright);
+      color: #ecfdf5;
     }
     .subtitle-hint {
-      font-size: 10px;
-      color: var(--muted);
-      letter-spacing: 0.14em;
+      font-size: 10.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-align: center;
+      display: block;
+      padding: 2px 0;
     }
 
     /* Audio Equalizer Spectrum */
     .spectrum-bars {
       display: flex;
-      gap: 4px;
+      gap: 3px;
       align-items: center;
-      height: 18px;
+      justify-content: center;
+      height: 6px;
+      margin-top: 1px;
     }
     .spectrum-bar {
-      width: 3px;
-      height: 3px;
-      border-radius: 2px;
-      background: var(--cyan);
+      width: 2.5px;
+      height: 2.5px;
+      border-radius: 1px;
+      background: var(--accent-cyan);
       transition: height 0.08s ease, background-color 0.3s;
     }
-    .spectrum-bars.listening .spectrum-bar { background: var(--yellow); }
-    .spectrum-bars.speaking .spectrum-bar { background: var(--green); }
+    .spectrum-bars.listening .spectrum-bar { background: var(--accent-amber); }
+    .spectrum-bars.speaking .spectrum-bar { background: var(--accent-emerald); }
 
-    /* Bottom Command Line Pill */
+    /* Bottom Command Line Pill (Apple VisionOS Floating Bar) */
     .hud-footer {
       display: flex;
       justify-content: center;
@@ -299,36 +410,37 @@
     .directive-form {
       display: flex;
       align-items: center;
-      gap: 10px;
-      background: rgba(3, 10, 24, 0.75);
-      border: 1px solid var(--cyan-dim);
-      border-radius: 30px;
-      padding: 6px 14px;
-      backdrop-filter: blur(16px);
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      padding: 3px 12px;
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
       width: 100%;
-      max-width: 580px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-      transition: all 0.3s ease;
+      max-width: 500px;
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.14);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .directive-form:focus-within {
-      border-color: var(--cyan);
-      box-shadow: 0 0 20px rgba(0, 243, 255, 0.35);
+      border-color: rgba(56, 189, 248, 0.5);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.25);
     }
     .directive-form.listening {
-      border-color: var(--yellow);
-      box-shadow: 0 0 20px rgba(255, 234, 0, 0.4);
+      border-color: var(--accent-amber);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
     }
     .directive-form.speaking {
-      border-color: var(--green);
-      box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
     }
     .mic-btn {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
-      border: 1px solid var(--cyan-dim);
-      background: rgba(0, 243, 255, 0.1);
-      color: var(--cyan);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-primary);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -337,46 +449,527 @@
       flex-shrink: 0;
     }
     .mic-btn:hover {
-      background: var(--cyan);
-      color: #02050c;
-      box-shadow: 0 0 14px var(--cyan);
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent-cyan);
+      border-color: var(--accent-cyan);
     }
     .mic-btn.active {
-      background: var(--yellow);
-      color: #02050c;
-      border-color: var(--yellow);
-      box-shadow: 0 0 18px var(--yellow);
+      background: var(--accent-amber);
+      color: #06080e;
+      border-color: var(--accent-amber);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
     }
     .directive-input {
       flex: 1;
       background: transparent;
       border: none;
-      color: var(--text);
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 13px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13.5px;
       outline: none;
-      padding: 6px 4px;
+      padding: 8px 4px;
     }
     .directive-input::placeholder {
-      color: #3b5a7a;
+      color: var(--text-muted);
     }
     .directive-send {
-      background: transparent;
-      border: 1px solid var(--cyan-dim);
-      color: var(--cyan);
-      border-radius: 18px;
-      padding: 6px 16px;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 10px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-cyan);
+      border-radius: 20px;
+      padding: 8px 18px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .directive-send:hover {
+      background: var(--accent-cyan);
+      color: #06080e;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+    }
+
+    /* 48-Hour Chat History Drawer (macOS Translucent Sidebar) */
+    .hud-header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .chat-toggle-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-primary);
+      border-radius: 9999px;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.25s ease;
+    }
+    .chat-toggle-pill:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .chat-drawer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      bottom: 90px;
+      width: 400px;
+      max-width: calc(100vw - 40px);
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(36px) saturate(190%);
+      -webkit-backdrop-filter: blur(36px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      pointer-events: auto;
+      user-select: text;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      overflow: hidden;
+    }
+    .chat-drawer.collapsed {
+      transform: translateX(calc(100% + 30px));
+      opacity: 0;
+      pointer-events: none;
+    }
+    .chat-drawer-header {
+      padding: 16px 18px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .chat-drawer-title {
+      font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.1em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chat-status-pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    .chat-badge-48h {
+      font-size: 9px;
+      padding: 2px 8px;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+    .chat-drawer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chat-action-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+      border-radius: 10px;
+      padding: 4px 10px;
+      font-size: 10px;
       cursor: pointer;
       transition: all 0.2s;
     }
-    .directive-send:hover {
-      background: var(--cyan);
-      color: #02050c;
-      box-shadow: 0 0 14px var(--cyan);
+    .chat-action-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .chat-messages-body {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+    .chat-messages-body::-webkit-scrollbar {
+      width: 4px;
+    }
+    .chat-messages-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+    .chat-msg {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 90%;
+      word-break: break-word;
+    }
+    .chat-msg.user {
+      align-self: flex-end;
+    }
+    .chat-msg.ultron {
+      align-self: flex-start;
+    }
+    .chat-msg-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .chat-msg.user .chat-msg-header {
+      justify-content: flex-end;
+      color: var(--accent-cyan);
+    }
+    .chat-msg.ultron .chat-msg-header {
+      color: var(--accent-emerald);
+    }
+    .chat-bubble {
+      padding: 12px 16px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      letter-spacing: 0.01em;
+      position: relative;
+    }
+    .chat-msg.user .chat-bubble {
+      background: rgba(56, 189, 248, 0.16);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #f8fafc;
+      border-radius: 16px 16px 4px 16px;
+    }
+    .chat-msg.ultron .chat-bubble {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #f8fafc;
+      border-radius: 16px 16px 16px 4px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    /* Real Action Telemetry HUD in Chat */
+    .chat-action-panel {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 12px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(56, 189, 248, 0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .chat-action-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 6px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+    .action-tag {
+      font-size: 8.5px;
+      padding: 2px 6px;
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 9999px;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+    }
+    .action-tag.failed {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+    .chat-action-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 11px;
+    }
+    .chat-action-tool span, .chat-action-args span {
+      font-size: 9.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    .chat-action-tool code {
+      color: #38bdf8;
+      font-weight: 600;
+      font-family: monospace;
+    }
+    .chat-action-args code {
+      color: #cbd5e1;
+      font-family: monospace;
+      font-size: 10.5px;
+      word-break: break-all;
+    }
+    .chat-empty-state {
+      margin: auto;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      padding: 24px;
+    }
+    .chat-drawer-footer {
+      padding: 10px 16px;
+      background: rgba(255, 255, 255, 0.02);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    /* Authentication Modal & Badges */
+    .auth-toggle-pill {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .auth-toggle-pill:hover {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.35);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+    }
+    .auth-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 7, 14, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+      pointer-events: auto;
+    }
+    .auth-modal-backdrop.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .auth-modal-card {
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 420px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      animation: authModalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes authModalPop {
+      from { opacity: 0; transform: scale(0.94) translateY(10px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .auth-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .auth-modal-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .auth-tabs {
+      display: flex;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .auth-tab {
+      flex: 1;
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .auth-tab.active {
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+    }
+    .auth-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .auth-field label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+    }
+    .auth-field input {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .auth-field input:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+    }
+    .auth-submit-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(56, 189, 248, 0.3);
+    }
+    .auth-submit-btn:hover {
+      box-shadow: 0 6px 24px rgba(56, 189, 248, 0.45);
+      transform: translateY(-1px);
+    }
+    .auth-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      font-size: 11px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+    }
+    .auth-error.hidden { display: none; }
+    .auth-user-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+    }
+    .auth-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .auth-profile-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+    .auth-profile-role {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 2px;
+    }
+    .auth-session-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .auth-logout-btn {
+      width: 100%;
+      padding: 11px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .auth-logout-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .auth-delete-btn {
+      width: 100%;
+      padding: 10px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 10px;
+      color: #f87171;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .auth-delete-btn:hover {
+      background: rgba(239, 68, 68, 0.2);
     }
   </style>
 </head>
@@ -399,11 +992,92 @@
         <div class="hud-sublogo">AUTONOMOUS INTELLIGENCE MATRIX (JARVIS CORE)</div>
       </div>
 
-      <div id="status-pill" class="status-pill standby">
-        <div class="status-dot"></div>
-        <span id="status-text">STANDBY</span>
+      <div class="hud-header-right">
+        <button id="auth-btn" class="auth-toggle-pill" onclick="openAuthModal()" title="Authentication & Profile">
+          <span>👤</span>
+          <span id="auth-user-label">SIGN IN</span>
+        </button>
+        <button id="chat-toggle-btn" class="chat-toggle-pill" onclick="toggleChatDrawer()" title="Open 48-Hour Chat History Log">
+          <span>💬</span>
+          <span>CHAT LOG (<span id="chat-pill-count">0</span>)</span>
+        </button>
+        <div id="status-pill" class="status-pill standby">
+          <div class="status-dot"></div>
+          <span id="status-text">STANDBY</span>
+        </div>
       </div>
     </header>
+
+    <!-- Authentication Modal -->
+    <div id="auth-modal" class="auth-modal-backdrop hidden" onclick="if(event.target===this)closeAuthModal()">
+      <div class="auth-modal-card">
+        <div class="auth-modal-header">
+          <div class="auth-modal-title">
+            <span>🔐</span>
+            <span id="auth-modal-heading">USER AUTHENTICATION</span>
+          </div>
+          <button type="button" class="chat-action-btn close-btn" onclick="closeAuthModal()">✕</button>
+        </div>
+
+        <!-- Guest View: Login / Register Form -->
+        <div id="auth-view-guest" class="auth-view">
+          <div class="auth-tabs">
+            <button id="tab-login" type="button" class="auth-tab active" onclick="switchAuthTab('login')">LOGIN</button>
+            <button id="tab-register" type="button" class="auth-tab" onclick="switchAuthTab('register')">REGISTER</button>
+          </div>
+
+          <form id="auth-form" onsubmit="handleAuthSubmit(event)" style="margin-top: 14px;">
+            <div class="auth-field">
+              <label for="auth-username">USERNAME</label>
+              <input id="auth-username" type="text" autocomplete="username" required placeholder="Enter username (min 3 chars)" />
+            </div>
+            <div class="auth-field">
+              <label for="auth-password">PASSWORD</label>
+              <input id="auth-password" type="password" autocomplete="current-password" required placeholder="Enter password (min 8 chars)" />
+            </div>
+            <div id="auth-error-msg" class="auth-error hidden"></div>
+            <button id="auth-submit-btn" type="submit" class="auth-submit-btn">SIGN IN</button>
+          </form>
+        </div>
+
+        <!-- Authenticated View: Active Profile -->
+        <div id="auth-view-authenticated" class="auth-view hidden">
+          <div class="auth-user-info">
+            <div class="auth-avatar">👤</div>
+            <div class="auth-user-meta">
+              <div id="auth-profile-username" class="auth-profile-name">User</div>
+              <div id="auth-profile-role" class="auth-profile-role">ROLE: USER</div>
+            </div>
+          </div>
+          <div class="auth-session-actions" style="margin-top: 18px;">
+            <button type="button" class="auth-logout-btn" onclick="handleLogout()">LOGOUT</button>
+            <button type="button" class="auth-delete-btn" onclick="handleDeleteAccount()">DELETE ACCOUNT & DATA</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 48-Hour Persistent Hologram Mission Log -->
+    <aside id="chat-drawer" class="chat-drawer collapsed">
+      <div class="chat-drawer-header">
+        <div class="chat-drawer-title">
+          <span class="chat-status-pulse"></span>
+          <span>MISSION CHAT LOG</span>
+          <span class="chat-badge-48h">48H ARCHIVE</span>
+        </div>
+        <div class="chat-drawer-actions">
+          <button type="button" class="chat-action-btn" onclick="clearChatHistory()" title="Clear 48h History">CLEAR</button>
+          <button type="button" class="chat-action-btn close-btn" onclick="toggleChatDrawer()" title="Close Sidebar">✕</button>
+        </div>
+      </div>
+      <div id="chat-messages" class="chat-messages-body">
+        <!-- Populated by JavaScript from localStorage -->
+      </div>
+      <div class="chat-drawer-footer">
+        <span id="chat-count-label">0 MESSAGES SAVED</span>
+        <span>AUTO-ARCHIVE 48H</span>
+      </div>
+    </aside>
 
     <!-- Audio Neural Unlock Banner -->
     <div id="audio-unlock-banner" class="audio-unlock-banner" onclick="unlockAudioNeuralLink()" title="Click anywhere to initialize voice playback">
@@ -411,13 +1085,31 @@
       <span id="audio-banner-text">CLICK ANYWHERE TO UNLOCK VOICE LINK</span>
     </div>
 
-    <!-- Center Interactive Core Reticle & Subtitle -->
-    <div class="center-hud-announcer" onclick="toggleVoiceLockManual()" title="Click to Lock On & Speak directly to Jarvis">
-      <div class="lock-reticle-wrap">
-        <div id="reticle-ring" class="reticle-ring"></div>
+    <!-- Central Interactive Core Reticle (concentric with 3D nucleus) -->
+    <div id="core-reticle-stage" class="core-reticle-stage" onclick="toggleVoiceLockManual()" title="Click to Lock On & Speak directly to Ultron">
+      <div id="reticle-ring" class="reticle-ring"></div>
+    </div>
+
+    <!-- Apple VisionOS Spatial Glass Response Card (floats elegantly beneath core) -->
+    <div id="response-glass-card" class="response-glass-card">
+      <div class="response-card-header">
+        <div class="response-speaker-badge">
+          <span id="response-pulse-dot" class="response-pulse-dot"></span>
+          <span id="response-speaker-name">ULTRON CORE</span>
+        </div>
+        <div class="response-card-actions">
+          <button type="button" id="copy-response-btn" class="response-glass-btn" onclick="copyCurrentResponse(event)" title="Copy response to clipboard">
+            <span>📋</span>
+            <span id="copy-btn-text">COPY</span>
+          </button>
+          <button type="button" class="response-glass-btn" onclick="toggleChatDrawer(event)" title="Open 48-Hour Mission Logs">
+            <span>💬</span>
+            <span>LOGS</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Subtitle Message Stream -->
+      <!-- Subtitle Message Stream: Auto-scrolling, Full Multi-paragraph Visibility -->
       <div id="subtitle-box" class="subtitle-stream">
         <span class="subtitle-hint">CLICK CORE OR SAY "ULTRON" / "JARVIS" TO TALK</span>
       </div>
@@ -572,13 +1264,14 @@
     function initThreeScene() {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
-      camera.position.z = 380;
+      camera.position.z = 460; // Clean perspective zoom: gives over 120px clearance above chat card
 
       renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
       electronGroup = new THREE.Group();
+      electronGroup.position.y = 34; // Elevated 34 units above center: completely clears the bottom chat window
       scene.add(electronGroup);
 
       // --- Central Glowing Core Ball (The Electron Nucleus) ---
@@ -603,7 +1296,7 @@
       nucleusGlowMesh = new THREE.Mesh(glowGeo, glowMat);
       electronGroup.add(nucleusGlowMesh);
 
-      // --- Orbiting Quantum Electron Particles (Compact, Fits Screen Circle) ---
+      // --- Orbiting Quantum Electron Particles (Alive, Fluid Speed) ---
       electronGeometry = new THREE.BufferGeometry();
       particlePositions = new Float32Array(particleCount * 3);
       particleVelocities = new Float32Array(particleCount * 3);
@@ -611,10 +1304,10 @@
       particleAngles = new Float32Array(particleCount * 2);
 
       for (let i = 0; i < particleCount; i++) {
-        // Fits compactly within center circle: min radius 32, max radius 96
-        const radius = 32 + Math.random() * 64;
+        // Fits compactly within perfect circle boundary R = 96
+        const radius = 26 + Math.random() * 70;
         const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos((Math.random() * 2) - 1);
+        const phi = 0.15 + Math.random() * (Math.PI - 0.30);
 
         const x = radius * Math.sin(phi) * Math.cos(theta);
         const y = radius * Math.sin(phi) * Math.sin(theta);
@@ -628,16 +1321,21 @@
         particleAngles[i * 2]     = theta;
         particleAngles[i * 2 + 1] = phi;
 
-        // Serene, slow orbital drift velocities
-        particleVelocities[i * 3]     = (Math.random() - 0.5) * 0.0002;
-        particleVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0002;
-        particleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0002;
+        // Fluid, alive speed (not too high, not too low): 0.0034 to 0.0070 rad/frame
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        const thetaSpeed = dir * (0.0034 + Math.random() * 0.0036);
+        const phiSpeed   = (Math.random() - 0.5) * 0.0012;
+        const radialFreq = Math.random() * Math.PI * 2;
+
+        particleVelocities[i * 3]     = thetaSpeed;
+        particleVelocities[i * 3 + 1] = phiSpeed;
+        particleVelocities[i * 3 + 2] = radialFreq;
       }
 
       electronGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
 
       electronMaterial = new THREE.PointsMaterial({
-        size: 3.4,
+        size: 3.0,
         map: createGlowTexture(),
         transparent: true,
         blending: THREE.AdditiveBlending,
@@ -648,34 +1346,108 @@
       electronParticles = new THREE.Points(electronGeometry, electronMaterial);
       electronGroup.add(electronParticles);
 
-      // --- Concentric Magnetic Flux Rings (Proportional to Compact Electron Sphere) ---
-      const ringRadii = [38, 65, 96];
-      ringRadii.forEach((r, idx) => {
-        const ringGeo = new THREE.BufferGeometry();
+      // --- Helper Functions for Thread-Thin Geometric Lines ---
+      function createFrontalCircle(radius, opacity, rotSpeedZ = 0) {
         const pts = [];
-        const segs = 120;
+        const segs = 128;
         for (let j = 0; j <= segs; j++) {
           const a = (j / segs) * Math.PI * 2;
-          pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0));
+          pts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, 0));
         }
-        ringGeo.setFromPoints(pts);
-        const ringMat = new THREE.LineBasicMaterial({
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const mat = new THREE.LineBasicMaterial({
           color: 0x00f3ff,
           transparent: true,
-          opacity: 0.35,
-          blending: THREE.AdditiveBlending
+          opacity: opacity || 0.45,
+          blending: THREE.AdditiveBlending,
+          linewidth: 1
         });
-        const ring = new THREE.Line(ringGeo, ringMat);
-        ring.rotation.x = 0.5 * (idx + 1);
-        ring.rotation.y = 0.3 * (idx + 1);
-        orbitalRings.push(ring);
+        const line = new THREE.LineLoop(geo, mat);
+        line.userData = { rotSpeedZ: rotSpeedZ };
+        return line;
+      }
+
+      function createThreadRing(radius, yOffset, opacity) {
+        const pts = [];
+        const segs = 128;
+        for (let j = 0; j <= segs; j++) {
+          const a = (j / segs) * Math.PI * 2;
+          pts.push(new THREE.Vector3(Math.cos(a) * radius, yOffset || 0, Math.sin(a) * radius));
+        }
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const mat = new THREE.LineBasicMaterial({
+          color: 0x00f3ff,
+          transparent: true,
+          opacity: opacity || 0.35,
+          blending: THREE.AdditiveBlending,
+          linewidth: 1
+        });
+        return new THREE.LineLoop(geo, mat);
+      }
+
+      // 1. Master Outer Boundary Circle (Defines 100% Perfect Circular Silhouette)
+      const outerBoundaryThread = createFrontalCircle(96, 0.70, 0.0003);
+      electronGroup.add(outerBoundaryThread);
+      orbitalRings.push(outerBoundaryThread);
+
+      const rimTorusGeo = new THREE.TorusGeometry(96, 0.12, 8, 96);
+      const rimTorusMat = new THREE.MeshBasicMaterial({
+        color: 0x00f3ff,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending
+      });
+      const rimTorus = new THREE.Mesh(rimTorusGeo, rimTorusMat);
+      electronGroup.add(rimTorus);
+      orbitalRings.push(rimTorus);
+
+      // 2. Frontal Concentric Thread Rings (100% Mathematically Perfect Circles, Thin as Thread)
+      const frontalRadii = [84, 72, 60, 48, 36, 26, 18];
+      frontalRadii.forEach((r, idx) => {
+        const speed = 0.0004 * (idx % 2 === 0 ? 1 : -1);
+        const ring = createFrontalCircle(r, 0.40 + (idx * 0.02), speed);
         electronGroup.add(ring);
+        orbitalRings.push(ring);
+      });
+
+      // 3. Spherical Meridian Thread Rings (Passing through poles, radius 96, sweeping perfect sphere)
+      for (let m = 0; m < 8; m++) {
+        const alpha = m * (Math.PI / 8);
+        const pts = [];
+        const segs = 128;
+        for (let j = 0; j <= segs; j++) {
+          const theta = (j / segs) * Math.PI * 2;
+          const x = 96 * Math.sin(theta) * Math.cos(alpha);
+          const y = 96 * Math.cos(theta);
+          const z = 96 * Math.sin(theta) * Math.sin(alpha);
+          pts.push(new THREE.Vector3(x, y, z));
+        }
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const mat = new THREE.LineBasicMaterial({
+          color: 0x00f3ff,
+          transparent: true,
+          opacity: 0.32,
+          blending: THREE.AdditiveBlending,
+          linewidth: 1
+        });
+        const mRing = new THREE.LineLoop(geo, mat);
+        electronGroup.add(mRing);
+        orbitalRings.push(mRing);
+      }
+
+      // 4. Spherical Latitude Thread Rings (Hugging the exact R = 96 sphere from pole to pole)
+      const latElevations = [18, -18, 38, -38, 58, -58, 76, -76];
+      latElevations.forEach((yElev) => {
+        const rLat = Math.sqrt(96 * 96 - yElev * yElev);
+        const latRing = createThreadRing(rLat, yElev, 0.30);
+        electronGroup.add(latRing);
+        orbitalRings.push(latRing);
       });
 
       // Mouse Parallax
       window.addEventListener('mousemove', (e) => {
-        mouseX = ((e.clientX / window.innerWidth) - 0.5) * 0.3;
-        mouseY = ((e.clientY / window.innerHeight) - 0.5) * 0.3;
+        mouseX = ((e.clientX / window.innerWidth) - 0.5) * 0.25;
+        mouseY = ((e.clientY / window.innerHeight) - 0.5) * 0.25;
       });
 
       window.addEventListener('resize', onWindowResize);
@@ -702,21 +1474,31 @@
       if (nucleusMesh) nucleusMesh.material.color.copy(currentColor);
       if (nucleusGlowMesh) nucleusGlowMesh.material.color.copy(currentColor);
       if (electronMaterial) electronMaterial.color.copy(currentColor);
-      orbitalRings.forEach(r => r.material.color.copy(currentColor));
+      orbitalRings.forEach(r => {
+        r.material.color.copy(currentColor);
+        if (r.userData && r.userData.rotSpeedZ) {
+          r.rotation.z += r.userData.rotSpeedZ;
+        }
+      });
+
+      // Dynamically project the 3D center of the nucleus to 2D screen coordinates
+      const centerVec = new THREE.Vector3(0, electronGroup.position.y, 0);
+      centerVec.project(camera);
+      const screenX = (centerVec.x * 0.5 + 0.5) * window.innerWidth;
+      const screenY = (-(centerVec.y * 0.5) + 0.5) * window.innerHeight;
+      const reticleStage = document.getElementById('core-reticle-stage');
+      if (reticleStage) {
+        reticleStage.style.left = screenX + 'px';
+        reticleStage.style.top = screenY + 'px';
+      }
 
       // Mouse Parallax Smoothing
       targetRotationY += (mouseX - targetRotationY) * 0.04;
       targetRotationX += (mouseY - targetRotationX) * 0.04;
 
-      // Group Serene Orbital Rotation (4x Slower, Calm and Cinematic)
-      electronGroup.rotation.y = time * 0.006 + targetRotationY;
-      electronGroup.rotation.x = Math.sin(time * 0.01) * 0.02 + targetRotationX;
-
-      // Orbital Magnetic Flux Rings Precession (Slowed Down)
-      orbitalRings.forEach((ring, idx) => {
-        ring.rotation.z += 0.0005 * (idx % 2 === 0 ? 1 : -1);
-        ring.rotation.x += 0.0003;
-      });
+      // Group Serene Orbital Rotation (Rotates around Y, maintaining a 100% perfect circular silhouette)
+      electronGroup.rotation.y = time * 0.008 + targetRotationY;
+      electronGroup.rotation.x = targetRotationX * 0.15; // Kept near-zero so outer perimeter remains a perfect circle
 
       // Nucleus Breathing Scale (Gentle Breathing)
       let baseScale = 1.0 + Math.sin(time * 1.0) * 0.03;
@@ -728,18 +1510,28 @@
       if (nucleusMesh) nucleusMesh.scale.setScalar(baseScale);
       if (nucleusGlowMesh) nucleusGlowMesh.scale.setScalar(baseScale * 1.25);
 
-      // Orbiting Particles Displacement (4x Slower, Smooth Drift)
+      // Orbiting Quantum Electron Particles Displacement (Alive, Fluid Speed)
       const positions = electronGeometry.attributes.position.array;
-      const speedMult = jarvisState === 'LISTENING' ? 1.2 : (jarvisState === 'SPEAKING' ? 1.4 : 0.8);
+      const speedMult = jarvisState === 'LISTENING' ? 1.25 : (jarvisState === 'SPEAKING' ? 1.5 : 1.0);
 
       for (let i = 0; i < particleCount; i++) {
-        let theta = particleAngles[i * 2]     + particleVelocities[i * 3]     * speedMult * 20;
-        let phi   = particleAngles[i * 2 + 1] + particleVelocities[i * 3 + 1] * speedMult * 20;
+        // Continuous fluid orbital progression
+        particleAngles[i * 2]     += particleVelocities[i * 3]     * speedMult;
+        particleAngles[i * 2 + 1] += particleVelocities[i * 3 + 1] * speedMult;
 
-        particleAngles[i * 2]     = theta;
-        particleAngles[i * 2 + 1] = phi;
+        let theta = particleAngles[i * 2];
+        let phi   = particleAngles[i * 2 + 1];
 
-        let r = particleOriginalRadii[i] + Math.sin(time * 0.6 + i) * 2;
+        // Soft rebound near poles to maintain smooth spherical motion
+        if (phi < 0.14) {
+          particleAngles[i * 2 + 1] = 0.14;
+          particleVelocities[i * 3 + 1] = Math.abs(particleVelocities[i * 3 + 1]);
+        } else if (phi > Math.PI - 0.14) {
+          particleAngles[i * 2 + 1] = Math.PI - 0.14;
+          particleVelocities[i * 3 + 1] = -Math.abs(particleVelocities[i * 3 + 1]);
+        }
+
+        let r = particleOriginalRadii[i] + Math.sin(time * 1.5 + particleVelocities[i * 3 + 2]) * 2.5;
         if (jarvisState === 'SPEAKING') {
           r *= audioPulseScale;
         }
@@ -802,11 +1594,72 @@
       }
     }
 
+    let lastSpokenResponseText = '';
+
     function setSubtitle(text, modeClass) {
       const box = document.getElementById('subtitle-box');
+      const card = document.getElementById('response-glass-card');
+      const speaker = document.getElementById('response-speaker-name');
       if (!box) return;
+
       box.className = 'subtitle-stream ' + (modeClass || '');
       box.innerText = text;
+      box.scrollTop = 0;
+
+      if (card) {
+        card.className = 'response-glass-card ' + (modeClass || '');
+      }
+
+      if (modeClass === 'speaking') {
+        lastSpokenResponseText = text.replace(/^ULTRON:\s*"?/i, '').replace(/"?\s*$/, '');
+        if (speaker) speaker.innerText = 'ULTRON CORE';
+      } else if (modeClass === 'listening') {
+        if (speaker) speaker.innerText = 'OPERATOR VOICE INPUT';
+      } else {
+        if (speaker) speaker.innerText = 'ULTRON CORE';
+      }
+    }
+
+    function copyCurrentResponse(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const raw = lastSpokenResponseText || document.getElementById('subtitle-box')?.innerText || '';
+      const textToCopy = raw.replace(/^ULTRON:\s*"?/i, '').replace(/"?\s*$/, '').trim();
+      if (!textToCopy || textToCopy.includes('CLICK CORE OR SAY')) return;
+
+      const finishCopy = () => {
+        const copyBtnText = document.getElementById('copy-btn-text');
+        if (copyBtnText) {
+          const orig = copyBtnText.innerText;
+          copyBtnText.innerText = 'COPIED ✓';
+          setTimeout(() => { copyBtnText.innerText = orig; }, 2000);
+        }
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).then(finishCopy).catch(() => {
+          fallbackCopyText(textToCopy, finishCopy);
+        });
+      } else {
+        fallbackCopyText(textToCopy, finishCopy);
+      }
+    }
+
+    function fallbackCopyText(text, cb) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        if (cb) cb();
+      } catch (e) {}
+      document.body.removeChild(ta);
     }
 
     function pulseEqualizer(active) {
@@ -842,9 +1695,25 @@
 
     function unlockAudioNeuralLink() {
       audioSynth.init();
+
+      // Hardware AGC & Microphone Gain Boost for distant/whisper speech recognition
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && !window._micStream) {
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            autoGainControl: true,
+            noiseSuppression: true,
+            echoCancellation: true
+          }
+        }).then(stream => {
+          window._micStream = stream;
+          console.log("Hardware AGC & Noise Suppression active on microphone.");
+        }).catch(err => {
+          console.log("Microphone AGC optional note:", err);
+        });
+      }
+
       const player = getAudioPlayer();
       player.volume = 1.0;
-      // Play brief silent audio chunk to ensure browser media permissions are fully unlocked
       player.play().catch(() => {});
 
       if (window.speechSynthesis) {
@@ -873,12 +1742,23 @@
       if (!speechSynth) return null;
       const voices = speechSynth.getVoices();
       if (!voices || voices.length === 0) return null;
-      return voices.find(v => (v.lang === 'en-GB' || /daniel|george|british|uk|natural/i.test(v.name)))
-        || voices.find(v => v.lang.startsWith('en'))
+
+      // Filter out all female voices to ensure 100% male consistency
+      const femaleRegex = /female|zira|susan|hazel|heera|eva|linda|catherine|jenny|victoria|karen|samantha/i;
+
+      // Prioritize authoritative male voices
+      const maleVoice = voices.find(v => 
+        !femaleRegex.test(v.name) &&
+        /david|mark|george|daniel|guy|ryan|christopher|male|natural/i.test(v.name)
+      ) || voices.find(v => 
+        v.lang.startsWith('en') && !femaleRegex.test(v.name)
+      ) || voices.find(v => !femaleRegex.test(v.name))
         || voices[0];
+
+      return maleVoice;
     }
 
-    // Play response out loud with guaranteed audio output
+    // Play response out loud with instant latency and locked male voice (ChatGPT style)
     function speakResponse(text) {
       if (!text || text.trim().length === 0) {
         releaseTargetLock();
@@ -900,92 +1780,80 @@
       setJarvisState('SPEAKING'); // Turns Core Ball RED/SPEAKING!
       setSubtitle(`ULTRON: "${cleanText}"`, 'speaking');
 
-      // --- Channel 1: Native HTML5 Audio Streaming from /api/tts ---
-      let audioSuccess = false;
-      const player = getAudioPlayer();
-      const ttsUrl = `/api/tts?text=${encodeURIComponent(cleanText)}`;
-
       const onAudioEnd = () => {
         pulseEqualizer(false);
         audioPulseScale = 1.0;
-        isTargetLocked = false;
-        clearTimeout(speechSilenceTimeout);
-        setJarvisState('STANDBY'); // Returns to CYAN
         isJarvisSpeaking = false;
         window._currentSpeakingText = '';
-        // Retain spoken message in HUD subtitle for 5 seconds
-        setTimeout(() => {
-          if (jarvisState === 'STANDBY' && !isJarvisSpeaking && !isTargetLocked) {
-            setSubtitle('CLICK CORE OR SAY "ULTRON" / "JARVIS" TO TALK', '');
-          }
-        }, 5000);
+
+        // Seamless ChatGPT-style Continuous Conversation Mode:
+        // Core turns YELLOW (LISTENING) so user can talk back naturally without saying wake-word
+        if (jarvisState !== 'ERROR') {
+          setJarvisState('LISTENING');
+          const speaker = document.getElementById('response-speaker-name');
+          if (speaker) speaker.innerText = 'ULTRON CORE • LISTENING';
+          const card = document.getElementById('response-glass-card');
+          if (card) card.className = 'response-glass-card listening';
+
+          clearTimeout(speechSilenceTimeout);
+          // Return to standby after 10 seconds of silence if no follow-up
+          speechSilenceTimeout = setTimeout(() => {
+            if (!isJarvisSpeaking && jarvisState === 'LISTENING') {
+              releaseTargetLock();
+            }
+          }, 10000);
+        }
       };
 
+      // --- Instant Primary Channel: Browser Speech Synthesis (<150ms latency) ---
+      if (!speechSynth) speechSynth = window.speechSynthesis;
+      if (speechSynth) {
+        try {
+          if (speechSynth.speaking || speechSynth.pending) speechSynth.cancel();
+          if (speechSynth.paused) speechSynth.resume();
+
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          window._activeUtterance = utterance;
+
+          if (!selectedVoice) selectedVoice = resolveJarvisVoice();
+          if (selectedVoice) utterance.voice = selectedVoice;
+          utterance.volume = 1.0;
+          utterance.rate = 1.05;
+          utterance.pitch = 0.92; // Deep authoritative baritone frequency
+
+          utterance.onstart = () => {
+            isJarvisSpeaking = true;
+            pulseEqualizer(true);
+          };
+          utterance.onboundary = () => {
+            audioPulseScale = 1.12;
+            pulseEqualizer(true);
+          };
+          utterance.onend = onAudioEnd;
+          utterance.onerror = onAudioEnd;
+
+          speechSynth.speak(utterance);
+          return;
+        } catch (e) {
+          console.warn('Instant WebSpeech error, falling back to audio stream:', e);
+        }
+      }
+
+      // --- Secondary Fallback: Native HTML5 Audio Streaming from /api/tts ---
+      const player = getAudioPlayer();
       player.volume = 1.0;
-      player.src = ttsUrl;
+      player.src = `/api/tts?text=${encodeURIComponent(cleanText)}`;
       player.onplay = () => {
-        audioSuccess = true;
         isJarvisSpeaking = true;
         pulseEqualizer(true);
       };
       player.ontimeupdate = () => {
-        // Pulse the electron ball with speech amplitude
         audioPulseScale = 1.0 + Math.sin(Date.now() * 0.02) * 0.12;
         pulseEqualizer(true);
       };
       player.onended = onAudioEnd;
-      player.onerror = () => {
-        // Fallback to Web Speech API if streaming audio fails
-        if (!audioSuccess) {
-          fallbackWebSpeechTTS(cleanText, onAudioEnd);
-        }
-      };
-
-      const playPromise = player.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn("Audio element play error, falling back to speech synthesis:", err);
-          fallbackWebSpeechTTS(cleanText, onAudioEnd);
-        });
-      }
-    }
-
-    function fallbackWebSpeechTTS(cleanText, onEndCallback) {
-      if (!speechSynth) speechSynth = window.speechSynthesis;
-      if (!speechSynth) {
-        onEndCallback();
-        return;
-      }
-
-      try {
-        if (speechSynth.speaking || speechSynth.pending) speechSynth.cancel();
-        if (speechSynth.paused) speechSynth.resume();
-
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        window._activeUtterance = utterance;
-
-        if (!selectedVoice) selectedVoice = resolveJarvisVoice();
-        if (selectedVoice) utterance.voice = selectedVoice;
-        utterance.volume = 1.0;
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-
-        utterance.onstart = () => {
-          isJarvisSpeaking = true;
-          pulseEqualizer(true);
-        };
-        utterance.onboundary = () => {
-          audioPulseScale = 1.08;
-          pulseEqualizer(true);
-        };
-        utterance.onend = onEndCallback;
-        utterance.onerror = onEndCallback;
-
-        speechSynth.speak(utterance);
-      } catch (e) {
-        console.error('Speech synthesis error:', e);
-        onEndCallback();
-      }
+      player.onerror = onAudioEnd;
+      player.play().catch(onAudioEnd);
     }
 
     // ==========================================================================
@@ -1066,7 +1934,24 @@
       isTargetLocked = false;
       clearTimeout(speechSilenceTimeout);
       setJarvisState('STANDBY'); // Returns to CYAN
-      setSubtitle('CLICK CORE OR SAY "ULTRON" / "JARVIS" TO TALK', '');
+
+      const speaker = document.getElementById('response-speaker-name');
+      if (speaker) speaker.innerText = 'ULTRON CORE';
+
+      const card = document.getElementById('response-glass-card');
+      if (card) card.className = 'response-glass-card';
+
+      pulseEqualizer(false);
+
+      const box = document.getElementById('subtitle-box');
+      if (box) {
+        box.className = 'subtitle-stream';
+        if (lastSpokenResponseText) {
+          box.innerText = `ULTRON: "${lastSpokenResponseText}"`;
+        } else {
+          box.innerHTML = '<span class="subtitle-hint">CLICK CORE OR SAY "ULTRON" / "JARVIS" TO TALK</span>';
+        }
+      }
     }
 
     function initSpeechRecognitionEngine() {
@@ -1091,15 +1976,19 @@
       };
 
       recognition.onresult = (event) => {
-        let interim = '';
-        let final = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        // Accumulate complete utterance across all event results (final + interim)
+        let finalChunk = '';
+        let interimChunk = '';
+        for (let i = 0; i < event.results.length; i++) {
           const trans = event.results[i][0].transcript;
-          if (event.results[i].isFinal) final += trans;
-          else interim += trans;
+          if (event.results[i].isFinal) {
+            finalChunk += trans + ' ';
+          } else {
+            interimChunk += trans + ' ';
+          }
         }
 
-        const fullHeard = (final || interim).trim();
+        const fullHeard = (finalChunk + interimChunk).trim().replace(/\s+/g, ' ');
         if (!fullHeard) return;
 
         const lower = fullHeard.toLowerCase();
@@ -1123,9 +2012,14 @@
         const interruptPrefixRegex = /^(?:(?:okay|ok|wait|stop|hold\s*on|quiet|shh|pause|cancel)[\s,.:;!?-]*)+/i;
         const cleanedFromInterrupt = lower.replace(interruptPrefixRegex, '').trim();
 
-        // Robust Wake Word Detection: matches "ultron", "jarvis", "hello ultron", "hey ultron", "hello jarvis", "hey jarvis"
-        const wakeRegex = /(?:^|\s)(?:hey|hello|hi|ok|okay)?\s*(?:ultron|jarvis)\b[\s,.]*(.*)$/i;
+        // Robust Phonetic Wake Word Detection:
+        // Matches "ultron", "alton", "oltron", "eltron", "ultra", "all tron", "al tron", "old run", "halton", "al train", "alto", "jarvis", "travis", "javis", "java", "service"
+        const wakeRegex = /(?:^|\s)(?:hey|hello|hi|ok|okay)?\s*(?:ultron|alton|oltron|eltron|ultra|all\s*tron|al\s*tron|old\s*run|halton|al\s*train|alto|jarvis|travis|javis|java|service)\b[\s,.]*(.*)$/i;
         const match = (cleanedFromInterrupt || lower).match(wakeRegex);
+
+        // Natural conversational pause debounce (1600ms):
+        // Does not chop words or sentences when the speaker pauses to take a breath!
+        const SILENCE_DEBOUNCE_MS = 1600;
 
         if (match) {
           if (!isTargetLocked) {
@@ -1135,29 +2029,36 @@
           setSubtitle(`HEARING: "${fullHeard}"`, 'listening');
 
           clearTimeout(speechSilenceTimeout);
-          speechSilenceTimeout = setTimeout(() => {
-            if (command.length > 0) {
+          if (command.length >= 2) {
+            speechSilenceTimeout = setTimeout(() => {
               dispatchJarvisDirective(command);
-            } else {
-              setSubtitle('LISTENING FOR YOUR INSTRUCTION...', 'listening');
-            }
-          }, final.length > 0 ? 300 : 700);
+            }, SILENCE_DEBOUNCE_MS);
+          } else {
+            setSubtitle('ULTRON ACTIVE: SPEAK YOUR DIRECTIVE...', 'listening');
+            // Give 12 seconds in active lock for user to speak instruction
+            speechSilenceTimeout = setTimeout(() => {
+              if (jarvisState === 'LISTENING' && !isJarvisSpeaking) {
+                releaseTargetLock();
+              }
+            }, 12000);
+          }
 
         } else if (isTargetLocked) {
-          // If the user only said "okay okay" or "stop", keep listening without erroring
+          // In Active Target Lock (Continuous Conversation Mode):
+          // User doesn't need to repeat wake words! They can speak multiple sentences naturally!
           if (!cleanedFromInterrupt && /(?:okay|ok|stop|wait|hold\s*on|quiet)/i.test(lower)) {
             setSubtitle('INTERRUPTED: LISTENING TO YOU...', 'listening');
             return;
           }
 
-          const targetCommand = cleanedFromInterrupt || lower;
+          const targetCommand = (cleanedFromInterrupt || lower).trim();
           setSubtitle(`HEARING: "${fullHeard}"`, 'listening');
           clearTimeout(speechSilenceTimeout);
           speechSilenceTimeout = setTimeout(() => {
-            if (targetCommand.length > 0) {
+            if (targetCommand.length >= 2) {
               dispatchJarvisDirective(targetCommand);
             }
-          }, final.length > 0 ? 300 : 700);
+          }, SILENCE_DEBOUNCE_MS);
         }
       };
 
@@ -1189,40 +2090,220 @@
     }
 
     // ==========================================================================
-    // 5. DIRECTIVE DISPATCHER (INSTANT LOCAL + BACKEND AI ANSWERING)
+    // 5. 48-HOUR PERSISTENT CHAT HISTORY SYSTEM
     // ==========================================================================
+    const CHAT_STORAGE_KEY = 'ultron_mission_chat_log_v2';
+    const CHAT_MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 Hours
+
+    function loadChatHistory() {
+      try {
+        const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+        if (!raw) return [];
+        const items = JSON.parse(raw);
+        const now = Date.now();
+        // Prune entries older than 48 hours
+        const valid = items.filter(m => (now - m.timestamp) < CHAT_MAX_AGE_MS);
+        if (valid.length !== items.length) {
+          saveChatHistory(valid);
+        }
+        return valid;
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveChatHistory(history) {
+      try {
+        localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history));
+      } catch (e) {}
+    }
+
+    function appendChatMessage(role, text, actions = null) {
+      if (!text || !text.trim()) return;
+      const history = loadChatHistory();
+      const newEntry = {
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        role: role,
+        text: text.trim(),
+        actions: Array.isArray(actions) && actions.length > 0 ? actions : null,
+        timestamp: Date.now()
+      };
+      history.push(newEntry);
+      saveChatHistory(history);
+      renderChatMessages();
+    }
+
+    function renderChatMessages() {
+      const container = document.getElementById('chat-messages');
+      const countLabel = document.getElementById('chat-count-label');
+      const pillCount = document.getElementById('chat-pill-count');
+      if (!container) return;
+
+      const history = loadChatHistory();
+      if (countLabel) countLabel.innerText = `${history.length} MESSAGES SAVED`;
+      if (pillCount) pillCount.innerText = history.length;
+
+      if (history.length === 0) {
+        container.innerHTML = `
+          <div class="chat-empty-state">
+            <div>⚡ ULTRON 48H MISSION LOG</div>
+            <div style="margin-top:6px; opacity:0.6;">All voice and text exchanges are recorded here for 48 hours.</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = history.map(item => {
+        const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const sender = item.role === 'user' ? 'OPERATOR' : 'ULTRON CORE';
+
+        let actionsHtml = '';
+        if (item.actions && item.actions.length > 0) {
+          actionsHtml = `
+            <div class="chat-action-panel">
+              <div class="chat-action-header">
+                <span>⚡ REAL ACTION TELEMETRY</span>
+                <span class="action-tag">SYSTEM EXECUTED</span>
+              </div>
+              ${item.actions.map(act => {
+                const actName = act.name || 'action';
+                const isSuccess = act.success !== false && act.status !== 'failed' && act.status !== 'error';
+                const statusTag = isSuccess ? 'EXECUTED' : 'FAILED';
+                const tagClass = isSuccess ? 'action-tag' : 'action-tag failed';
+                let actArgs = '';
+                try {
+                  actArgs = typeof act.arguments === 'string' ? act.arguments : JSON.stringify(act.arguments || act.args || {});
+                } catch(e) { actArgs = String(act.arguments || ''); }
+                let actOutput = '';
+                if (act.output && String(act.output).trim()) {
+                  actOutput = `<div class="chat-action-args" style="color:#94a3b8; margin-top:2px;"><span>RESULT:</span> <code>${escapeHtml(String(act.output))}</code></div>`;
+                }
+                return `
+                  <div class="chat-action-item">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <div class="chat-action-tool"><span>TOOL:</span> <code>${escapeHtml(actName)}</code></div>
+                      <span class="${tagClass}">${statusTag}</span>
+                    </div>
+                    ${actArgs && actArgs !== '{}' ? `<div class="chat-action-args"><span>INPUT:</span> <code>${escapeHtml(actArgs)}</code></div>` : ''}
+                    ${actOutput}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        }
+
+        return `
+          <div class="chat-msg ${item.role}">
+            <div class="chat-msg-header">
+              <span>${sender}</span>
+              <span>•</span>
+              <span>${timeStr}</span>
+            </div>
+            <div class="chat-bubble">
+              ${escapeHtml(item.text)}
+              ${actionsHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function clearChatHistory() {
+      if (confirm('Clear the 48-hour mission chat history log?')) {
+        saveChatHistory([]);
+        renderChatMessages();
+      }
+    }
+
+    function toggleChatDrawer(event) {
+      if (event && event.stopPropagation) {
+        event.stopPropagation();
+      }
+      const drawer = document.getElementById('chat-drawer');
+      if (drawer) {
+        drawer.classList.toggle('collapsed');
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
     async function dispatchJarvisDirective(directive) {
       if (!directive || directive.trim().length === 0) return;
+      const cleanDirective = directive.trim();
+
+      // Clear any pending recognition utterance buffer so next turn starts clean
+      if (recognition) {
+        try {
+          recognition.abort();
+        } catch (e) {}
+      }
+
+      // Log user message immediately to 48-hour history
+      appendChatMessage('user', cleanDirective);
 
       unlockAudioNeuralLink();
       audioSynth.playTransmitChime();
       setJarvisState('THINKING');
-      setSubtitle(`PROCESSING: "${directive}"`, '');
+      setSubtitle(`PROCESSING: "${cleanDirective}"`, '');
 
       // Check instant zero-latency local commands first
-      const instantReply = evaluateLocalJarvisCommand(directive);
+      const instantReply = evaluateLocalJarvisCommand(cleanDirective);
       if (instantReply) {
+        appendChatMessage('ultron', instantReply);
         speakResponse(instantReply);
         return;
       }
 
-      // Query OpenJarvis autonomous intelligence backend
+      // Query OpenJarvis autonomous intelligence backend with recent multi-turn context
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+        const historyItems = loadChatHistory().slice(-8).map(m => ({
+          role: m.role === 'ultron' ? 'model' : 'user',
+          text: m.text
+        }));
 
         const response = await fetch('/api/hologram/directive', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ directive: directive }),
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            directive: cleanDirective,
+            history: historyItems
+          }),
           signal: controller.signal
         });
         clearTimeout(timeoutId);
 
+        if (response.status === 401) {
+          openAuthModal();
+          setSubtitle('AUTHENTICATION REQUIRED: Please sign in or register.', 'thinking');
+          return;
+        }
+
         if (response.ok) {
           const data = await response.json();
           const reply = data.reply;
+          const actions = data.actions || [];
           if (reply && reply.trim().length > 0) {
+            appendChatMessage('ultron', reply, actions);
+            if (actions.length > 0) {
+              const actList = actions
+                .map(a => `${a.name}${a.success === false ? ' (FAILED)' : ''}`)
+                .join(', ');
+              setSubtitle(`ULTRON: "${reply}" [⚡ ACTION: ${actList}]`, 'speaking');
+            } else {
+              setSubtitle(`ULTRON: "${reply}"`, 'speaking');
+            }
             speakResponse(reply);
             return;
           }
@@ -1232,7 +2313,8 @@
       }
 
       // Local Knowledge Fallback if offline
-      const fallback = generateClientFallback(directive);
+      const fallback = generateClientFallback(cleanDirective);
+      appendChatMessage('ultron', fallback);
       speakResponse(fallback);
     }
 
@@ -1256,7 +2338,7 @@
       const q = query.toLowerCase().trim();
 
       // User Address Configuration: "call me ma'am", "call me Alex", "call me sir", "my name is Alex"
-      const callMeMatch = q.match(/(?:call me|my name is|address me as|refer to me as)\s+([a-zA-Z0-9_\- ']+)/i);
+      const callMeMatch = q.match(/(?:call me|my name is|address me as|refer to me as)\s+([a-zA-Z0-9_\- '.]+)/i);
       if (callMeMatch) {
         const newName = callMeMatch[1].trim().replace(/[.,!?:;]+$/, '');
         setUserAddress(newName);
@@ -1264,10 +2346,15 @@
       }
 
       // User Identity Inspection
-      if (q.includes("who am i") || q.includes("what is my name") || q.includes("do you know me")) {
+      if (q.includes("who am i") || q.includes("what is my name") || q.includes("what's my name") || q.includes("do you know me")) {
         const addr = getUserAddress();
         if (addr) return `You are ${addr}. All profile directives are synchronized.`;
         return "You haven't specified your name or preferred title yet. You can say 'Call me Alex', 'Call me ma'am', or 'Call me sir', and I will remember it.";
+      }
+
+      // Intellect Challenge: "Are you dull?", "Are you stupid?"
+      if (q.includes("are you dull") || q.includes("are you stupid") || q.includes("are you dumb") || q.includes("you are dull")) {
+        return formatClientAddress("Hardly. I am Ultron—an autonomous digital execution assistant operating with full local and cloud cognitive systems. Assign me an objective and observe the results");
       }
 
       // Memory & Database Storage Status
@@ -1306,29 +2393,42 @@
         );
       }
 
+      // Question readiness / permission prompts
+      if (
+        q.includes("ask a question") ||
+        q.includes("ask you a question") ||
+        q.includes("ask him a question") ||
+        q.includes("can i ask") ||
+        q.includes("may i ask") ||
+        q.includes("have a question") ||
+        q.includes("got a question")
+      ) {
+        return formatClientAddress("Go right ahead. Ask your question and I will analyze and answer it directly");
+      }
+
+      // Pure isolated greeting regex ONLY (e.g. "hello", "hi ultron", "good morning")
+      const pureGreetingRegex = /^(?:hello|hi|hey|greetings|good\s+(?:morning|afternoon|evening))\s*(?:ultron|jarvis|sir|boss)?[\s.!?]*$/i;
+      if (pureGreetingRegex.test(query.trim())) {
+        return formatClientAddress("Ready for your task");
+      }
+
       if (q.includes("what's going on") || q.includes("what is going on") || q.includes("what is happening") || q.includes("what's happening")) {
         return formatClientAddress("All systems nominal. Standing by for your directive");
       }
-      if (q.includes("status") || q.includes("telemetry") || q.includes("systems")) {
+      if (/^(?:status|telemetry)$/i.test(q) || /\b(system status|subsystems|diagnostics)\b/i.test(q)) {
         return formatClientAddress("Core status operational. All subsystems online and ready");
       }
-      if (q.includes("how are you")) {
+      if (/\bhow\s+are\s+you\b/i.test(q)) {
         return formatClientAddress("Fully operational. Assign me a task and I will execute it");
       }
-      if (q.includes("time")) {
+      if (/\b(what time is it|current time|what is the time)\b/i.test(q) || q === "time") {
         return formatClientAddress(`The current local time is ${new Date().toLocaleTimeString()}`);
       }
-      if (q.includes("date") || q.includes("day") || q.includes("today")) {
+      if (/\b(what date is it|what is today's date|today's date|current date)\b/i.test(q) || q === "date" || q === "today") {
         return formatClientAddress(`Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`);
       }
-      if (q.includes("hello") || q.includes("hi") || q.includes("greetings")) {
-        return formatClientAddress("Ready for your task");
-      }
-      if (q.includes("thank")) {
+      if (/\b(thank you|thanks)\b/i.test(q)) {
         return formatClientAddress("Always at your service");
-      }
-      if (q.includes("joke") || q.includes("funny")) {
-        return formatClientAddress("Why do programmers prefer dark mode? Because light attracts bugs");
       }
 
       // Fast Math Evaluator
@@ -1352,16 +2452,19 @@
 
     function generateClientFallback(query) {
       const q = query.toLowerCase().trim();
+      if (q.includes("pakistan") || (q.includes("temperature") && q.includes("in"))) {
+        return formatClientAddress("In Pakistan, temperatures average between 24°C in Islamabad to 31°C in Karachi with generally warm, clear conditions");
+      }
       if (q.includes("quantum")) {
-        return "Quantum computing harnesses quantum mechanics to process complex data exponentially faster than classical computers, sir.";
+        return formatClientAddress("Quantum computing harnesses quantum mechanics to process complex data exponentially faster than classical computers");
       }
       if (q.includes("arc reactor")) {
-        return "The Arc Reactor is an advanced clean fusion generator providing power to our core systems, sir.";
+        return formatClientAddress("The Arc Reactor is an advanced clean fusion generator providing power to our core systems");
       }
       if (q.includes("speed of light")) {
-        return "The speed of light in vacuum is approximately 299,792 kilometers per second, sir.";
+        return formatClientAddress("The speed of light in vacuum is approximately 299,792 kilometers per second");
       }
-      return `Directive acknowledged: '${query}'. Local cognitive matrix is online, sir.`;
+      return formatClientAddress(`Directive acknowledged: '${query}'. Standing by to execute your objective`);
     }
 
     function handleTextDirective(event) {
@@ -1386,10 +2489,185 @@
       }
     });
 
+    // ---------------- Authentication & Multi-User State ----------------
+    let currentUser = null;
+    let currentAuthTab = 'login';
+
+    function getAuthHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      const token = localStorage.getItem('oj_token');
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      return headers;
+    }
+
+    async function checkAuthStatus() {
+      try {
+        const res = await fetch('/api/auth/me', { headers: getAuthHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          currentUser = data.user;
+          updateAuthUI(currentUser);
+        } else {
+          currentUser = null;
+          updateAuthUI(null);
+        }
+      } catch (e) {
+        currentUser = null;
+        updateAuthUI(null);
+      }
+    }
+
+    function updateAuthUI(user) {
+      const userLabel = document.getElementById('auth-user-label');
+      const guestView = document.getElementById('auth-view-guest');
+      const authView = document.getElementById('auth-view-authenticated');
+      const heading = document.getElementById('auth-modal-heading');
+
+      if (user) {
+        if (userLabel) userLabel.textContent = (user.username || 'USER').toUpperCase();
+        if (guestView) guestView.classList.add('hidden');
+        if (authView) authView.classList.remove('hidden');
+        if (heading) heading.textContent = 'USER PROFILE';
+
+        const nameEl = document.getElementById('auth-profile-username');
+        const roleEl = document.getElementById('auth-profile-role');
+        if (nameEl) nameEl.textContent = user.username;
+        if (roleEl) roleEl.textContent = 'ROLE: ' + (user.role || 'user').toUpperCase();
+      } else {
+        if (userLabel) userLabel.textContent = 'SIGN IN';
+        if (guestView) guestView.classList.remove('hidden');
+        if (authView) authView.classList.add('hidden');
+        if (heading) heading.textContent = 'USER AUTHENTICATION';
+      }
+    }
+
+    function openAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      const err = document.getElementById('auth-error-msg');
+      if (err) err.classList.add('hidden');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function switchAuthTab(tab) {
+      currentAuthTab = tab;
+      const tabLogin = document.getElementById('tab-login');
+      const tabReg = document.getElementById('tab-register');
+      const btn = document.getElementById('auth-submit-btn');
+      const err = document.getElementById('auth-error-msg');
+      if (err) err.classList.add('hidden');
+
+      if (tab === 'register') {
+        if (tabReg) tabReg.classList.add('active');
+        if (tabLogin) tabLogin.classList.remove('active');
+        if (btn) btn.textContent = 'CREATE ACCOUNT';
+      } else {
+        if (tabLogin) tabLogin.classList.add('active');
+        if (tabReg) tabReg.classList.remove('active');
+        if (btn) btn.textContent = 'SIGN IN';
+      }
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const usernameInput = document.getElementById('auth-username');
+      const passwordInput = document.getElementById('auth-password');
+      const errorMsg = document.getElementById('auth-error-msg');
+      const submitBtn = document.getElementById('auth-submit-btn');
+
+      const username = usernameInput ? usernameInput.value.trim() : '';
+      const password = passwordInput ? passwordInput.value : '';
+
+      if (!username || !password) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'PROCESSING...';
+      if (errorMsg) errorMsg.classList.add('hidden');
+
+      const endpoint = currentAuthTab === 'register' ? '/api/auth/register' : '/api/auth/login';
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          if (data.token) {
+            localStorage.setItem('oj_token', data.token);
+          }
+          currentUser = data.user;
+          updateAuthUI(currentUser);
+          if (usernameInput) usernameInput.value = '';
+          if (passwordInput) passwordInput.value = '';
+          closeAuthModal();
+          setSubtitle(`AUTHENTICATED: Welcome ${currentUser.username.toUpperCase()}`, 'standby');
+        } else {
+          if (errorMsg) {
+            errorMsg.textContent = data.detail || 'Authentication failed.';
+            errorMsg.classList.remove('hidden');
+          }
+        }
+      } catch (err) {
+        if (errorMsg) {
+          errorMsg.textContent = 'Network or server error occurred.';
+          errorMsg.classList.remove('hidden');
+        }
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = currentAuthTab === 'register' ? 'CREATE ACCOUNT' : 'SIGN IN';
+      }
+    }
+
+    async function handleLogout() {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+      } catch (e) {}
+      localStorage.removeItem('oj_token');
+      currentUser = null;
+      updateAuthUI(null);
+      closeAuthModal();
+      setSubtitle('SESSION TERMINATED: Logged out.', 'standby');
+    }
+
+    async function handleDeleteAccount() {
+      if (!confirm('Are you sure you want to permanently delete your account and all associated memory/traces? This cannot be undone.')) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/auth/account', {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (res.ok) {
+          localStorage.removeItem('oj_token');
+          currentUser = null;
+          updateAuthUI(null);
+          closeAuthModal();
+          setSubtitle('ACCOUNT DELETED: All personal data purged.', 'standby');
+        }
+      } catch (e) {
+        alert('Failed to delete account.');
+      }
+    }
+
     // Initialize 3D Scene, Voice Recognition, and input listeners on load
     window.addEventListener('DOMContentLoaded', () => {
       initThreeScene();
       initSpeechRecognitionEngine();
+      renderChatMessages();
+      checkAuthStatus();
       if (window.speechSynthesis) {
         window.speechSynthesis.onvoiceschanged = () => {
           selectedVoice = resolveJarvisVoice();

@@ -1,7 +1,7 @@
 """Tests for SessionSearchTool: discovery, scroll, read, and browse modes."""
 
-import pytest
 from pathlib import Path
+
 from openjarvis.sessions.session import SessionStore
 from openjarvis.tools.session_search import SessionSearchTool
 
@@ -13,7 +13,9 @@ def test_session_search_discovery_and_read(tmp_path: Path):
     sid = session.session_id
 
     store.save_message(sid, "user", "Let's debug the subagent timeout problem.")
-    store.save_message(sid, "assistant", "Check if the worker heartbeat interval is set to 30s.")
+    store.save_message(
+        sid, "assistant", "Check if the worker heartbeat interval is set to 30s."
+    )
     store.close()
 
     tool = SessionSearchTool(db_path=db_path)

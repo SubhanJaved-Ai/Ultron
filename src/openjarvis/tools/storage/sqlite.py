@@ -41,14 +41,17 @@ class SQLiteMemory(MemoryBackend):
 
         self._db_path = str(db_path)
 
-        from openjarvis._rust_bridge import RUST_AVAILABLE
+        from openjarvis import _rust_bridge
 
-        if RUST_AVAILABLE:
-            from openjarvis._rust_bridge import get_rust_module
+        if _rust_bridge.RUST_AVAILABLE:
+            from openjarvis.tools.storage._stubs import MemoryBackendUnavailable
 
-            _rust = get_rust_module()
-            self._rust_impl = _rust.SQLiteMemory(self._db_path)
-            self._conn = None
+            try:
+                _rust = _rust_bridge.get_rust_module()
+                self._rust_impl = _rust.SQLiteMemory(self._db_path)
+                self._conn = None
+            except ImportError as exc:
+                raise MemoryBackendUnavailable() from exc
         else:
             self._rust_impl = None
             db_p = Path(self._db_path)
@@ -108,8 +111,7 @@ class SQLiteMemory(MemoryBackend):
             )
             rowid = cur.lastrowid
             cur.execute(
-                "INSERT INTO documents_fts (rowid, content, source) "
-                "VALUES (?, ?, ?)",
+                "INSERT INTO documents_fts (rowid, content, source) VALUES (?, ?, ?)",
                 (rowid, content, source),
             )
             self._conn.commit()
@@ -259,9 +261,7 @@ class SQLiteMemory(MemoryBackend):
         if self._rust_impl is not None:
             self._rust_impl.clear()
             return
-        self._conn.executescript(
-            "DELETE FROM documents_fts; DELETE FROM documents;"
-        )
+        self._conn.executescript("DELETE FROM documents_fts; DELETE FROM documents;")
 
     def count(self) -> int:
         """Return the number of stored documents."""

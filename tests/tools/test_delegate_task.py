@@ -1,7 +1,7 @@
 """Tests for DelegateTaskTool: single and parallel batch delegation."""
 
-import pytest
 import time
+
 from openjarvis.tools.delegate_task import DelegateTaskTool
 
 

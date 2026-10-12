@@ -1,9 +1,9 @@
 """Tests for CronjobManageTool: add, list, run, pause, resume, status, history, remove."""
 
-import pytest
 from pathlib import Path
-from openjarvis.scheduler.store import SchedulerStore
+
 from openjarvis.scheduler.scheduler import TaskScheduler
+from openjarvis.scheduler.store import SchedulerStore
 from openjarvis.tools.cronjob_manage import CronjobManageTool
 
 

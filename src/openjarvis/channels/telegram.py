@@ -468,9 +468,7 @@ class TelegramChannel(BaseChannel):
                                 metadata["transcribed"] = True
                                 metadata["voice_reply"] = True
                     except Exception as exc:
-                        logger.warning(
-                            "Telegram voice transcription failed: %s", exc
-                        )
+                        logger.warning("Telegram voice transcription failed: %s", exc)
                         if not content:
                             content = (msg.caption or "").strip() or "[Voice Note]"
 

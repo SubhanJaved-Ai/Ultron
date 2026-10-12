@@ -1,7 +1,7 @@
 """Tests for SessionStore SQLite FTS5 search and triggers."""
 
-import pytest
 from pathlib import Path
+
 from openjarvis.sessions.session import SessionStore
 
 
@@ -14,7 +14,11 @@ def test_session_fts_indexing_and_search(tmp_path: Path):
 
     # Add messages
     store.save_message(sid, "user", "How do I configure the Hermes gateway on my VPS?")
-    store.save_message(sid, "assistant", "To configure the gateway, set HERMES_PORT=8000 and run hermes start.")
+    store.save_message(
+        sid,
+        "assistant",
+        "To configure the gateway, set HERMES_PORT=8000 and run hermes start.",
+    )
     store.save_message(sid, "user", "Thanks, what about persistent memory?")
     store.save_message(sid, "assistant", "Memory is stored in MEMORY.md and USER.md.")
 
@@ -43,7 +47,9 @@ def test_session_fts_context_and_transcript(tmp_path: Path):
     sid = session.session_id
 
     for i in range(10):
-        store.save_message(sid, "user" if i % 2 == 0 else "assistant", f"Turn number {i} text")
+        store.save_message(
+            sid, "user" if i % 2 == 0 else "assistant", f"Turn number {i} text"
+        )
 
     # Get transcript
     transcript = store.get_session_transcript(sid, limit=5)

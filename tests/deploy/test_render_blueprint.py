@@ -41,18 +41,20 @@ def _docker_json_instruction(name: str) -> list[str]:
 
 def _run_fake_jarvis(tmp_path: Path, argv: list[str]) -> list[str]:
     """Run an argv assembled with Docker's exec-form ENTRYPOINT semantics."""
-    fake_jarvis = tmp_path / "jarvis"
+    import sys
+
+    fake_jarvis = tmp_path / "fake_jarvis.py"
     fake_jarvis.write_text(
-        "#!/bin/sh\nprintf '%s\\0' \"$@\"\n",
+        "import sys\n"
+        "sys.stdout.buffer.write(b'\\0'.join(arg.encode('utf-8') for arg in sys.argv[1:]) + b'\\0')\n",
         encoding="utf-8",
     )
-    fake_jarvis.chmod(0o755)
     completed = subprocess.run(
-        [str(fake_jarvis), *argv[1:]],
+        [sys.executable, str(fake_jarvis), *argv[1:]],
         check=True,
         capture_output=True,
     )
-    return completed.stdout.rstrip(b"\0").decode().split("\0")
+    return completed.stdout.rstrip(b"\0").decode("utf-8").split("\0")
 
 
 def test_render_selects_cloud_engine_through_the_serve_cli(tmp_path: Path) -> None:

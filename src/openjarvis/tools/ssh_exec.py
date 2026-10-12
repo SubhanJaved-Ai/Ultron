@@ -7,7 +7,7 @@ to automate remote infrastructure, run tasks on servers, and manage remote envir
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult

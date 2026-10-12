@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from openjarvis.server.analytics_routes import router as analytics_router
 from openjarvis.server.api_routes import include_all_routes
+from openjarvis.server.auth_routes import auth_router
 from openjarvis.server.comparison import comparison_router
 from openjarvis.server.connectors_router import create_connectors_router
 from openjarvis.server.dashboard import dashboard_router
@@ -178,6 +179,7 @@ def create_app(
     webhook_config: dict | None = None,
     cors_origins: list[str] | None = None,
     system: Any = None,
+    multi_user: bool = False,
 ) -> FastAPI:
     """Create and configure the FastAPI application."""
     if engine is None:
@@ -320,6 +322,11 @@ def create_app(
     # AuthMiddleware never sees WS upgrade requests). Empty = auth disabled.
     app.state.api_key = api_key
     app.state.system = system
+    app.state.multi_user = bool(
+        multi_user
+        or os.environ.get("OPENJARVIS_MULTI_USER", "").strip().lower()
+        in ("1", "true", "yes")
+    )
 
     @app.on_event("shutdown")
     async def _shutdown_managed_runtime() -> None:
@@ -510,6 +517,7 @@ def create_app(
     app.include_router(analytics_router)
     app.include_router(hologram_router)
     app.include_router(node_router)
+    app.include_router(auth_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup
@@ -525,12 +533,22 @@ def create_app(
     except Exception as exc:
         logger.debug("Security middleware init skipped: %s", exc)
 
-    # API key authentication middleware
-    if api_key:
+    # API key and multi-user authentication middleware
+    env_multi_user = os.environ.get("OPENJARVIS_MULTI_USER", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    effective_multi_user = bool(multi_user or env_multi_user)
+    if api_key or effective_multi_user:
         try:
             from openjarvis.server.auth_middleware import AuthMiddleware
 
-            app.add_middleware(AuthMiddleware, api_key=api_key)
+            app.add_middleware(
+                AuthMiddleware,
+                api_key=api_key,
+                multi_user=effective_multi_user,
+            )
         except Exception as exc:
             logger.debug("Auth middleware init skipped: %s", exc)
 

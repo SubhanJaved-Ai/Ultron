@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -319,4 +319,6 @@ def get_environment(env_type: str, **kwargs: Any) -> ExecutionEnvironment:
             key_path=kwargs.get("key_path"),
             connect_timeout=int(kwargs.get("connect_timeout", 10)),
         )
-    raise ValueError(f"Unknown environment type: {env_type!r}. Supported: 'local', 'docker', 'ssh'")
+    raise ValueError(
+        f"Unknown environment type: {env_type!r}. Supported: 'local', 'docker', 'ssh'"
+    )

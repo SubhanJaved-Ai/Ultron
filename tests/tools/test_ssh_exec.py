@@ -1,7 +1,7 @@
 """Tests for SSHExecTool."""
 
-import pytest
 from unittest.mock import patch
+
 from openjarvis.sandbox.environments import ExecutionResult
 from openjarvis.tools.ssh_exec import SSHExecTool
 
@@ -23,8 +23,12 @@ def test_ssh_exec_execution():
         duration_seconds=0.45,
     )
 
-    with patch("openjarvis.tools.ssh_exec.SSHEnvironment.is_available", return_value=True):
-        with patch("openjarvis.tools.ssh_exec.SSHEnvironment.execute", return_value=mock_result):
+    with patch(
+        "openjarvis.tools.ssh_exec.SSHEnvironment.is_available", return_value=True
+    ):
+        with patch(
+            "openjarvis.tools.ssh_exec.SSHEnvironment.execute", return_value=mock_result
+        ):
             res = tool.execute(
                 host="192.168.1.100",
                 command="uname -a",

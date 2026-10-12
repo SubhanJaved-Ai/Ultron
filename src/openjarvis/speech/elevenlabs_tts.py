@@ -36,8 +36,7 @@ def _elevenlabs_synthesize(
     """Call the ElevenLabs TTS API and return raw audio bytes."""
     format_param = "mp3_44100_128" if output_format == "mp3" else "pcm_24000"
     url = (
-        f"{_ELEVENLABS_API_BASE}/text-to-speech/{voice_id}"
-        f"?output_format={format_param}"
+        f"{_ELEVENLABS_API_BASE}/text-to-speech/{voice_id}?output_format={format_param}"
     )
 
     headers = {

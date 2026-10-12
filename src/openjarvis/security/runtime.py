@@ -64,6 +64,7 @@ def wire_agent_security(
     agent_id: str = "",
     overwrite: bool = True,
     synchronize_runtime_cache: bool = False,
+    operator_role: str = "",
 ) -> None:
     """Wire runtime security into an already-created agent and executor."""
     if agent is None:
@@ -131,6 +132,11 @@ def wire_agent_security(
         # ``agent_name``.
         executor._agent_id = agent_id
 
+    if operator_role:
+        agent._operator_role = operator_role
+        if executor is not None:
+            executor._operator_role = operator_role
+
 
 def execute_secured_tool(
     tool: Any,
@@ -140,6 +146,7 @@ def execute_secured_tool(
     capability_policy: Any = None,
     rate_limiter: Any = None,
     agent_id: str,
+    operator_role: str = "",
 ):
     """Run one direct operation through the canonical ToolExecutor gates."""
     from openjarvis.core.types import ToolCall
@@ -152,6 +159,8 @@ def execute_secured_tool(
         rate_limiter=rate_limiter,
         agent_id=agent_id,
     )
+    if operator_role:
+        executor._operator_role = operator_role
     return executor.execute(
         ToolCall(
             id=f"direct-{uuid.uuid4().hex[:12]}",

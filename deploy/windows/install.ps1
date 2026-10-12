@@ -278,7 +278,10 @@ if (Test-Path (Join-Path $srcDir '.git')) {
     Write-Info "Cloning $repoUrl..."
     # Preserve history without partial-clone lazy fetches from local sources,
     # which may themselves be shallow. Remote sources can omit old blobs.
-    if ($repoUrl -like 'file://*' -or (Test-Path -LiteralPath $repoUrl -ErrorAction SilentlyContinue)) {
+    if ($repoUrl -like 'file://*') {
+        $cloneSource = [System.Uri]::new($repoUrl).LocalPath
+        & $gitExe clone $cloneSource $srcDir
+    } elseif (Test-Path -LiteralPath $repoUrl -ErrorAction SilentlyContinue) {
         & $gitExe clone $repoUrl $srcDir
     } else {
         & $gitExe clone --filter=blob:none $repoUrl $srcDir

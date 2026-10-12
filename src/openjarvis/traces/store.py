@@ -344,5 +344,14 @@ class TraceStore:
     def _fetchall(self, sql: str = "SELECT * FROM traces") -> list:
         return self._conn.execute(sql).fetchall()
 
+    @_db_locked
+    def close(self) -> None:
+        """Close the underlying SQLite connection."""
+        if hasattr(self, "_conn") and self._conn is not None:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+
 
 __all__ = ["TraceStore"]

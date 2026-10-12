@@ -2,7 +2,7 @@
 
 import json
 from unittest.mock import MagicMock, patch
-import pytest
+
 from openjarvis.tools.n8n_tool import N8NTool
 
 
@@ -31,12 +31,14 @@ def test_n8n_list_workflows_success():
 
     mock_resp = MagicMock()
     mock_resp.status = 200
-    mock_resp.read.return_value = json.dumps({
-        "data": [
-            {"id": "wf_1", "name": "Sync Stripe to Slack", "active": True},
-            {"id": "wf_2", "name": "GitHub Issue Classifier", "active": False},
-        ]
-    }).encode("utf-8")
+    mock_resp.read.return_value = json.dumps(
+        {
+            "data": [
+                {"id": "wf_1", "name": "Sync Stripe to Slack", "active": True},
+                {"id": "wf_2", "name": "GitHub Issue Classifier", "active": False},
+            ]
+        }
+    ).encode("utf-8")
     mock_resp.__enter__.return_value = mock_resp
 
     with patch("urllib.request.urlopen", return_value=mock_resp):

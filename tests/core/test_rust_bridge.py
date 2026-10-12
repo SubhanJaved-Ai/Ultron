@@ -6,7 +6,6 @@ import json
 
 import pytest
 
-
 from openjarvis._rust_bridge import RUST_AVAILABLE
 
 

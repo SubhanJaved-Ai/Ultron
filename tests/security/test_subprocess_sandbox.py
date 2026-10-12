@@ -112,7 +112,7 @@ class TestRunSandboxed:
         py_exe = get_python_executable()
         py_cmd = f'"{py_exe}"' if os.name == "nt" else shlex.quote(py_exe)
         result = run_sandboxed(
-            f'{py_cmd} -c "print(\'A\' * 200)"',
+            f"{py_cmd} -c \"print('A' * 200)\"",
             timeout=10.0,
             max_output_bytes=50,
         )

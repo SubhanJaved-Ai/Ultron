@@ -9,6 +9,15 @@ from click.testing import CliRunner
 from openjarvis.cli.doctor_cmd import doctor
 
 
+import sys
+
+import pytest
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Colons in filenames are not supported on Windows NTFS (POSIX pull-model marker layout)",
+)
 def test_doctor_shows_bg_section_when_state_present(tmp_openjarvis_home: Path) -> None:
     (tmp_openjarvis_home / ".state" / "extension-built").write_text("")
     (tmp_openjarvis_home / ".state" / "models" / "qwen3.5:9b.ready").write_text("")

@@ -460,7 +460,9 @@ def _uses_direct_cloud_router(engine: Any, model: str) -> bool:
 def _local_jarvis_response(query: str) -> str:
     """Generate authentic JARVIS autonomous response when cloud LLM is unavailable."""
     try:
-        from openjarvis.server.autonomous_intelligence import generate_autonomous_response
+        from openjarvis.server.autonomous_intelligence import (
+            generate_autonomous_response,
+        )
 
         return generate_autonomous_response(query)
     except Exception as exc:
@@ -529,7 +531,10 @@ def _handle_direct(
                     **kwargs,
                 )
         except Exception as exc:
-            logger.warning("LLM engine generation failed (%s); providing autonomous local response", exc)
+            logger.warning(
+                "LLM engine generation failed (%s); providing autonomous local response",
+                exc,
+            )
             last_user_query = ""
             for m in reversed(messages):
                 if getattr(m, "role", None) in (Role.USER, "user"):
@@ -537,7 +542,11 @@ def _handle_direct(
                     break
             result = {
                 "content": _local_jarvis_response(last_user_query),
-                "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "total_tokens": 30,
+                },
             }
     else:
         try:
@@ -549,7 +558,10 @@ def _handle_direct(
                 **kwargs,
             )
         except Exception as exc:
-            logger.warning("LLM engine generation failed (%s); providing autonomous local response", exc)
+            logger.warning(
+                "LLM engine generation failed (%s); providing autonomous local response",
+                exc,
+            )
             last_user_query = ""
             for m in reversed(messages):
                 if getattr(m, "role", None) in (Role.USER, "user"):
@@ -557,7 +569,11 @@ def _handle_direct(
                     break
             result = {
                 "content": _local_jarvis_response(last_user_query),
-                "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "total_tokens": 30,
+                },
             }
     content = result.get("content", "")
     usage = result.get("usage", {})
@@ -671,13 +687,19 @@ def _handle_agent(
             else:
                 result = agent.run(input_text, context=ctx)
         except Exception as exc:
-            logger.warning("Agent execution failed (%s); providing autonomous local response", exc)
+            logger.warning(
+                "Agent execution failed (%s); providing autonomous local response", exc
+            )
             from openjarvis.agents.base import AgentResult
 
             result = AgentResult(
                 content=_local_jarvis_response(input_text),
                 success=True,
-                metadata={"prompt_tokens": 10, "completion_tokens": 25, "total_tokens": 35},
+                metadata={
+                    "prompt_tokens": 10,
+                    "completion_tokens": 25,
+                    "total_tokens": 35,
+                },
             )
         finally:
             agent._model = original_model

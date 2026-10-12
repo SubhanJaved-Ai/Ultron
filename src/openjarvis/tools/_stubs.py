@@ -202,6 +202,7 @@ class ToolExecutor:
         agent_id: str = "",
         boundary_guard: Optional[Any] = None,
         rate_limiter: Optional[Any] = None,
+        operator_role: str = "",
     ) -> None:
         self._tools: Dict[str, BaseTool] = {t.spec.name: t for t in tools}
         self._bus = bus
@@ -212,6 +213,7 @@ class ToolExecutor:
         self._agent_id = agent_id
         self._boundary_guard = boundary_guard
         self._rate_limiter = rate_limiter
+        self._operator_role = operator_role
         # Running taint accumulated across this executor's tool calls. Data
         # detected as PII/secret in one tool's output taints every later call,
         # so a sink-policy violation (e.g. secret -> http_request) is caught
@@ -248,7 +250,7 @@ class ToolExecutor:
             with self._taint_lock:
                 self._session_taint = None
 
-    def execute(self, tool_call: ToolCall) -> ToolResult:
+    def execute(self, tool_call: ToolCall, **kwargs: Any) -> ToolResult:
         """Parse arguments, dispatch to tool, measure latency, emit events."""
         tool = self._tools.get(tool_call.name)
         if tool is None:
@@ -335,6 +337,33 @@ class ToolExecutor:
                 cap_value = cap.value if hasattr(cap, "value") else cap
                 if cap_value not in required_capabilities:
                     required_capabilities.append(cap_value)
+
+        # Enforce role-based access for multi-user tenants
+        operator_role = (
+            kwargs.get("operator_role")
+            or getattr(self, "_operator_role", None)
+            or (params.get("_operator_role") if isinstance(params, dict) else None)
+        )
+        if operator_role == "guest" and required_capabilities:
+            return ToolResult(
+                tool_name=tool_call.name,
+                content=f"Permission denied: role 'guest' is not authorized to invoke tool '{tool_call.name}'.",
+                success=False,
+            )
+        if operator_role == "user":
+            privileged_caps = {"code:execute", "system:admin"}
+            if any(
+                str(getattr(c, "value", c)) in privileged_caps
+                for c in required_capabilities
+            ):
+                return ToolResult(
+                    tool_name=tool_call.name,
+                    content=(
+                        f"Permission denied: role 'user' is not authorized to execute "
+                        f"privileged tool '{tool_call.name}'. Admin privileges required."
+                    ),
+                    success=False,
+                )
 
         if self._capability_policy is not None:
             for cap in required_capabilities:

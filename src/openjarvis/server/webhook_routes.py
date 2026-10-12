@@ -550,7 +550,12 @@ def create_webhook_router(
                 payload = {}
 
         payload_str = json.dumps(payload)
-        logger.info("Executing inbound webhook trigger '%s' (%s: %s)", slug, trigger.target_type, trigger.target_name)
+        logger.info(
+            "Executing inbound webhook trigger '%s' (%s: %s)",
+            slug,
+            trigger.target_type,
+            trigger.target_name,
+        )
 
         if trigger.target_type == "workflow":
             from openjarvis.core.paths import get_config_dir
@@ -561,7 +566,11 @@ def create_webhook_router(
             wf_file = wf_dir / f"{trigger.target_name}.toml"
             if not wf_file.exists():
                 return Response(
-                    content=json.dumps({"error": f"Workflow definition not found: {trigger.target_name}"}),
+                    content=json.dumps(
+                        {
+                            "error": f"Workflow definition not found: {trigger.target_name}"
+                        }
+                    ),
                     status_code=404,
                     media_type="application/json",
                 )
@@ -570,26 +579,30 @@ def create_webhook_router(
             engine = WorkflowEngine()
             result = engine.run(graph, initial_input=payload_str)
             return Response(
-                content=json.dumps({
-                    "status": "completed" if result.success else "failed",
-                    "slug": slug,
-                    "workflow": trigger.target_name,
-                    "final_output": result.final_output,
-                    "duration_seconds": result.total_duration_seconds,
-                }),
+                content=json.dumps(
+                    {
+                        "status": "completed" if result.success else "failed",
+                        "slug": slug,
+                        "workflow": trigger.target_name,
+                        "final_output": result.final_output,
+                        "duration_seconds": result.total_duration_seconds,
+                    }
+                ),
                 status_code=200 if result.success else 500,
                 media_type="application/json",
             )
 
         # Target type == "prompt"
         return Response(
-            content=json.dumps({
-                "status": "acknowledged",
-                "slug": slug,
-                "target_type": trigger.target_type,
-                "target_name": trigger.target_name,
-                "payload_bytes": len(payload_str),
-            }),
+            content=json.dumps(
+                {
+                    "status": "acknowledged",
+                    "slug": slug,
+                    "target_type": trigger.target_type,
+                    "target_name": trigger.target_name,
+                    "payload_bytes": len(payload_str),
+                }
+            ),
             status_code=200,
             media_type="application/json",
         )

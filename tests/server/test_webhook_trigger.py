@@ -1,7 +1,7 @@
 """Tests for WebhookTriggerRegistry: inbound automation triggers."""
 
-import pytest
 from pathlib import Path
+
 from openjarvis.server.webhook_trigger import WebhookTriggerRegistry
 
 

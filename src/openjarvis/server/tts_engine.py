@@ -55,6 +55,12 @@ def synthesize_wav(text: str) -> bytes | None:
     try:
         with open(vbs_file, "w", encoding="utf-8") as f:
             f.write(f'''Set voice = CreateObject("SAPI.SpVoice")
+For Each v In voice.GetVoices
+    If InStr(LCase(v.GetDescription), "david") > 0 Or (InStr(LCase(v.GetDescription), "male") > 0 And InStr(LCase(v.GetDescription), "female") = 0) Then
+        Set voice.Voice = v
+        Exit For
+    End If
+Next
 Set stream = CreateObject("SAPI.SpFileStream")
 stream.Open "{wav_path}", 3, False
 Set voice.AudioOutputStream = stream
@@ -83,6 +89,7 @@ stream.Close
         with open(ps_file, "w", encoding="utf-8") as f:
             f.write(f"""Add-Type -AssemblyName System.Speech
 $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
+try {{ $synth.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::Male) }} catch {{}}
 $synth.Rate = 1
 $synth.Volume = 100
 $synth.SetOutputToWaveFile('{wav_path}')

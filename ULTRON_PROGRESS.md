@@ -1,9 +1,9 @@
 # ULTRON — MASTER PROGRESS TRACKER & ROADMAP
 **Document Status:** Living Master Roadmap & Activity Log  
 **Location:** `d:\Ultron\ULTRON_PROGRESS.md`  
-**Last Updated:** October 12, 2026  
-**Current Active Phase:** Phase 3C.2 (COMPLETED — REA Integration Architecture Assessment Verified)
-**Next Scheduled Action:** Operator Review of Phase 3 Completion & Authorization for Phase 4 (External Software Research)
+**Last Updated:** October 12, 2026
+**Current Active Phase:** Phase 4.1 (COMPLETED — Public Stonic AI Capabilities Collected & Analyzed)
+**Next Scheduled Action:** TSK-P4-02: Map Candidate Features to Ultron Code
 
 ---
 
@@ -14,10 +14,10 @@
 | **Phase 1** | Project Memory, Progress Tracking & Safe Workflow | **DONE** | 6 | 6 | 0 | 0 | 0 |
 | **Phase 2** | GitHub Safety, Recovery and Baseline Checkpoint | **DONE** | 6 | 6 | 0 | 0 | 0 |
 | **Phase 3** | Engineering Foundation, Testing and Tooling | **DONE** | 7 | 7 | 0 | 0 | 0 |
-| **Phase 4** | External Software Research and Feature Gap Analysis | **NOT STARTED** | 5 | 0 | 0 | 5 | 0 |
+| **Phase 4** | External Software Research and Feature Gap Analysis | **IN PROGRESS** | 5 | 1 | 0 | 4 | 0 |
 | **Phase 5** | Controlled Feature-by-Feature Implementation | **NOT STARTED** | 6 | 0 | 0 | 6 | 0 |
 | **Phase 6** | Production Readiness and Free Distribution | **NOT STARTED** | 6 | 0 | 0 | 6 | 0 |
-| **TOTAL** | **Ultron Master Development Lifecycle** | **IN PROGRESS** | **36** | **19** | **0** | **17** | **0** |
+| **TOTAL** | **Ultron Master Development Lifecycle** | **IN PROGRESS** | **36** | **20** | **0** | **16** | **0** |
 
 ---
 
@@ -74,7 +74,7 @@
 
 | Task ID | Task Name | Priority | Status | Prerequisites | Description & Acceptance Criteria | Relevant Files |
 | :--- | :--- | :---: | :---: | :---: | :--- | :--- |
-| **TSK-P4-01** | Collect Public Stonic AI Capabilities | P2 | **NOT STARTED** | Phase 3 Verification | Document publicly observable and documented features (voice barge-in, HUD, memory, system controls) using public sources only. | Research notes |
+| **TSK-P4-01** | Collect Public Stonic AI Capabilities | P2 | **DONE** | Phase 3 Verification | Documented 11-category public capability inventory across v3.1.13, release history, commercial restrictions ($56 lifetime vs $19/$49 cloud), and feature taxonomy in `docs/research/stonic-ai-public-capability-inventory.md`. Zero binary reverse engineering. | `docs/research/stonic-ai-public-capability-inventory.md` |
 | **TSK-P4-02** | Map Candidate Features to Ultron Code | P2 | **NOT STARTED** | TSK-P4-01 | Compare candidate capabilities against existing Ultron code to determine whether already present, partial, or missing. Avoid duplicating working code. | Gap matrix |
 | **TSK-P4-03** | Assess Feasibility & Architecture Impact | P2 | **NOT STARTED** | TSK-P4-02 | Evaluate technical feasibility, performance impact, and local desktop resource constraints for each candidate feature. | Assessment report |
 | **TSK-P4-04** | Formulate Independent Implementation Plan | P2 | **NOT STARTED** | TSK-P4-03 | Design clean, independent implementations for valuable gaps without extracting proprietary binary internals. | Feature plan |
@@ -137,11 +137,12 @@
 | **2026-10-12 07:25** | Phase 3B.5 | Resolve Frontend Toolchain Blocker & Complete Verification | Executed clean install via project-pinned npm CLI (`npm@11.19.0`, 774 packages added). TypeScript typecheck passed cleanly (`tsc -b`). Vitest unit test suite passed 100% (17/17 files, 92/92 tests passed). Production build completed cleanly (`vite build`, 3485 modules transformed). All manifests intact; zero build artifacts staged. | COMPLETED |
 | **2026-10-12 09:10** | Phase 3C.1 | External Engineering Tools Evaluation (`TSK-P3-06`) | Completed exhaustive audit of existing 13 CI workflows, testing tiers, and dependency management. Evaluated candidate tools with official pricing and privacy models. Authoring completed at `docs/research/external-engineering-tools-evaluation.md`. Recommended Gitleaks CLI in CI; confirmed rejection of Greptile, TestSprite, CodeQL, and Renovate; confirmed isolation of REA as MCP module. | COMPLETED |
 | **2026-10-12 14:35** | Phase 3C.2 | REA Integration Architecture Assessment (`TSK-P3-07`) | Completed comprehensive upstream investigation of morluto/rea v6.4.0 and Ultron architecture. Authored RFC-2026-ENG-REA-01 at `docs/research/rea-integration-architecture-assessment.md`. Rejected Option C core bundling; adopted Option B isolated developer MCP deferred to Phase 5; affirmed Gitleaks P1 priority. Phase 3 fully completed. | COMPLETED |
+| **2026-10-12 14:55** | Phase 4.1 | Public Stonic AI Capability Inventory (`TSK-P4-01`) | Built evidence-based public capability inventory covering Stonic AI Generation 3 (v3.1.13, 691MB installer), commercial model ($56 lifetime vs $19/$49 cloud), 11 capability categories, release history, privacy claims, and structured taxonomy for Ultron comparison. Authored deliverable at `docs/research/stonic-ai-public-capability-inventory.md`. Zero binary reverse engineering. | COMPLETED |
 
 ---
 
 ## 4. IMMEDIATE NEXT ACTION (AWAITING APPROVAL)
 
-- **Current Status:** **Phase 3 Complete (All 7 Tasks DONE: TSK-P3-01 through TSK-P3-07).**
-- **Next Task:** **Phase 4: External Software Research and Feature Gap Analysis (TSK-P4-01: Collect Public Stonic AI Capabilities).**
-- **Action Required:** Operator review of Phase 3 engineering foundation deliverables and authorization to proceed with Phase 4.
+- **Current Status:** **Phase 4 In Progress (TSK-P4-01 DONE).**
+- **Next Task:** **Phase 4.2: Map Candidate Features to Ultron Code (`TSK-P4-02`).**
+- **Action Required:** Operator authorization to proceed with mapping Stonic AI capabilities against Ultron's existing codebase (`src/openjarvis/`, `frontend/`, `hologram/`) to determine implemented, partial, and missing features.

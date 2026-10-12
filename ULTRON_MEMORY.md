@@ -120,19 +120,20 @@ All future development sessions must strictly comply with these rules:
 | **2026-10-12** | Resolve Frontend Toolchain via Project-Pinned npm | Executed clean install and verification using project-pinned npm CLI (npm@11.19.0 via npx with userconfig isolation) without altering machine-wide npm, package.json, package-lock.json, or .npmrc. | Eliminates toolchain blocker safely; satisfies engine constraints; preserves manifest integrity. |
 | **2026-10-12** | Adopt Evidence-Based Engineering Tooling Architecture (TSK-P3-06) | Complete comprehensive audit of 13 CI workflows and tool candidates. Recommend zero-cost, zero-leakage Gitleaks CLI for CI secret scanning (P1) and cargo-deny/pip-licenses for distribution (P2); decline Renovate (redundant with active Dependabot), CodeQL ($30/committer/mo), Greptile (privacy risk), TestSprite (WebGL incompatible), and Site24x7 (loopback desktop incompatible). | Clean, prioritized roadmap avoiding redundant subscriptions, CI bloat, and code exposure; documented in docs/research/external-engineering-tools-evaluation.md. |
 | **2026-10-12** | Reject REA Core Runtime Bundling & Adopt Isolated Developer MCP Architecture (TSK-P3-07) | Comprehensive assessment of morluto/rea v6.4.0. Bundling into desktop installer (Option C) would bloat installers by 500MB-1.5GB+, require Java/Node runtimes, and create binary parsing attack surfaces. Adopt Option B (isolated developer-side MCP using existing openjarvis.mcp.loader via stdio JSON-RPC) as an optional capability deferred to Phase 5 behind admin RBAC and human approval. Reconfirm Gitleaks automated CI secret scanning as governing P1 priority. | Clean desktop distribution, zero installer bloat, zero license contamination; documented in docs/research/rea-integration-architecture-assessment.md. Phase 3 engineering foundation 100% complete. |
+| **2026-10-12** | Establish Public Stonic AI Capability Baseline (TSK-P4-01) | Conduct exhaustive, evidence-backed public capability collection across Stonic AI v3.1.13, 11 functional categories, commercial terms ($56 lifetime vs $19/$49/mo cloud), and structured taxonomy. Strictly zero binary downloads or reverse engineering. | Establishes an unassailable baseline taxonomy for Ultron feature gap analysis in TSK-P4-02 without license or IP risks. Reaffirms Gitleaks P1 priority. Documented in docs/research/stonic-ai-public-capability-inventory.md. |
 
 ---
 
 ## 7. CURRENT SESSION STATE
 
-- **Current Active Phase:** **Phase 3C.2: REA Integration Architecture Assessment (`TSK-P3-07`)** (COMPLETED & VERIFIED).
+- **Current Active Phase:** **Phase 4.1: Public Stonic AI Capability Inventory (`TSK-P4-01`)** (COMPLETED & VERIFIED).
 - **Completed in this Session:**
-  - **TSK-P3-07 Audited, Evaluated & Documented:**
-    - Upstream Investigation: Researched `morluto/rea` v6.4.0 (MIT), Node.js engine constraints (`^22.19.0 || ^24.11.0 || >=26.0.0`), native C++ addons (`rea-windows-x64.node`), and analysis engine licenses (Ghidra Apache-2.0, Hopper commercial, IDA Pro commercial).
-    - Architecture Options Compared: Evaluated Option A (No Integration), Option B (Isolated Developer-Side MCP), and Option C (Core Runtime Bundling).
-    - Executive Decision: Rejected Option C to prevent installer bloat (+500MB-1.5GB) and binary security vulnerabilities; approved Option B in principle as an optional developer MCP adapter using Ultron's pre-existing `openjarvis.mcp.loader` and deferred to Phase 5.
-    - Security & Threat Model: Analyzed memory corruption risks in native parsers, indirect prompt injection via decompiled symbol strings, token blowout mitigation via compact schema profile, and strict workspace path sandboxing.
-    - Gitleaks P1 Priority Reaffirmed: Gitleaks automated CI secret scanning maintained as governing top-priority security action.
-    - Deliverable Created: Authored comprehensive RFC at `docs/research/rea-integration-architecture-assessment.md`.
-    - Phase 3 Completion: All 7 Phase 3 tasks (`TSK-P3-01` through `TSK-P3-07`) are 100% complete and verified.
-- **Next Phase/Task:** **Phase 4: External Software Research and Feature Gap Analysis (`TSK-P4-01`: Collect Public Stonic AI Capabilities).**
+  - **TSK-P4-01 Audited, Researched & Documented:**
+    - Official Public Sources Investigated: Verified `stonicai.com`, release history, pricing/cloud tiers, developer/creator use cases, terms of service, and public demonstrations.
+    - Product Baseline & Footprint: Verified Stonic AI Generation 3 (latest version `v3.1.13`, installer `Stonic-AI-Setup-3.1.13.exe` ~691MB, Windows 10/11 x64 only, created by Inventor Usman).
+    - Commercial Model Analyzed: $56 one-time Lifetime license (3 PCs, 1st month cloud included, BYOK required thereafter) vs Stonic Cloud subscription ($19/mo Basic, $49/mo Power with metered quotas). Disclosed that Mobile Remote requires an active cloud subscription.
+    - 11 Capability Categories Structured: Documented 3D WebGL particle HUD/orb, autonomous computer-use (mouse/keyboard/vision), escape/stop controls, Memory circuit, Agent Town (Alice, Bob, Carol, Dave), Skills circuit, World Monitor & telemetry gauges, multi-model BYOK routing, Soul circuit & 3 color themes, Mobile Remote QR pairing, and privacy/cloud data flows.
+    - Legal & IP Protection: Strictly zero software downloads, decompilation, binary reverse engineering, or access to private/paid endpoints.
+    - Deliverable Created: Authored comprehensive capability inventory report at `docs/research/stonic-ai-public-capability-inventory.md`.
+    - Gitleaks P1 Priority Reaffirmed: Preserved standing recommendation for Gitleaks CI secret scanning.
+- **Next Phase/Task:** **Phase 4.2: Map Candidate Features to Ultron Code (`TSK-P4-02`).**

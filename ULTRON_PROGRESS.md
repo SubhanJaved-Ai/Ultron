@@ -2,8 +2,8 @@
 **Document Status:** Living Master Roadmap & Activity Log  
 **Location:** `d:\Ultron\ULTRON_PROGRESS.md`  
 **Last Updated:** October 12, 2026  
-**Current Active Phase:** Phase 2 (COMPLETED & VERIFIED — Checkpoint on Dedicated Branch)  
-**Next Scheduled Action:** Operator Review & Phase 3 Authorization
+**Current Active Phase:** Phase 3B.4 (BLOCKED — Frontend Dependencies EBADENGINE Engine Check)
+**Next Scheduled Action:** Operator Decision on TSK-P3-05 npm Engine Resolution
 
 ---
 
@@ -13,11 +13,11 @@
 | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Phase 1** | Project Memory, Progress Tracking & Safe Workflow | **DONE** | 6 | 6 | 0 | 0 | 0 |
 | **Phase 2** | GitHub Safety, Recovery and Baseline Checkpoint | **DONE** | 6 | 6 | 0 | 0 | 0 |
-| **Phase 3** | Engineering Foundation, Testing and Tooling | **NOT STARTED** | 7 | 0 | 0 | 7 | 0 |
+| **Phase 3** | Engineering Foundation, Testing and Tooling | **IN PROGRESS** | 7 | 4 | 0 | 2 | 1 |
 | **Phase 4** | External Software Research and Feature Gap Analysis | **NOT STARTED** | 5 | 0 | 0 | 5 | 0 |
 | **Phase 5** | Controlled Feature-by-Feature Implementation | **NOT STARTED** | 6 | 0 | 0 | 6 | 0 |
 | **Phase 6** | Production Readiness and Free Distribution | **NOT STARTED** | 6 | 0 | 0 | 6 | 0 |
-| **TOTAL** | **Ultron Master Development Lifecycle** | **IN PROGRESS** | **36** | **12** | **0** | **24** | **0** |
+| **TOTAL** | **Ultron Master Development Lifecycle** | **IN PROGRESS** | **36** | **16** | **0** | **19** | **1** |
 
 ---
 
@@ -62,7 +62,7 @@
 | **TSK-P3-02** | Remediate TraceStore Duplicate Method | P1 | **DONE** | Phase 2 Checkpoint | Consolidated `close()` in `store.py:296-304` using robust connection teardown; removed redundant definition at line 348. Verified `ruff check src/` passes (0 errors). Added `test_close_idempotent` in `tests/traces/test_store.py` (62/62 passed). | `src/openjarvis/traces/store.py` |
 | **TSK-P3-03** | Remediate Hardcoded LLM Client Path | P1 | **DONE** | Phase 2 Checkpoint | Replaced hardcoded `Path("d:/Jarvis 2.0/.env")` in `llm_client.py` with portable resolution: process env precedence, dynamic source checkout root (`_find_source_root`), `OPENJARVIS_WORKSPACE`, and `get_config_dir()`. Added `tests/server/test_llm_client.py` (10/10 passed). | `src/openjarvis/server/llm_client.py` |
 | **TSK-P3-04** | Reconcile Virtual Environment Link | P2 | **DONE** | Phase 2 Checkpoint | Reconciled `.venv` editable installation from `D:\Jarvis 2.0\src` to `D:\Ultron\src` via `pip3 install -e . --no-deps`. Verified `_editable_impl_openjarvis.pth` points directly to `D:\Ultron\src` and external import resolves to active repo. | `.venv/Lib/site-packages/` |
-| **TSK-P3-05** | Install & Verify Frontend Dependencies | P2 | **NOT STARTED** | User Approval | Run `npm ci` in `frontend/` after authorization; execute `npx tsc --noEmit` and `npm test` (Vitest) to verify desktop UI build. | `frontend/` |
+| **TSK-P3-05** | Install & Verify Frontend Dependencies | P2 | **BLOCKED** | User Approval | Authorized `npm ci` in `frontend/` halted with `EBADENGINE` (exit code 1). Required: node `>=22.22`, npm `>=11.19.0 <12`. Actual host environment: node `v24.19.0`, npm `11.17.0`. Enforced by `frontend/.npmrc` (`engine-strict=true`). Lockfile (`frontend/package-lock.json`, 774 packages) verified valid via dry-run (`npm ci --engine-strict=false --dry-run`, exit code 0). Zero manifests modified. Awaiting operator resolution. | `frontend/` |
 | **TSK-P3-06** | Evaluate External Engineering Tools | P3 | **NOT STARTED** | TSK-P3-01 | Assess suitability, privacy, and free-tier limitations of Greptile (code review), TestSprite (AI testing), and Site24x7. Do not install unapproved tools. | Tooling evaluation |
 | **TSK-P3-07** | Assess REA Integration Architecture | P3 | **NOT STARTED** | TSK-P3-01 | Evaluate design for integrating Reverse Engineer Anything (REA) via MCP server or CLI module without violating software licenses. | Architecture RFC |
 
@@ -133,11 +133,12 @@
 | **2026-10-12 05:45** | Phase 3B.1 | Remediate TraceStore Duplicate close() Method | Consolidated TraceStore.close() in store.py. Removed F811 duplicate. ruff check src/ passes (0 errors). Added test_close_idempotent in test_store.py; all 62 trace tests passed. | COMPLETED |
 | **2026-10-12 06:15** | Phase 3B.2 | Remediate Hardcoded LLM Client Environment Path | Replaced developer-specific path with portable resolution in llm_client.py and exported find_source_root in paths.py. Added tests/server/test_llm_client.py (10/10 passed). Verified ruff check src/ clean. Verified test_hologram.py (24/24 passed). | COMPLETED |
 | **2026-10-12 06:35** | Phase 3B.3 | Reconcile Virtual Environment Editable Installation | Reinstalled OpenJarvis editable package with --no-deps. _editable_impl_openjarvis.pth updated to D:\Ultron\src. Verified external import resolves to D:\Ultron\src. pip check clean. 27/27 regression tests passed. | COMPLETED |
+| **2026-10-12 06:55** | Phase 3B.4 | Frontend Dependency Installation & Verification (`npm ci`) | Executed authorized `npm ci` in `frontend/`. Failed with `EBADENGINE` (exit code 1): required npm `>=11.19.0 <12`, actual `11.17.0` (with `engine-strict=true` in `.npmrc`). Manifests verified intact. Dry-run verified 774 packages resolve cleanly. Task blocked per safety rules against unauthorized workarounds. | BLOCKED |
 
 ---
 
 ## 4. IMMEDIATE NEXT ACTION (AWAITING APPROVAL)
 
-- **Current Status:** **Phase 3B.3 Complete (TSK-P3-04 DONE).**
-- **Next Task:** **TSK-P3-05: Install & Verify Frontend Dependencies (`frontend/` package-lock.json).**
-- **Action Required:** Operator review of Phase 3B.3 commit and authorization to proceed with TSK-P3-05 (`npm ci` in `frontend/`).
+- **Current Status:** **Phase 3B.4 Blocked (TSK-P3-05 BLOCKED by npm engine version mismatch).**
+- **Next Task:** **TSK-P3-05 Resolution & Resumption.**
+- **Action Required:** Operator decision on resolution strategy: (1) Upgrade host npm (`npm install -g npm@11.19.0`), (2) Authorize running `npm ci --engine-strict=false`, or (3) Authorize relaxing engine constraint in `frontend/package.json` to `>=11.17.0 <12`.

@@ -2,7 +2,7 @@
 **Document Status:** Living Master Project Memory  
 **Location:** `d:\Ultron\ULTRON_MEMORY.md`  
 **Last Updated:** October 12, 2026  
-**Governing Phase:** Phase 3B.5 (COMPLETED — Frontend Dependencies & Verification Verified)
+**Governing Phase:** Phase 3C.1 (COMPLETED — External Engineering Tools Evaluation Verified)
 
 ---
 
@@ -118,20 +118,23 @@ All future development sessions must strictly comply with these rules:
 | **2026-10-12** | Reconcile Virtual Environment Editable Installation | Reinstall OpenJarvis editable package with --no-deps to point directly to D:\Ultron\src instead of historical junction. | Eliminates junction coupling; external imports resolve directly to D:\Ultron\src. |
 | **2026-10-12** | Enforce Safety Protocol on Frontend Engine Mismatch | Rather than applying an uncontrolled bypass or modifying manifests without authorization, preserve exact error details and record TSK-P3-05 as blocked per engineering rules. | Protects lockfile and manifest integrity; presents operator with clean decision options. |
 | **2026-10-12** | Resolve Frontend Toolchain via Project-Pinned npm | Executed clean install and verification using project-pinned npm CLI (npm@11.19.0 via npx with userconfig isolation) without altering machine-wide npm, package.json, package-lock.json, or .npmrc. | Eliminates toolchain blocker safely; satisfies engine constraints; preserves manifest integrity. |
+| **2026-10-12** | Adopt Evidence-Based Engineering Tooling Architecture (TSK-P3-06) | Complete comprehensive audit of 13 CI workflows and tool candidates. Recommend zero-cost, zero-leakage Gitleaks CLI for CI secret scanning (P1) and cargo-deny/pip-licenses for distribution (P2); decline Renovate (redundant with active Dependabot), CodeQL ($30/committer/mo), Greptile (privacy risk), TestSprite (WebGL incompatible), and Site24x7 (loopback desktop incompatible). | Clean, prioritized roadmap avoiding redundant subscriptions, CI bloat, and code exposure; documented in docs/research/external-engineering-tools-evaluation.md. |
 
 ---
 
 ## 7. CURRENT SESSION STATE
 
-- **Current Active Phase:** **Phase 3B.5: Resolve Frontend Toolchain Blocker (`TSK-P3-05`)** (COMPLETED & VERIFIED).
+- **Current Active Phase:** **Phase 3C.1: External Engineering Tools Evaluation (`TSK-P3-06`)** (COMPLETED & VERIFIED).
 - **Completed in this Session:**
-  - **TSK-P3-05 Remediated & Verified:**
-    - Toolchain Execution: Ran `npx --yes npm@11.19.0 --version` in `frontend/`, confirmed exact version output `11.19.0` (exit code 0).
-    - Userconfig Isolation: Overcame parent npm environment inheritance (`allow-scripts=@anthropic-ai/claude-code` from `C:\Users\DELL\.npmrc`) via session `$env:npm_config_userconfig = 'nul'`, preserving strict engine enforcement and manifest rules without editing user or repository files.
-    - Clean Installation: Ran `npx --yes npm@11.19.0 ci` in `frontend/`: exit code 0; 774 packages cleanly installed into `frontend/node_modules/`.
-    - Manifest Integrity: Confirmed `frontend/package.json` and `frontend/package-lock.json` are 100% unmodified.
-    - TypeScript Typecheck: Ran `npx --yes npm@11.19.0 exec -- tsc -b`: exit code 0, clean pass with zero errors.
-    - Vitest Test Suite: Ran `npx --yes npm@11.19.0 test`: exit code 0; 17/17 test files and 92/92 tests passed in 15.26s.
-    - Frontend Production Build: Ran `npx --yes npm@11.19.0 run build`: exit code 0; 3485 modules transformed and bundled in 37.38s.
-    - Build Artifact Cleanup: Removed untracked build outputs and restored static Hologram HUD files, ensuring zero build artifacts are staged.
-- **Next Phase/Task:** **TSK-P3-06: Evaluate External Engineering Tools (Greptile, TestSprite, Site24x7).**
+  - **TSK-P3-06 Audited, Evaluated & Documented:**
+    - Repository Capability Audit: Audited 13 GitHub Actions workflows, active `.github/dependabot.yml` (5 ecosystems with grouped PRs), multi-layer SAST (`security-sast.yml`: Semgrep + Bandit + pip-audit), Python testing (9,175 pytest tests, `sysmon` coverage >=60%), Frontend testing (Node 22, npm 11.19.0, Vitest 92/92 passed, `tsc -b`), and Claude PR review (`claude-review.yml`).
+    - Tool Candidate Evaluations with Verified Pricing & Privacy:
+      - Secret Scanning: Identified automated CI secret scanning as genuine P1 gap; recommended open-source Gitleaks standalone CLI binary in GitHub Actions ($0, zero network transmission).
+      - Dependency Updates: Confirmed Dependabot already manages npm, cargo, uv, and actions; declined Renovate as redundant.
+      - Deep SAST: Declined GitHub CodeQL ($30/committer/month on private repos) as cost-prohibitive and redundant with existing Bandit + Semgrep + pip-audit suite.
+      - AI Code Review: Confirmed rejection of Greptile due to source code transmission to external SaaS and redundancy with local linters and Claude PR review workflow.
+      - UI Automation & Monitoring: Confirmed rejection of TestSprite (incompatible with WebGL canvas) and Site24x7 (incompatible with loopback desktop assistant).
+      - REA Architecture: Confirmed REA must remain an isolated external MCP server / CLI tool to protect core runtime integrity and licensing (`TSK-P3-07`).
+    - Deliverable Created: Authored comprehensive report at `docs/research/external-engineering-tools-evaluation.md`.
+    - Governance Synchronized: Updated `ULTRON_PROGRESS.md` and `ULTRON_MEMORY.md`.
+- **Next Phase/Task:** **TSK-P3-07: Assess REA Integration Architecture (Reverse Engineer Anything RFC).**

@@ -74,7 +74,7 @@
 
 | Issue ID | Severity | File / Component | Verified Finding & Risk | Action Required |
 | :--- | :--- | :--- | :--- | :--- |
-| **RISK-01** | **RESOLVED** | Git Working Tree | 71 modified files and 15 untracked files safely captured in Checkpoint commit `02d81b1` on `recovery/checkpoint-phase2-baseline`. External backup created in `%USERPROFILE%\Ultron-recovery-backups\phase2-baseline-20261012`. Remote branch verified on GitHub `origin`. | RESOLVED & VERIFIED in Phase 2C. |
+| **RISK-01** | **RESOLVED** | Git Working Tree | 71 modified files and 15 untracked files safely captured in Checkpoint commit `02d81b1`, documented in `64851e2`, and tagged at `ultron-phase2-checkpoint-2026-10-12` on `recovery/checkpoint-phase2-baseline`. External backup created in `%USERPROFILE%\Ultron-recovery-backups\phase2-baseline-20261012`. Remote branch and tag verified on GitHub `origin`. | RESOLVED & VERIFIED in Phase 2D. |
 | **RISK-02** | **HIGH** | `src/openjarvis/server/llm_client.py:30` | Hardcoded historical path `Path("d:/Jarvis 2.0/.env")`. Works locally due to NTFS junction `D:\Jarvis 2.0` -> `D:\Ultron`, but will fail on any other computer. | Replace with portable relative path resolution (`Path(".env")` / config dir). |
 | **RISK-03** | **MEDIUM** | `src/openjarvis/traces/store.py:348` | Redefinition of `close(self)` (line 297 and line 348) causes Ruff lint failure `F811`. | Remove the redundant definition at line 297 in Phase 3. |
 | **RISK-04** | **MEDIUM** | `.venv/Lib/site-packages/*.pth` | `.venv` has an editable link `_editable_impl_openjarvis.pth` pointing to `D:\Jarvis 2.0\src` via NTFS junction. | Re-link `.venv` directly to `d:\Ultron\src` during foundation cleanup. |
@@ -111,6 +111,7 @@ All future development sessions must strictly comply with these rules:
 | **2026-10-11** | Retain Zero-Friction Loopback Default | Ensure local single-user desktop users can run without mandatory API keys or complex setups. | System starts out-of-the-box on loopback with smart local fallback. |
 | **2026-10-11** | Adopt Six-Phase Controlled Development Roadmap | Ensure disciplined, verifiable progress without uncontrolled code generation or destructive changes. | Phased progression with review gates between phases. |
 | **2026-10-12** | Establish Recovery Checkpoint on Dedicated Branch | Safely preserve all 71 tracked modifications and 15 untracked project files without touching remote `main`. | Checkpoint commit `02d81b17dab80ad35758ec013bcc6c8b599a4bb7` pushed to `origin/recovery/checkpoint-phase2-baseline` and verified. |
+| **2026-10-12** | Finalize Checkpoint Tag ultron-phase2-checkpoint-2026-10-12 | Establish an immutable annotated release tag on verified checkpoint commit `64851e282d96b648f9bbb6864dc029ab88257da0`. | Tag pushed to `origin` and verified via `ls-remote`. Remote `main` 100% untouched. |
 
 ---
 
@@ -126,4 +127,5 @@ All future development sessions must strictly comply with these rules:
   - Successfully pushed `recovery/checkpoint-phase2-baseline` to GitHub remote `origin` (`https://github.com/Airlucofficial/Jarvis-2.0.git`).
   - Read-only verified via authenticated `ls-remote` that remote `recovery/checkpoint-phase2-baseline` points to `02d81b17dab80ad35758ec013bcc6c8b599a4bb7` and live remote `main` remains untouched at `b4f05e2562798d3b09ad3a624ef84e2bc1a5d9d3`.
   - Governance documents updated and committed in a separate documentation-only commit on the recovery branch.
+  - Finalized and pushed annotated tag `ultron-phase2-checkpoint-2026-10-12` targeting commit `64851e282d96b648f9bbb6864dc029ab88257da0`, verified via `ls-remote`.
 - **Next Phase:** **Phase 3: Engineering Foundation, Testing and Tooling** (Gated on operator review).

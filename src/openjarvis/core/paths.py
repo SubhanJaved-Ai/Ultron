@@ -61,6 +61,9 @@ def _find_source_root() -> Path | None:
     return None
 
 
+find_source_root = _find_source_root
+
+
 def _reject_source_tree(path: Path) -> Path:
     """Raise if ``path`` resolves inside the OpenJarvis source tree."""
     source_root = _find_source_root()

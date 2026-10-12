@@ -114,20 +114,23 @@ All future development sessions must strictly comply with these rules:
 | **2026-10-12** | Finalize Checkpoint Tag ultron-phase2-checkpoint-2026-10-12 | Establish an immutable annotated release tag on verified checkpoint commit `64851e282d96b648f9bbb6864dc029ab88257da0`. | Tag pushed to `origin` and verified via `ls-remote`. Remote `main` 100% untouched. |
 | **2026-10-12** | Complete Phase 3A Engineering & Tooling Baseline Audit | Establish empirical evidence baseline across CI workflows, test suites, technical debt, and developer tooling. | 9,175 tests collected; 19 auth + 34 hologram tests verified; 8/8 staging rehearsal passed; Ruff F811 and path debt confirmed. Prioritized implementation plan established. |
 | **2026-10-12** | Remediate TraceStore.close() Duplicate Definition | Consolidate TraceStore.close() in public methods with robust connection teardown; remove F811 duplicate. | `ruff check src/` passes with 0 errors; 62 trace tests pass. |
+| **2026-10-12** | Remediate Hardcoded LLM Client Path | Replace developer-specific Path("d:/Jarvis 2.0/.env") with portable resolution (process env, source root, OPENJARVIS_WORKSPACE, and get_config_dir()). | Eliminates machine coupling; 10/10 regression tests pass; ruff check src/ clean. |
 
 ---
 
 ## 7. CURRENT SESSION STATE
 
-- **Current Active Phase:** **Phase 3B.1: Remediate TraceStore Duplicate close() Method** (COMPLETED & VERIFIED).
+- **Current Active Phase:** **Phase 3B.2: Remediate Hardcoded LLM Client Environment Path** (COMPLETED & VERIFIED).
 - **Completed in this Session:**
-  - **Preflight Verified:** Confirmed branch `recovery/checkpoint-phase2-baseline`, clean working tree, remote checkpoint tag `ultron-phase2-checkpoint-2026-10-12`, remote `main` untouched.
-  - **Phase 3A Audit Complete:** Audited 13 CI workflows, collected 9,175 tests, verified 19 auth/tenant + 34 hologram tests, verified staging rehearsal (8/8), evaluated external developer tools (Greptile, TestSprite, Site24x7, REA).
-  - **TSK-P3-02 Remediated & Verified:**
-    - Consolidated `TraceStore.close()` in `src/openjarvis/traces/store.py:296-304` using robust connection teardown (`if hasattr(self, "_conn") and self._conn is not None: try: self._conn.close() except Exception: pass`).
-    - Removed redundant `close()` definition at line 348.
-    - Verified `ruff check src/openjarvis/traces/store.py` passes (0 errors).
-    - Verified `ruff check src/` passes with 0 errors across the entire codebase.
-    - Added `test_close_idempotent` in `tests/traces/test_store.py`.
-    - Executed `pytest tests/traces/ -q`: 62 passed in 11.15s (100% pass).
-- **Next Phase/Task:** **TSK-P3-03: Remediate Hardcoded LLM Client Path (`src/openjarvis/server/llm_client.py:30`).**
+  - **TSK-P3-03 Remediated & Verified:**
+    - Root cause: Historical path `Path("d:/Jarvis 2.0/.env")` tied configuration to original development directory on local Windows drive.
+    - Solution: Replaced with multi-tier portable resolution in `src/openjarvis/server/llm_client.py`:
+      1. Process environment variables (`GEMINI_API_KEY` / `GOOGLE_API_KEY`) have highest precedence.
+      2. Workspace / Source checkout `.env` dynamically resolved via `_find_source_root()` from `openjarvis.core.paths` or `OPENJARVIS_WORKSPACE`.
+      3. User config directory fallback (`~/.openjarvis/cloud-keys.env` and `~/.openjarvis/.env`).
+      4. Safe fallback: missing files never crash application startup; `UltronBrain` falls back to smart local reasoning.
+    - Exported `find_source_root` in `src/openjarvis/core/paths.py`.
+    - Added comprehensive regression test suite in `tests/server/test_llm_client.py` (10 tests, 100% pass).
+    - Verified `ruff check src/` clean (0 errors).
+    - Verified `pytest tests/server/test_hologram.py` passes (24/24 passed).
+- **Next Phase/Task:** **TSK-P3-04: Reconcile Virtual Environment Editable Pointer (`.venv/Lib/site-packages/_editable_impl_openjarvis.pth`).**

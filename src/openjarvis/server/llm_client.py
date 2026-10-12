@@ -13,44 +13,62 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from openjarvis.core.paths import get_config_dir
+from openjarvis.core.paths import _find_source_root, get_config_dir
 from openjarvis.core.user_preferences import get_user_address
 
 logger = logging.getLogger("openjarvis.server.llm_brain")
 
 
-def _resolve_api_key() -> str:
+def _read_key_from_file(file_path: Path) -> str:
+    """Extract GEMINI_API_KEY or GOOGLE_API_KEY from an env-formatted file."""
+    try:
+        if file_path.is_file():
+            for line in file_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    if k.strip() in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+                        val = v.strip().strip("'\"")
+                        if val:
+                            return val
+    except Exception:
+        pass
+    return ""
+
+
+def _resolve_api_key(env_path: Optional[Path] = None) -> str:
     """Resolve Gemini/Google API key from process env or config files."""
-    # 1. Environment variable
+    # 1. Environment variable (OS, CI, Container, Launcher) - highest precedence
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if key and key.strip():
         return key.strip()
 
-    # 2. Workspace .env
-    workspace_env = Path("d:/Jarvis 2.0/.env")
-    if workspace_env.is_file():
-        try:
-            for line in workspace_env.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    if k.strip() in ("GEMINI_API_KEY", "GOOGLE_API_KEY") and v.strip():
-                        return v.strip()
-        except Exception:
-            pass
+    # 2. Explicit or resolved workspace/project .env
+    candidates: list[Path] = []
+    if env_path is not None:
+        candidates.append(Path(env_path))
+    else:
+        # Check OPENJARVIS_WORKSPACE env if specified
+        ws_env = os.environ.get("OPENJARVIS_WORKSPACE")
+        if ws_env:
+            candidates.append(Path(ws_env) / ".env")
 
-    # 3. User config cloud-keys.env
-    cloud_env = get_config_dir() / "cloud-keys.env"
-    if cloud_env.is_file():
-        try:
-            for line in cloud_env.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    if k.strip() in ("GEMINI_API_KEY", "GOOGLE_API_KEY") and v.strip():
-                        return v.strip()
-        except Exception:
-            pass
+        # In source checkout, resolve project root dynamically
+        src_root = _find_source_root()
+        if src_root is not None:
+            candidates.append(src_root / ".env")
+
+    for candidate in candidates:
+        val = _read_key_from_file(candidate)
+        if val:
+            return val
+
+    # 3. User config directory (cloud-keys.env and .env)
+    config_dir = get_config_dir()
+    for config_candidate in (config_dir / "cloud-keys.env", config_dir / ".env"):
+        val = _read_key_from_file(config_candidate)
+        if val:
+            return val
 
     return ""
 
@@ -80,12 +98,13 @@ Core Persona & Demeanor:
 class UltronBrain:
     """Genius-level LLM reasoning engine for Ultron."""
 
-    def __init__(self) -> None:
+    def __init__(self, api_key: Optional[str] = None) -> None:
+        self._api_key = api_key
         self._client: Any = None
         self._init_client()
 
     def _init_client(self) -> None:
-        api_key = _resolve_api_key()
+        api_key = self._api_key or _resolve_api_key()
         if not api_key:
             logger.warning(
                 "No GEMINI_API_KEY found; UltronBrain will use smart local reasoning."

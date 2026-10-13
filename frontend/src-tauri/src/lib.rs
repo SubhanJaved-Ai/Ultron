@@ -2859,6 +2859,59 @@ fn set_engine_host_in_config(engine: &str, host: &str) -> Result<(), String> {
     std::fs::write(&path, updated).map_err(|e| format!("Failed to write config.toml: {}", e))
 }
 
+/// Parse `[server.auth] api_key` from config.toml content if present.
+fn parse_api_key_from_config(content: &str) -> Option<String> {
+    let doc = content.parse::<toml_edit::DocumentMut>().ok()?;
+    let val = doc
+        .get("server")?
+        .get("auth")?
+        .get("api_key")?
+        .as_str()?;
+    let trimmed = val.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Resolve the configured OpenJarvis API key for desktop requests.
+/// Priority:
+/// 1. `OPENJARVIS_API_KEY` environment variable.
+/// 2. `[server.auth] api_key` from `~/.openjarvis/config.toml`.
+fn resolve_desktop_api_key() -> Option<String> {
+    if let Ok(key) = std::env::var("OPENJARVIS_API_KEY") {
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    let path = std::path::PathBuf::from(home_dir())
+        .join(".openjarvis")
+        .join("config.toml");
+    if let Ok(content) = std::fs::read_to_string(&path) {
+        return parse_api_key_from_config(&content);
+    }
+    None
+}
+
+type SharedDesktopAuthToken = Arc<Mutex<Option<String>>>;
+
+/// Set or clear the active desktop session authentication token from the webview.
+#[tauri::command]
+async fn set_desktop_auth_token(
+    state: tauri::State<'_, SharedDesktopAuthToken>,
+    token: String,
+) -> Result<(), String> {
+    let mut guard = state.lock().await;
+    *guard = if token.trim().is_empty() {
+        None
+    } else {
+        Some(token.trim().to_string())
+    };
+    Ok(())
+}
+
 /// Normalize a user-entered server URL to a bare base host: trim whitespace,
 /// drop a trailing `/v1` segment (the engine re-appends its own api prefix),
 /// then drop any trailing slash.
@@ -3303,13 +3356,16 @@ pub fn run() {
         .map(SetupStatus::starting)
         .unwrap_or_default();
     let status: SharedStatus = Arc::new(Mutex::new(initial_status));
+    let desktop_auth_token: SharedDesktopAuthToken = Arc::new(Mutex::new(None));
 
     let boot_backend_ref = backend.clone();
     let boot_status_ref = status.clone();
+    let desktop_auth_ref = desktop_auth_token.clone();
 
     tauri::Builder::default()
         .manage(backend.clone())
         .manage(status.clone())
+        .manage(desktop_auth_token.clone())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -3393,15 +3449,22 @@ pub fn run() {
                     Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
                 };
                 let sc_esc = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Escape);
-                if let Err(e) = app.global_shortcut().on_shortcut(sc_esc, |_app, _sc, ev| {
+                let shortcut_auth_ref = desktop_auth_ref.clone();
+                if let Err(e) = app.global_shortcut().on_shortcut(sc_esc, move |_app, _sc, ev| {
                     if ev.state == ShortcutState::Pressed {
                         let client = reqwest::Client::new();
+                        let auth_ref = shortcut_auth_ref.clone();
                         tauri::async_runtime::spawn(async move {
-                            let _ = client
+                            let auth_token = resolve_desktop_api_key().or_else(|| {
+                                auth_ref.try_lock().ok().and_then(|g| g.clone())
+                            });
+                            let mut req = client
                                 .post(format!("http://127.0.0.1:{JARVIS_PORT}/api/execution/cancel"))
-                                .json(&serde_json::json!({"context_id": "active"}))
-                                .send()
-                                .await;
+                                .json(&serde_json::json!({"context_id": "active"}));
+                            if let Some(token) = auth_token {
+                                req = req.header("Authorization", format!("Bearer {}", token));
+                            }
+                            let _ = req.send().await;
                         });
                     }
                 }) {
@@ -3449,6 +3512,7 @@ pub fn run() {
             toggle_overlay,
             hide_overlay,
             get_overlay_conversation,
+            set_desktop_auth_token,
         ])
         .build(tauri::generate_context!())
         .expect("error while building OpenJarvis Desktop")
@@ -4434,5 +4498,26 @@ mod tests {
                 std::env::remove_var("APPIMAGE");
             }
         }
+    }
+
+    #[test]
+    fn test_parse_api_key_from_config() {
+        let empty_cfg = "";
+        assert_eq!(super::parse_api_key_from_config(empty_cfg), None);
+
+        let valid_cfg = r#"
+[server.auth]
+api_key = "oj_sk_test_12345"
+"#;
+        assert_eq!(
+            super::parse_api_key_from_config(valid_cfg),
+            Some("oj_sk_test_12345".to_string())
+        );
+
+        let blank_key_cfg = r#"
+[server.auth]
+api_key = "   "
+"#;
+        assert_eq!(super::parse_api_key_from_config(blank_key_cfg), None);
     }
 }

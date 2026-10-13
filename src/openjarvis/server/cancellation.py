@@ -196,16 +196,23 @@ class ActiveExecutionContextStore:
     # ------------------------------------------------------------------
 
     def cancel(
-        self, context_id: str, requesting_session_id: Optional[str] = None
+        self,
+        context_id: str,
+        requesting_session_id: Optional[str] = None,
+        is_admin: bool = False,
     ) -> bool:
         """Signal cancellation for *context_id*.
 
         Args:
             context_id: The context to cancel.  If ``"active"`` is supplied and no
                 context is registered under that exact key, the store cancels *all*
-                currently registered contexts matching the caller's session.
+                currently registered contexts matching the caller's session (or all
+                active contexts if the caller is an administrator).
             requesting_session_id: Optional caller session identifier used to verify
                 ownership and prevent cross-session cancellation attacks.
+            is_admin: Whether the caller is an authenticated administrator. If True,
+                ownership restrictions are bypassed unless a specific target
+                session was explicitly requested in ``requesting_session_id``.
 
         Returns:
             ``True`` if at least one token was cancelled, ``False`` if no matching
@@ -214,8 +221,8 @@ class ActiveExecutionContextStore:
         with self._lock:
             if context_id in self._tokens:
                 token = self._tokens[context_id]
-                # Enforce strict session ownership check
-                if token.owner_session_id is not None:
+                # Enforce strict session ownership check for non-admin callers
+                if not is_admin and token.owner_session_id is not None:
                     if (
                         requesting_session_id is None
                         or token.owner_session_id != requesting_session_id
@@ -224,15 +231,22 @@ class ActiveExecutionContextStore:
                 token.cancel()
                 return True
 
-            # Broadcast cancel: "active" with no exact match → cancel all caller's tokens
+            # Broadcast cancel: "active" with no exact match → cancel tokens
             if context_id == "active" and self._tokens:
                 cancelled_any = False
                 for token in list(self._tokens.values()):
-                    if token.owner_session_id is not None:
+                    if not is_admin and token.owner_session_id is not None:
                         if (
                             requesting_session_id is None
                             or token.owner_session_id != requesting_session_id
                         ):
+                            continue
+                    elif (
+                        is_admin
+                        and requesting_session_id is not None
+                        and token.owner_session_id is not None
+                    ):
+                        if token.owner_session_id != requesting_session_id:
                             continue
                     token.cancel()
                     cancelled_any = True
@@ -240,12 +254,21 @@ class ActiveExecutionContextStore:
 
             return False
 
-    async def cancel_async(self, context_id: str) -> bool:
+    async def cancel_async(
+        self,
+        context_id: str,
+        requesting_session_id: Optional[str] = None,
+        is_admin: bool = False,
+    ) -> bool:
         """Async-safe cancellation signal (delegates to the sync implementation)."""
         # The synchronous path is already thread-safe; asyncio does not require
         # a separate implementation, but providing this entry point keeps caller
         # code clean in async route handlers.
-        return self.cancel(context_id)
+        return self.cancel(
+            context_id,
+            requesting_session_id=requesting_session_id,
+            is_admin=is_admin,
+        )
 
     # ------------------------------------------------------------------
     # Inspection

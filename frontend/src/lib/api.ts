@@ -126,6 +126,15 @@ async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {
   return invoke<T>(command, { apiUrl, ...args });
 }
 
+export const syncDesktopAuthToken = async (token?: string): Promise<void> => {
+  try {
+    const key = token !== undefined ? token : getApiKey();
+    await tauriInvoke('set_desktop_auth_token', { token: key });
+  } catch {
+    // Silently ignore if running outside Tauri desktop
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Setup status (desktop only)
 // ---------------------------------------------------------------------------

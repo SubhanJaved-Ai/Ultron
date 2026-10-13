@@ -50,21 +50,39 @@ class CancelResponse(BaseModel):
     elapsed_ms: float
 
 
+def _is_admin_user(current_user: Optional[object]) -> bool:
+    """Return True if current_user has administrative privileges."""
+    if current_user is None:
+        return False
+    if getattr(current_user, "role", None) == "admin":
+        return True
+    if getattr(current_user, "id", None) in ("api_admin", "local_admin"):
+        return True
+    if hasattr(current_user, "is_admin") and callable(getattr(current_user, "is_admin")):
+        return bool(current_user.is_admin())
+    return False
+
+
 def _resolve_session_id(request: Request, body_session_id: Optional[str] = None) -> str:
     """Resolve authoritative session/user identity from request state.
 
     Never trusts an unauthenticated caller-supplied session_id. If an authenticated
     user is present, verifies that any caller-supplied session_id matches.
+    Administrators may explicitly specify another user's session_id to scope
+    cancellation to that session.
     """
     current_user = getattr(request.state, "user", None)
     auth_user_id = getattr(current_user, "id", None) if current_user is not None else None
+    is_admin = _is_admin_user(current_user)
 
     if auth_user_id:
-        if body_session_id and body_session_id != auth_user_id and auth_user_id != "api_admin":
+        if body_session_id and body_session_id != auth_user_id and not is_admin:
             raise HTTPException(
                 status_code=403,
                 detail="Caller-supplied session_id does not match authenticated user identity.",
             )
+        if is_admin and body_session_id:
+            return body_session_id
         return auth_user_id
 
     # Fallback to body_session_id if provided, otherwise default
@@ -93,12 +111,15 @@ async def cancel_execution(body: CancelRequest, request: Request) -> CancelRespo
     """
     t0 = time.monotonic()
     context_id = (body.context_id or "active").strip() or "active"
+    current_user = getattr(request.state, "user", None)
+    is_admin = _is_admin_user(current_user)
     effective_session_id = _resolve_session_id(request, body.session_id)
 
     store = get_execution_store()
     token = store.get(context_id)
     if (
-        token is not None
+        not is_admin
+        and token is not None
         and token.owner_session_id is not None
         and token.owner_session_id != effective_session_id
     ):
@@ -107,7 +128,18 @@ async def cancel_execution(body: CancelRequest, request: Request) -> CancelRespo
             detail=f"Not authorized to cancel context {context_id!r} owned by another session.",
         )
 
-    cancelled = store.cancel(context_id, requesting_session_id=effective_session_id)
+    # For administrators, if body.session_id was not explicitly specified,
+    # requesting_session_id is passed as None so store cancels any active context.
+    requesting_session = (
+        body.session_id
+        if (is_admin and body.session_id)
+        else (None if is_admin else effective_session_id)
+    )
+    cancelled = store.cancel(
+        context_id,
+        requesting_session_id=requesting_session,
+        is_admin=is_admin,
+    )
     elapsed = (time.monotonic() - t0) * 1000.0
 
     if not cancelled:

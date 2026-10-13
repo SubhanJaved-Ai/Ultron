@@ -47,11 +47,17 @@ def auth_client():
     @app.middleware("http")
     async def mock_auth_middleware(request: Request, call_next):
         user_header = request.headers.get("X-Mock-User")
+        role_header = request.headers.get("X-Mock-Role")
         if user_header:
+            role = role_header or (
+                Role.ADMIN.value
+                if user_header in ("local_admin", "api_admin", "admin")
+                else Role.USER.value
+            )
             request.state.user = User(
                 id=user_header,
                 username=user_header,
-                role=Role.USER.value,
+                role=role,
             )
         else:
             request.state.user = User(
@@ -320,4 +326,139 @@ class TestHologramDirectiveCancellation:
             assert "cancelled" in data["reply"].lower()
         finally:
             store.unregister("active")
+
+
+# ---------------------------------------------------------------------------
+# Test 7: Desktop Global Shortcut (Ctrl+Alt+Escape) auth contract & scope
+# ---------------------------------------------------------------------------
+
+
+class TestDesktopShortcutAuthenticationAndContract:
+    def test_admin_emergency_stop_cancels_other_session_execution(self, auth_client):
+        """Administrator (e.g. api_admin from shortcut) can cancel running execution."""
+        store = get_execution_store()
+        tok = store.register("ctx-victim-002", owner_session_id="user_alice")
+        try:
+            resp = auth_client.post(
+                "/api/execution/cancel",
+                json={"context_id": "ctx-victim-002"},
+                headers={"X-Mock-User": "local_admin"},
+            )
+            assert resp.status_code == 200
+            assert tok.is_cancelled
+        finally:
+            store.unregister("ctx-victim-002")
+
+    def test_admin_broadcast_emergency_stop_cancels_all_active_contexts(
+        self, auth_client
+    ):
+        """Global Emergency Stop without session target cancels all contexts."""
+        store = get_execution_store()
+        tok_alice = store.register("ctx-active-alice", owner_session_id="user_alice")
+        tok_bob = store.register("ctx-active-bob", owner_session_id="user_bob")
+        try:
+            resp = auth_client.post(
+                "/api/execution/cancel",
+                json={"context_id": "active"},
+                headers={"X-Mock-User": "local_admin"},
+            )
+            assert resp.status_code == 200
+            assert tok_alice.is_cancelled
+            assert tok_bob.is_cancelled
+        finally:
+            store.unregister("ctx-active-alice")
+            store.unregister("ctx-active-bob")
+
+    def test_admin_targeted_cancel_scopes_to_target_session(self, auth_client):
+        """Admin specifying session_id cancels only the designated tenant's execution."""
+        store = get_execution_store()
+        tok_alice = store.register("ctx-scoped-alice", owner_session_id="user_alice")
+        tok_bob = store.register("ctx-scoped-bob", owner_session_id="user_bob")
+        try:
+            resp = auth_client.post(
+                "/api/execution/cancel",
+                json={"context_id": "active", "session_id": "user_alice"},
+                headers={"X-Mock-User": "local_admin"},
+            )
+            assert resp.status_code == 200
+            assert tok_alice.is_cancelled
+            assert not tok_bob.is_cancelled
+        finally:
+            store.unregister("ctx-scoped-alice")
+            store.unregister("ctx-scoped-bob")
+
+    def test_multi_user_mode_unauthenticated_request_rejected(self):
+        """Multi-user mode strictly rejects unauthenticated /api/execution/cancel."""
+        from openjarvis.server.auth_middleware import AuthMiddleware
+
+        app = FastAPI()
+        app.add_middleware(
+            AuthMiddleware, api_key="oj_sk_secret_123", multi_user=True
+        )
+        app.include_router(cancellation_router)
+        client = TestClient(app)
+
+        store = get_execution_store()
+        tok = store.register("ctx-multi-user", owner_session_id="user_alice")
+        try:
+            # Unauthenticated request fails with 401
+            resp_no_auth = client.post(
+                "/api/execution/cancel",
+                json={"context_id": "ctx-multi-user"},
+            )
+            assert resp_no_auth.status_code == 401
+            assert not tok.is_cancelled
+
+            # Invalid key fails with 401
+            resp_bad_key = client.post(
+                "/api/execution/cancel",
+                json={"context_id": "ctx-multi-user"},
+                headers={"Authorization": "Bearer wrong_key"},
+            )
+            assert resp_bad_key.status_code == 401
+            assert not tok.is_cancelled
+
+            # Correct API key (as sent by Tauri shortcut) attaches api_admin and cancels
+            resp_auth = client.post(
+                "/api/execution/cancel",
+                json={"context_id": "ctx-multi-user"},
+                headers={"Authorization": "Bearer oj_sk_secret_123"},
+            )
+            assert resp_auth.status_code == 200
+            assert tok.is_cancelled
+        finally:
+            store.unregister("ctx-multi-user")
+
+    def test_single_user_mode_with_api_key_contract(self):
+        """Single-user mode with OPENJARVIS_API_KEY enforces auth header."""
+        from openjarvis.server.auth_middleware import AuthMiddleware
+
+        app = FastAPI()
+        app.add_middleware(
+            AuthMiddleware, api_key="oj_sk_desktop_key", multi_user=False
+        )
+        app.include_router(cancellation_router)
+        client = TestClient(app)
+
+        store = get_execution_store()
+        tok = store.register("ctx-single-user", owner_session_id="default")
+        try:
+            # Missing key rejected
+            resp = client.post(
+                "/api/execution/cancel",
+                json={"context_id": "ctx-single-user"},
+            )
+            assert resp.status_code == 401
+            assert not tok.is_cancelled
+
+            # Valid key accepted
+            resp_ok = client.post(
+                "/api/execution/cancel",
+                json={"context_id": "ctx-single-user"},
+                headers={"Authorization": "Bearer oj_sk_desktop_key"},
+            )
+            assert resp_ok.status_code == 200
+            assert tok.is_cancelled
+        finally:
+            store.unregister("ctx-single-user")
 

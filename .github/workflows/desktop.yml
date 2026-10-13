@@ -142,6 +142,62 @@ jobs:
             exit 1
           }
 
+      - name: Stage Windows manual test bundle
+        shell: pwsh
+        run: |
+          $stageDir = Join-Path $env:RUNNER_TEMP "openjarvis-windows-manual-test"
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+          Copy-Item "frontend/src-tauri/target/debug/openjarvis-desktop.exe" -Destination (Join-Path $stageDir "openjarvis-desktop.exe")
+
+          $lines = @(
+            "======================================================================",
+            "ULTRON / OPENJARVIS WINDOWS DESKTOP SMOKE TEST BUNDLE (TSK-P5-01)",
+            "======================================================================",
+            "Tested Commit SHA: ${{ github.sha }}",
+            "Ref: ${{ github.ref }}",
+            "Architecture: x86_64 Windows (MSVC)",
+            "Built By: GitHub Actions (desktop.yml / validate-windows)",
+            "",
+            "PREREQUISITES:",
+            "1. Windows 10 or Windows 11 (64-bit) with Microsoft Edge WebView2 Runtime.",
+            "2. Python backend running locally at http://127.0.0.1:8000.",
+            "",
+            "BACKEND STARTUP INSTRUCTIONS:",
+            "From repository root in PowerShell:",
+            "  .\.venv\Scripts\python.exe -m uvicorn openjarvis.server.app:app --host 127.0.0.1 --port 8000",
+            "",
+            "OPTIONAL (Configured API Key Mode):",
+            "  `$env:OPENJARVIS_API_KEY=""test-key""",
+            "  .\.venv\Scripts\python.exe -m uvicorn openjarvis.server.app:app --host 127.0.0.1 --port 8000",
+            "",
+            "MANUAL EMERGENCY STOP TEST STEPS (Ctrl+Alt+Escape):",
+            "1. Launch openjarvis-desktop.exe.",
+            "2. Confirm desktop window renders HUD and connects to 127.0.0.1:8000.",
+            "3. Submit a long-running harmless command (e.g. ping -n 60 127.0.0.1).",
+            "4. Verify HUD transitions to active THINKING state.",
+            "5. Press physical Ctrl + Alt + Escape on keyboard.",
+            "6. Verify:",
+            "   - UI immediately updates to CANCELLED state (amber indicator).",
+            "   - Streaming output halts immediately.",
+            "   - Subprocess is terminated (check via: Get-Process ping -ErrorAction SilentlyContinue).",
+            "   - Unrelated tasks continue unharmed.",
+            "   - Subsequent prompts execute normally.",
+            "",
+            "SECURITY NOTICE:",
+            "This bundle contains only the compiled native binary and instructions.",
+            "Zero credentials, .env files, private keys, or configs are included.",
+            "======================================================================"
+          )
+          Set-Content -Path (Join-Path $stageDir "README.txt") -Value $lines -Encoding utf8
+
+      - name: Upload Windows desktop test artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openjarvis-desktop-windows-x64
+          path: ${{ runner.temp }}/openjarvis-windows-manual-test
+          retention-days: 7
+          if-no-files-found: error
+
   # Remove stale artifacts from the desktop-edge rolling pre-release so that
   # only the current build's files are available for download. (The stable
   # `desktop-latest` channel the installed app polls is never cleaned here.)

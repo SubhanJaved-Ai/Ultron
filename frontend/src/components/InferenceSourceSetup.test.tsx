@@ -49,6 +49,7 @@ describe('first-run inference source navigation', () => {
 
     expect(html).toContain('Server URL');
     expect(html).toContain('Model ID');
+    expect(html).toContain('Google Gemini');
     expect(html).toMatch(/aria-label="Server URL"[^>]*required/);
     expect(html).toMatch(/aria-label="Model ID"[^>]*required/);
     expect(html).toContain('Ollama will not start or download models');
@@ -93,6 +94,32 @@ describe('first-run inference source persistence', () => {
       model: 'local-model',
       engine: 'lmstudio',
     });
+  });
+
+  it('persists Google Gemini endpoint selection with api key', async () => {
+    const persist = vi.fn(async () => {});
+    const start = vi.fn(async () => {});
+
+    await persistAndStartInferenceSource(
+      {
+        kind: 'custom',
+        host: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        model: 'gemini-3.8-flash',
+        engine: 'gemini',
+        apiKey: 'test-gemini-key',
+      },
+      persist,
+      start,
+    );
+
+    expect(persist).toHaveBeenCalledWith({
+      kind: 'custom',
+      host: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+      model: 'gemini-3.8-flash',
+      engine: 'gemini',
+      apiKey: 'test-gemini-key',
+    });
+    expect(start).toHaveBeenCalled();
   });
 
   it('does not start anything when persistence fails', async () => {

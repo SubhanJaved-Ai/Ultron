@@ -16,6 +16,11 @@ _ENGINES = {
     "uzu": ("UzuEngine", "http://localhost:8000", ""),
     "apple_fm": ("AppleFmEngine", "http://localhost:8079", "/v1"),
     "lemonade": ("LemonadeEngine", "http://localhost:13305", "/v1"),
+    "gemini": (
+        "GeminiOpenAIEngine",
+        "https://generativelanguage.googleapis.com/v1beta/openai",
+        "/v1",
+    ),
 }
 
 for _key, (_cls_name, _default_host, _api_prefix) in _ENGINES.items():

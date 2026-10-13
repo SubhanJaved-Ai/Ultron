@@ -12,6 +12,7 @@ from openjarvis.engine.ollama import OllamaEngine
 from openjarvis.engine.openai_compat_engines import (
     AppleFmEngine,
     ExoEngine,
+    GeminiOpenAIEngine,
     LemonadeEngine,
     LlamaCppEngine,
     LMStudioEngine,
@@ -33,6 +34,7 @@ _OPENAI_COMPAT_ENGINES = [
     ("uzu", "http://testhost:8000", UzuEngine),
     ("apple_fm", "http://testhost:8079", AppleFmEngine),
     ("lemonade", "http://testhost:13305", LemonadeEngine),
+    ("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", GeminiOpenAIEngine),
 ]
 
 

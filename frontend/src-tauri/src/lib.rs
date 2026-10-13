@@ -4014,6 +4014,36 @@ mod tests {
     }
 
     #[test]
+    fn boot_plan_custom_supports_gemini_endpoint() {
+        let cfg = InferenceConfig {
+            kind: SourceKind::Custom,
+            confirmed: true,
+            model: Some("gemini-3.8-flash".into()),
+            host: Some(normalize_host("https://generativelanguage.googleapis.com/v1beta/openai/")),
+            engine: Some("gemini".into()),
+        };
+        let plan = boot_plan(&cfg, 16.0);
+        assert!(!plan.launch_ollama);
+        assert!(plan.model_to_pull.is_none());
+        assert_eq!(
+            plan.engine_host,
+            Some((
+                "gemini".to_string(),
+                "https://generativelanguage.googleapis.com/v1beta/openai".to_string()
+            ))
+        );
+        assert!(plan
+            .serve_args
+            .windows(2)
+            .any(|w| w == ["--engine", "gemini"]));
+        assert!(plan
+            .serve_args
+            .windows(2)
+            .any(|w| w == ["--model", "gemini-3.8-flash"]));
+        assert_eq!(super::engine_api_key_name("gemini"), "GEMINI_API_KEY");
+    }
+
+    #[test]
     fn pending_config_rolls_back_unless_boot_confirms_it() {
         let root = std::env::temp_dir().join(format!(
             "openjarvis-pending-inference-{}",

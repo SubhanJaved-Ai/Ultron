@@ -473,6 +473,13 @@ class LemonadeEngineConfig:
     host: str = "http://localhost:13305"
 
 
+@dataclass(slots=True)
+class GeminiEngineConfig:
+    """Per-engine config for Gemini OpenAI-compatible endpoint."""
+
+    host: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+
+
 @dataclass
 class EngineConfig:
     """Inference engine settings with nested per-engine configs."""
@@ -491,6 +498,7 @@ class EngineConfig:
     afm: AfmEngineConfig = field(default_factory=AfmEngineConfig)
     gemma_cpp: GemmaCppEngineConfig = field(default_factory=GemmaCppEngineConfig)
     lemonade: LemonadeEngineConfig = field(default_factory=LemonadeEngineConfig)
+    gemini: GeminiEngineConfig = field(default_factory=GeminiEngineConfig)
 
     # Backward-compat properties for old flat attribute names
     @property
@@ -600,6 +608,15 @@ class EngineConfig:
     @lemonade_host.setter
     def lemonade_host(self, value: str) -> None:
         self.lemonade.host = value
+
+    @property
+    def gemini_host(self) -> str:
+        """Deprecated: use ``engine.gemini.host``."""
+        return self.gemini.host
+
+    @gemini_host.setter
+    def gemini_host(self, value: str) -> None:
+        self.gemini.host = value
 
 
 @dataclass(slots=True)

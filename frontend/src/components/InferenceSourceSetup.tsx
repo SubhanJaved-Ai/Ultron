@@ -273,6 +273,54 @@ export function CustomEndpointSetup({
           </p>
         </div>
         <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          Server type
+          <select
+            aria-label="Server type"
+            value={engine}
+            onChange={(event) => {
+              const nextEngine = event.target.value;
+              setEngine(nextEngine);
+              if (nextEngine === 'gemini') {
+                if (host === 'http://localhost:1234/v1' || !host.trim()) {
+                  setHost('https://generativelanguage.googleapis.com/v1beta/openai/');
+                }
+                if (!model.trim() || model === 'qwen2.5-7b-instruct') {
+                  setModel('gemini-3.8-flash');
+                }
+              } else if (engine === 'gemini') {
+                if (host === 'https://generativelanguage.googleapis.com/v1beta/openai/') {
+                  setHost('http://localhost:1234/v1');
+                }
+                if (model === 'gemini-3.8-flash') {
+                  setModel('');
+                }
+              }
+            }}
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle}
+          >
+            <option value="gemini">Google Gemini</option>
+            <option value="lmstudio">LM Studio</option>
+            <option value="vllm">vLLM</option>
+            <option value="sglang">SGLang</option>
+            <option value="llamacpp">llama.cpp</option>
+            <option value="mlx">MLX</option>
+          </select>
+        </label>
+        <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          Model ID
+          <input
+            aria-label="Model ID"
+            type="text"
+            required
+            value={model}
+            onChange={(event) => setModel(event.target.value)}
+            placeholder={engine === 'gemini' ? 'gemini-3.8-flash' : 'qwen2.5-7b-instruct'}
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle}
+          />
+        </label>
+        <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
           Server URL
           <input
             aria-label="Server URL"
@@ -283,35 +331,6 @@ export function CustomEndpointSetup({
             className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
             style={fieldStyle}
           />
-        </label>
-        <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-          Model ID
-          <input
-            aria-label="Model ID"
-            type="text"
-            required
-            value={model}
-            onChange={(event) => setModel(event.target.value)}
-            placeholder="qwen2.5-7b-instruct"
-            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
-            style={fieldStyle}
-          />
-        </label>
-        <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-          Server type
-          <select
-            aria-label="Server type"
-            value={engine}
-            onChange={(event) => setEngine(event.target.value)}
-            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
-            style={fieldStyle}
-          >
-            <option value="lmstudio">LM Studio</option>
-            <option value="vllm">vLLM</option>
-            <option value="sglang">SGLang</option>
-            <option value="llamacpp">llama.cpp</option>
-            <option value="mlx">MLX</option>
-          </select>
         </label>
         <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
           API key (optional)

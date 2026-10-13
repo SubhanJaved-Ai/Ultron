@@ -3387,6 +3387,28 @@ pub fn run() {
                 }
             }
 
+            // Register Ctrl+Alt+Escape for Global Emergency Stop (TSK-P5-01 / GAP-01)
+            {
+                use tauri_plugin_global_shortcut::{
+                    Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
+                };
+                let sc_esc = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Escape);
+                if let Err(e) = app.global_shortcut().on_shortcut(sc_esc, |_app, _sc, ev| {
+                    if ev.state == ShortcutState::Pressed {
+                        let client = reqwest::Client::new();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = client
+                                .post(format!("http://127.0.0.1:{JARVIS_PORT}/api/execution/cancel"))
+                                .json(&serde_json::json!({"context_id": "active"}))
+                                .send()
+                                .await;
+                        });
+                    }
+                }) {
+                    eprintln!("Warning: could not register Ctrl+Alt+Escape: {e}");
+                }
+            }
+
             // Returning users keep automatic startup after they have persisted
             // a source. Fresh installs stay inert until the setup UI records
             // explicit consent and invokes `start_backend`.

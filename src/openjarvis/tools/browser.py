@@ -56,17 +56,24 @@ class _BrowserSession:
         """Emergency-stop hook: close the browser session immediately.
 
         Called by the Global Emergency Stop (TSK-P5-01) when a cancellation
-        token is set.  Uses a best-effort try/except so that a Playwright
-        exception never masks the cancellation signal to higher layers.
+        token is set. Re-raises cleanup exceptions after nulling out references
+        so cleanup failures are surfaced to caller telemetry.
         """
         try:
             self.close()
         except Exception:
             # Forcefully null out references so subsequent page access fails fast
             self._playwright = self._browser = self._page = None
+            raise
 
 
 _session = _BrowserSession()
+
+
+def bind_browser_session_to_token(cancellation_token: Any) -> None:
+    """Connect the active browser session teardown to a cancellation token."""
+    if cancellation_token is not None and hasattr(cancellation_token, "add_cleanup_callback"):
+        cancellation_token.add_cleanup_callback(_session.close_on_cancel)
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +118,15 @@ class BrowserNavigateTool(BaseTool):
         )
 
     def execute(self, **params: Any) -> ToolResult:
+        token = params.get("cancellation_token")
+        if token is not None and getattr(token, "is_cancelled", False):
+            return ToolResult(
+                tool_name="browser_navigate",
+                content="Browser operation cancelled by operator.",
+                success=False,
+            )
+        bind_browser_session_to_token(token)
+
         url = params.get("url", "")
         if not url:
             return ToolResult(
@@ -139,6 +155,12 @@ class BrowserNavigateTool(BaseTool):
         try:
             page = _session.page
             response = page.goto(url, wait_until=wait_for)
+            if token is not None and getattr(token, "is_cancelled", False):
+                return ToolResult(
+                    tool_name="browser_navigate",
+                    content="Browser operation cancelled by operator.",
+                    success=False,
+                )
             title = page.title()
             text_content = page.inner_text("body")
             if len(text_content) > 5000:
@@ -247,6 +269,15 @@ class BrowserClickTool(BaseTool):
     ) | frozenset(_ORDINALS)
 
     def execute(self, **params: Any) -> ToolResult:
+        token = params.get("cancellation_token")
+        if token is not None and getattr(token, "is_cancelled", False):
+            return ToolResult(
+                tool_name="browser_click",
+                content="Browser operation cancelled by operator.",
+                success=False,
+            )
+        bind_browser_session_to_token(token)
+
         # Models routinely name this param `target`, `text`, `element` or
         # `query` instead of `selector`; rejecting those costs the whole
         # workflow, so accept the common aliases.

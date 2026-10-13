@@ -186,6 +186,8 @@ class AgentStreamBridge:
                 if self._cancellation_token is not None and getattr(
                     self._cancellation_token, "is_cancelled", False
                 ):
+                    if not agent_task.done():
+                        agent_task.cancel()
                     yield "data: [DONE]\n\n"
                     return
 
@@ -197,6 +199,8 @@ class AgentStreamBridge:
                 if self._cancellation_token is not None and getattr(
                     self._cancellation_token, "is_cancelled", False
                 ):
+                    if not agent_task.done():
+                        agent_task.cancel()
                     yield "data: [DONE]\n\n"
                     return
 
@@ -208,6 +212,8 @@ class AgentStreamBridge:
             if self._cancellation_token is not None and getattr(
                 self._cancellation_token, "is_cancelled", False
             ):
+                if not agent_task.done():
+                    agent_task.cancel()
                 yield "data: [DONE]\n\n"
                 return
 
@@ -329,6 +335,8 @@ class AgentStreamBridge:
                 agent_task.cancel()
             raise
         finally:
+            if not agent_task.done():
+                agent_task.cancel()
             self._unsubscribe_all()
 
 

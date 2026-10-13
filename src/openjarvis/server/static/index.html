@@ -2792,9 +2792,13 @@
 
       // Signal the backend
       try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (typeof getAuthHeaders === 'function') {
+          Object.assign(headers, getAuthHeaders());
+        }
         await fetch('/api/execution/cancel', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           credentials: 'include',
           body: JSON.stringify({ context_id: 'active' }),
         });

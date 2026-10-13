@@ -35,7 +35,7 @@ import asyncio
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 
 @dataclass(slots=True)
@@ -61,10 +61,32 @@ class CancellationToken:
     # because event loops may not exist at construction time.
     _async_event: Optional[asyncio.Event] = field(default=None)
 
+    # Cleanup callbacks and error tracking
+    _cleanup_callbacks: list[Callable[[], Any]] = field(default_factory=list)
+    _cleanup_errors: list[Exception] = field(default_factory=list)
+
     @property
     def is_cancelled(self) -> bool:
         """Return ``True`` if cancellation has been requested."""
         return self._sync_event.is_set()
+
+    def add_cleanup_callback(self, callback: Callable[[], Any]) -> None:
+        """Register a cleanup function to be executed when cancellation occurs.
+
+        If the token has already been cancelled, the callback is executed immediately.
+        """
+        if self._sync_event.is_set():
+            try:
+                callback()
+            except Exception as exc:
+                self._cleanup_errors.append(exc)
+            return
+        self._cleanup_callbacks.append(callback)
+
+    @property
+    def cleanup_errors(self) -> list[Exception]:
+        """Return exceptions encountered during cleanup execution."""
+        return list(self._cleanup_errors)
 
     def cancel(self) -> None:
         """Signal cancellation from any thread.
@@ -81,6 +103,13 @@ class CancellationToken:
             except RuntimeError:
                 # May happen if the event loop is already closed
                 pass
+        # Execute registered cleanup callbacks
+        while self._cleanup_callbacks:
+            cb = self._cleanup_callbacks.pop(0)
+            try:
+                cb()
+            except Exception as exc:
+                self._cleanup_errors.append(exc)
 
     def wait(self, timeout: Optional[float] = None) -> bool:
         """Block until cancellation is signalled or *timeout* elapses.
@@ -146,6 +175,11 @@ class ActiveExecutionContextStore:
                     context_id=context_id,
                     owner_session_id=owner_session_id,
                 )
+            elif (
+                owner_session_id is not None
+                and self._tokens[context_id].owner_session_id is None
+            ):
+                self._tokens[context_id].owner_session_id = owner_session_id
             return self._tokens[context_id]
 
     def unregister(self, context_id: str) -> None:
@@ -180,26 +214,26 @@ class ActiveExecutionContextStore:
         with self._lock:
             if context_id in self._tokens:
                 token = self._tokens[context_id]
-                # Enforce session ownership check
-                if (
-                    token.owner_session_id is not None
-                    and requesting_session_id is not None
-                    and token.owner_session_id != requesting_session_id
-                ):
-                    return False  # Cross-session cancellation rejected
+                # Enforce strict session ownership check
+                if token.owner_session_id is not None:
+                    if (
+                        requesting_session_id is None
+                        or token.owner_session_id != requesting_session_id
+                    ):
+                        return False  # Cross-session cancellation rejected
                 token.cancel()
                 return True
 
             # Broadcast cancel: "active" with no exact match → cancel all caller's tokens
             if context_id == "active" and self._tokens:
                 cancelled_any = False
-                for token in self._tokens.values():
-                    if (
-                        requesting_session_id is not None
-                        and token.owner_session_id is not None
-                        and token.owner_session_id != requesting_session_id
-                    ):
-                        continue
+                for token in list(self._tokens.values()):
+                    if token.owner_session_id is not None:
+                        if (
+                            requesting_session_id is None
+                            or token.owner_session_id != requesting_session_id
+                        ):
+                            continue
                     token.cancel()
                     cancelled_any = True
                 return cancelled_any
@@ -222,9 +256,19 @@ class ActiveExecutionContextStore:
         with self._lock:
             return self._tokens.get(context_id)
 
-    def list_active(self) -> list[str]:
-        """Return a snapshot list of currently registered context IDs."""
+    def list_active(self, session_id: Optional[str] = None) -> list[str]:
+        """Return a snapshot list of currently registered context IDs.
+
+        If *session_id* is provided, only contexts owned by that session (or unowned)
+        are returned to prevent cross-tenant enumeration.
+        """
         with self._lock:
+            if session_id is not None:
+                return [
+                    cid
+                    for cid, tok in self._tokens.items()
+                    if tok.owner_session_id is None or tok.owner_session_id == session_id
+                ]
             return list(self._tokens.keys())
 
     def is_cancelled(self, context_id: str) -> bool:

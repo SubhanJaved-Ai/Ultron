@@ -126,24 +126,24 @@ class TestCooperativeCancellation:
                 if token.is_cancelled:
                     results.append(f"SKIPPED:{step}")
                     continue
-                time.sleep(0.02)
                 step_times[step] = time.monotonic()
+                time.sleep(0.02)
                 results.append(f"DONE:{step}")
 
         t = threading.Thread(target=_run, daemon=True)
         t.start()
         time.sleep(0.08)  # Let ~4 steps complete
-        cancel_time.append(time.monotonic())
         token.cancel()
+        cancel_time.append(time.monotonic())
         t.join(timeout=3)
 
         ct = cancel_time[0]
-        # Ensure no "DONE" step has a timestamp after cancellation
-        post_cancel_done = [
-            step for step, ts in step_times.items() if ts > ct + 0.05
+        # Ensure no step started after cancellation
+        post_cancel_started = [
+            step for step, ts in step_times.items() if ts > ct
         ]
-        assert not post_cancel_done, (
-            f"Steps executed AFTER cancellation: {post_cancel_done}"
+        assert not post_cancel_started, (
+            f"Steps started AFTER cancellation: {post_cancel_started}"
         )
 
 

@@ -273,8 +273,26 @@ class NativeReActAgent(ToolUsingAgent):
             "total_tokens": 0,
         }
 
+        cancellation_token = kwargs.get("cancellation_token") or (
+            context.metadata.get("cancellation_token")
+            if context and context.metadata
+            else None
+        )
+
         for _turn in range(self._max_turns):
             turns += 1
+
+            if cancellation_token is not None and getattr(
+                cancellation_token, "is_cancelled", False
+            ):
+                self._emit_turn_end(turns=turns)
+                msg_dicts = [_message_to_dict(m) for m in messages]
+                return AgentResult(
+                    content="Execution cancelled by operator.",
+                    tool_results=all_tool_results,
+                    turns=turns,
+                    metadata={**total_usage, "cancelled": True, "messages": msg_dicts},
+                )
 
             if self._loop_guard:
                 messages = self._loop_guard.compress_context(messages)
@@ -348,6 +366,18 @@ class NativeReActAgent(ToolUsingAgent):
                     observation = f"Observation: {tool_result.content}"
                     messages.append(Message(role=Role.USER, content=observation))
                     continue
+
+            if cancellation_token is not None and getattr(
+                cancellation_token, "is_cancelled", False
+            ):
+                self._emit_turn_end(turns=turns)
+                msg_dicts = [_message_to_dict(m) for m in messages]
+                return AgentResult(
+                    content="Execution cancelled by operator.",
+                    tool_results=all_tool_results,
+                    turns=turns,
+                    metadata={**total_usage, "cancelled": True, "messages": msg_dicts},
+                )
 
             tool_result = self._executor.execute(tool_call)
             all_tool_results.append(tool_result)

@@ -27,7 +27,7 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from openjarvis.server.cancellation import get_execution_store
@@ -50,17 +50,38 @@ class CancelResponse(BaseModel):
     elapsed_ms: float
 
 
+def _resolve_session_id(request: Request, body_session_id: Optional[str] = None) -> str:
+    """Resolve authoritative session/user identity from request state.
+
+    Never trusts an unauthenticated caller-supplied session_id. If an authenticated
+    user is present, verifies that any caller-supplied session_id matches.
+    """
+    current_user = getattr(request.state, "user", None)
+    auth_user_id = getattr(current_user, "id", None) if current_user is not None else None
+
+    if auth_user_id:
+        if body_session_id and body_session_id != auth_user_id and auth_user_id != "api_admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Caller-supplied session_id does not match authenticated user identity.",
+            )
+        return auth_user_id
+
+    # Fallback to body_session_id if provided, otherwise default
+    return body_session_id or "default"
+
+
 @cancellation_router.post(
     "/api/execution/cancel",
     response_model=CancelResponse,
     summary="Emergency Stop — signal cancellation for an active execution context",
 )
-async def cancel_execution(body: CancelRequest) -> CancelResponse:
+async def cancel_execution(body: CancelRequest, request: Request) -> CancelResponse:
     """Emit a cancellation signal for an active execution context.
 
     The signal propagates cooperatively across:
     - Subprocess trees (``kill_process_tree`` in ``shell_exec.py``)
-    - Playwright browser sessions (``_session.close()``)
+    - Playwright browser sessions (``_session.close_on_cancel()``)
     - Subagent orchestrator loops (``is_cancelled`` guard in dispatch)
     - LLM streaming generators (generator checks token before each yield)
 
@@ -72,28 +93,24 @@ async def cancel_execution(body: CancelRequest) -> CancelResponse:
     """
     t0 = time.monotonic()
     context_id = (body.context_id or "active").strip() or "active"
+    effective_session_id = _resolve_session_id(request, body.session_id)
 
     store = get_execution_store()
     token = store.get(context_id)
     if (
         token is not None
         and token.owner_session_id is not None
-        and body.session_id is not None
-        and token.owner_session_id != body.session_id
+        and token.owner_session_id != effective_session_id
     ):
-        from fastapi import HTTPException
-
         raise HTTPException(
             status_code=403,
             detail=f"Not authorized to cancel context {context_id!r} owned by another session.",
         )
 
-    cancelled = store.cancel(context_id, requesting_session_id=body.session_id)
+    cancelled = store.cancel(context_id, requesting_session_id=effective_session_id)
     elapsed = (time.monotonic() - t0) * 1000.0
 
     if not cancelled:
-        from fastapi import HTTPException
-
         raise HTTPException(
             status_code=404,
             detail=(
@@ -113,14 +130,17 @@ async def cancel_execution(body: CancelRequest) -> CancelResponse:
     "/api/execution/contexts",
     summary="List active execution context IDs",
 )
-async def list_contexts() -> dict:
-    """Return all currently registered execution context IDs.
+async def list_contexts(request: Request) -> dict:
+    """Return currently registered execution context IDs for the caller's session.
 
-    Useful for debugging and for client-side confirmation that a directive
-    is still running before issuing a cancel request.
+    Restricts output to the caller's authenticated session to prevent
+    cross-tenant execution enumeration.
     """
+    current_user = getattr(request.state, "user", None)
+    auth_user_id = getattr(current_user, "id", None) if current_user is not None else None
+
     store = get_execution_store()
-    return {"active_contexts": store.list_active()}
+    return {"active_contexts": store.list_active(session_id=auth_user_id)}
 
 
 __all__ = ["cancellation_router"]

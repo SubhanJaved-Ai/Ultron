@@ -164,60 +164,100 @@ async def handle_directive(request: Request, payload: dict) -> dict:
                 "actions": [],
             }
 
-    # 1. Full Backend Execution: route through running JarvisSystem if wired
-    system = getattr(request.app.state, "system", None)
-    if system is not None and hasattr(system, "ask"):
-        try:
-            ask_kwargs = {"operator_id": user_id} if user_id else {}
-            result = await asyncio.to_thread(
-                system.ask,
-                directive,
-                **ask_kwargs,
-            )
-            if isinstance(result, dict) and result.get("content"):
-                raw_actions = (
-                    result.get("tool_results") or result.get("tool_calls") or []
-                )
-                normalized_actions = []
-                for act in raw_actions:
-                    if isinstance(act, dict):
-                        act_name = act.get("tool_name") or act.get("name") or "action"
-                        act_args = act.get("arguments") or act.get("args") or {}
-                        act_success = act.get("success") is not False
-                        act_content = act.get("content") or act.get("output") or ""
-                        normalized_actions.append(
-                            {
-                                "name": act_name,
-                                "arguments": act_args,
-                                "success": act_success,
-                                "status": "executed" if act_success else "failed",
-                                "output": (
-                                    str(act_content)[:300] if act_content else ""
-                                ),
-                            }
-                        )
-                return {
-                    "reply": result["content"],
-                    "actions": normalized_actions,
-                    "status": "executed",
-                }
-        except Exception as exc:
-            logger.warning(
-                "JarvisSystem execution failed in hologram directive: %s", exc
-            )
+    # Execution registration in ActiveExecutionContextStore (TSK-P5-01 / GAP-01)
+    import uuid
 
-    # 2. Frontier LLM Brain Execution (Gemini / Smart Reasoning)
+    from openjarvis.server.cancellation import get_execution_store
+
+    store = get_execution_store()
+    effective_session_id = user_id or "default"
+    ctx_id = f"ctx-holo-{uuid.uuid4().hex[:8]}"
+    token = store.register(ctx_id, owner_session_id=effective_session_id)
+    active_token = store.register("active", owner_session_id=effective_session_id)
+
     try:
-        reply = await asyncio.to_thread(
-            ultron_brain.generate_response, directive, history=history
-        )
-        return {"reply": reply, "status": "brain_executed"}
-    except Exception as exc:
-        logger.error("UltronBrain generation failed: %s", exc)
+        if token.is_cancelled or active_token.is_cancelled:
+            return {
+                "reply": "Directive execution was cancelled by operator.",
+                "status": "cancelled",
+                "actions": [],
+            }
 
-    # 3. Final safe fallback
-    addr_suffix = f", {user_addr}" if user_addr else ""
-    return {
-        "reply": f"Standing by to execute your objective{addr_suffix}.",
-        "status": "fallback",
-    }
+        # 1. Full Backend Execution: route through running JarvisSystem if wired
+        system = getattr(request.app.state, "system", None)
+        if system is not None and hasattr(system, "ask"):
+            try:
+                ask_kwargs = {"operator_id": user_id} if user_id else {}
+                result = await asyncio.to_thread(
+                    system.ask,
+                    directive,
+                    **ask_kwargs,
+                )
+                if token.is_cancelled or active_token.is_cancelled:
+                    return {
+                        "reply": "Directive aborted cleanly by operator.",
+                        "status": "cancelled",
+                        "actions": [],
+                    }
+                if isinstance(result, dict) and result.get("content"):
+                    raw_actions = (
+                        result.get("tool_results") or result.get("tool_calls") or []
+                    )
+                    normalized_actions = []
+                    for act in raw_actions:
+                        if isinstance(act, dict):
+                            act_name = act.get("tool_name") or act.get("name") or "action"
+                            act_args = act.get("arguments") or act.get("args") or {}
+                            act_success = act.get("success") is not False
+                            act_content = act.get("content") or act.get("output") or ""
+                            normalized_actions.append(
+                                {
+                                    "name": act_name,
+                                    "arguments": act_args,
+                                    "success": act_success,
+                                    "status": "executed" if act_success else "failed",
+                                    "output": (
+                                        str(act_content)[:300] if act_content else ""
+                                    ),
+                                }
+                            )
+                    return {
+                        "reply": result["content"],
+                        "actions": normalized_actions,
+                        "status": "executed",
+                    }
+            except Exception as exc:
+                logger.warning(
+                    "JarvisSystem execution failed in hologram directive: %s", exc
+                )
+
+        # 2. Frontier LLM Brain Execution (Gemini / Smart Reasoning)
+        try:
+            if token.is_cancelled or active_token.is_cancelled:
+                return {
+                    "reply": "Directive aborted cleanly by operator.",
+                    "status": "cancelled",
+                    "actions": [],
+                }
+            reply = await asyncio.to_thread(
+                ultron_brain.generate_response, directive, history=history
+            )
+            if token.is_cancelled or active_token.is_cancelled:
+                return {
+                    "reply": "Directive aborted cleanly by operator.",
+                    "status": "cancelled",
+                    "actions": [],
+                }
+            return {"reply": reply, "status": "brain_executed"}
+        except Exception as exc:
+            logger.error("UltronBrain generation failed: %s", exc)
+
+        # 3. Final safe fallback
+        addr_suffix = f", {user_addr}" if user_addr else ""
+        return {
+            "reply": f"Standing by to execute your objective{addr_suffix}.",
+            "status": "fallback",
+        }
+    finally:
+        store.unregister(ctx_id)
+        store.unregister("active")

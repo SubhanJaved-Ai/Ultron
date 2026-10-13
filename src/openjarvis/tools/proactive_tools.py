@@ -34,6 +34,7 @@ from openjarvis.tools.approval_store import (
     DECISION_ALWAYS_APPROVE,
     DECISION_ALWAYS_DENY,
     STATUS_APPROVED,
+    STATUS_CANCELLED,
     STATUS_DENIED,
     STATUS_EXECUTED,
     TIER_HIGH,
@@ -377,6 +378,15 @@ class ExecutePendingActionsTool(BaseTool):
 
     def execute(self, **params: Any) -> ToolResult:
         store = self._store or get_store()
+        token = params.get("cancellation_token")
+        if token is not None and getattr(token, "is_cancelled", False):
+            return ToolResult(
+                tool_name=self.spec.name,
+                success=False,
+                content="Pending action execution cancelled by operator.",
+                metadata={"attempted": 0, "executed": 0, "failed": 0, "cancelled": True},
+            )
+
         action_ids: Optional[List[str]] = params.get("action_ids")
 
         if action_ids:
@@ -386,6 +396,47 @@ class ExecutePendingActionsTool(BaseTool):
 
         results: List[Dict[str, Any]] = []
         for action in actions:
+            if token is not None and getattr(token, "is_cancelled", False):
+                results.append(
+                    {
+                        "id": action.id,
+                        "action_type": action.action_type,
+                        "description": action.description,
+                        "success": False,
+                        "message": "Execution cancelled before action dispatch.",
+                    }
+                )
+                continue
+
+            if getattr(action, "status", None) == STATUS_CANCELLED:
+                results.append(
+                    {
+                        "id": action.id,
+                        "action_type": action.action_type,
+                        "description": action.description,
+                        "success": False,
+                        "message": "Action was cancelled.",
+                    }
+                )
+                continue
+
+            ctx_id = action.payload.get("context_id") or action.payload.get("_context_id")
+            if ctx_id:
+                from openjarvis.server.cancellation import get_execution_store
+
+                if get_execution_store().is_cancelled(ctx_id):
+                    store.update_status(action.id, STATUS_CANCELLED)
+                    results.append(
+                        {
+                            "id": action.id,
+                            "action_type": action.action_type,
+                            "description": action.description,
+                            "success": False,
+                            "message": f"Bound execution context {ctx_id!r} was cancelled.",
+                        }
+                    )
+                    continue
+
             success, message = self._run_action(action)
             if success:
                 store.update_status(action.id, STATUS_EXECUTED)

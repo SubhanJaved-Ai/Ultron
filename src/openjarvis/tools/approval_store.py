@@ -34,6 +34,7 @@ STATUS_APPROVED = "approved"
 STATUS_DENIED = "denied"
 STATUS_EXPIRED = "expired"
 STATUS_EXECUTED = "executed"
+STATUS_CANCELLED = "cancelled"
 
 # Tiers govern default ask behavior
 TIER_TRIVIAL = "trivial"  # Execute immediately, no ask
@@ -294,6 +295,30 @@ class ApprovalStore:
         self._conn.commit()
         return cur.rowcount
 
+    def cancel_pending(self, action_id: str) -> bool:
+        """Mark a pending action as cancelled."""
+        now = datetime.now(timezone.utc).isoformat()
+        cur = self._conn.execute(
+            "UPDATE pending_actions SET status = ?, decision_at = ? "
+            "WHERE id = ? AND status IN (?, ?)",
+            (STATUS_CANCELLED, now, action_id, STATUS_PENDING, STATUS_APPROVED),
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
+
+    def cancel_actions_for_context(self, context_id: str) -> int:
+        """Cancel all pending or approved actions tied to a given context_id in payload."""
+        now = datetime.now(timezone.utc).isoformat()
+        pattern = f'%"context_id": "{context_id}"%'
+        pattern_alt = f'%"_context_id": "{context_id}"%'
+        cur = self._conn.execute(
+            "UPDATE pending_actions SET status = ?, decision_at = ? "
+            "WHERE (payload LIKE ? OR payload LIKE ?) AND status IN (?, ?)",
+            (STATUS_CANCELLED, now, pattern, pattern_alt, STATUS_PENDING, STATUS_APPROVED),
+        )
+        self._conn.commit()
+        return cur.rowcount
+
     # -- Permission memory -----------------------------------------------------
 
     def get_permission(self, permission_key: str) -> Optional[PermissionRule]:
@@ -399,6 +424,7 @@ __all__ = [
     "STATUS_DENIED",
     "STATUS_EXPIRED",
     "STATUS_EXECUTED",
+    "STATUS_CANCELLED",
     "TIER_TRIVIAL",
     "TIER_LOW",
     "TIER_MEDIUM",

@@ -24,6 +24,19 @@ function applyTheme() {
 
 applyTheme();
 
+// In native desktop environments, ensure any previously registered service
+// workers are cleanly unregistered so fresh Tauri assets are always loaded.
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker
+    .getRegistrations()
+    .then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister().catch(() => {});
+      }
+    })
+    .catch(() => {});
+}
+
 // Fetch the API base URL from the Tauri backend before rendering.
 // This ensures JARVIS_PORT is defined in one place (the Rust backend).
 // In non-Tauri environments this is a no-op.

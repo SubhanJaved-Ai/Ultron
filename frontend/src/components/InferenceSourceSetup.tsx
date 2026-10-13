@@ -1,5 +1,5 @@
 import { useReducer, useState, type FormEvent } from 'react';
-import { ArrowLeft, Cpu, Download, Loader2, Server, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Cpu, Download, Loader2, Server, ShieldCheck, Sparkles } from 'lucide-react';
 import {
   resetInferenceSource,
   stageInferenceSource,
@@ -7,9 +7,16 @@ import {
   type InferenceSource,
 } from '../lib/api';
 
-export type InferenceSetupStep = 'choose' | 'ollama' | 'custom';
-export type InferenceSetupAction = 'choose_ollama' | 'choose_custom' | 'back';
+export type InferenceSetupStep = 'choose' | 'ollama' | 'custom' | 'gemini';
+export type InferenceSetupAction =
+  | 'choose_ollama'
+  | 'choose_custom'
+  | 'choose_gemini'
+  | 'back';
 export type InferenceSourceSubmission = InferenceSource & { apiKey?: string };
+
+const GEMINI_DEFAULT_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/openai/';
+const GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
 
 /** Pure navigation state: merely inspecting a source can never start setup. */
 export function inferenceSetupReducer(
@@ -19,6 +26,8 @@ export function inferenceSetupReducer(
   switch (action) {
     case 'choose_ollama':
       return 'ollama';
+    case 'choose_gemini':
+      return 'gemini';
     case 'choose_custom':
       return 'custom';
     case 'back':
@@ -83,7 +92,7 @@ function SetupFrame({ children }: { children: React.ReactNode }) {
 export function InferenceSourceChooser({
   onChoose,
 }: {
-  onChoose: (source: 'ollama' | 'custom') => void;
+  onChoose: (source: 'ollama' | 'gemini' | 'custom') => void;
 }) {
   return (
     <SetupFrame>
@@ -91,7 +100,7 @@ export function InferenceSourceChooser({
         <button
           type="button"
           onClick={() => onChoose('ollama')}
-          className="flex items-start gap-4 p-4 rounded-xl text-left transition-all cursor-pointer"
+          className="flex items-start gap-4 p-4 rounded-xl text-left transition-all cursor-pointer hover:border-(--color-accent)"
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
         >
           <Cpu size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent)' }} />
@@ -104,10 +113,28 @@ export function InferenceSourceChooser({
             </span>
           </span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => onChoose('gemini')}
+          className="flex items-start gap-4 p-4 rounded-xl text-left transition-all cursor-pointer hover:border-(--color-accent)"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
+          <Sparkles size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent)' }} />
+          <span>
+            <span className="block text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+              Google Gemini
+            </span>
+            <span className="block text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+              Connect directly via your Google AI Studio API key. Cloud inference, no local GPU or model download required.
+            </span>
+          </span>
+        </button>
+
         <button
           type="button"
           onClick={() => onChoose('custom')}
-          className="flex items-start gap-4 p-4 rounded-xl text-left transition-all cursor-pointer"
+          className="flex items-start gap-4 p-4 rounded-xl text-left transition-all cursor-pointer hover:border-(--color-accent)"
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
         >
           <Server size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent)' }} />
@@ -227,6 +254,104 @@ function SetupError({ message }: { message: string }) {
   );
 }
 
+export function GeminiSetup({
+  onCancel,
+  onConfirm,
+  busy = false,
+  error = '',
+}: {
+  onCancel: () => void;
+  onConfirm: (source: InferenceSourceSubmission) => void;
+  busy?: boolean;
+  error?: string;
+}) {
+  const [host, setHost] = useState(GEMINI_DEFAULT_ENDPOINT);
+  const [model, setModel] = useState(GEMINI_DEFAULT_MODEL);
+  const [apiKey, setApiKey] = useState('');
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    onConfirm({
+      kind: 'custom',
+      host: host.trim(),
+      model: model.trim(),
+      engine: 'gemini',
+      apiKey: apiKey.trim() || undefined,
+    });
+  };
+
+  const fieldStyle = {
+    background: 'var(--color-surface)',
+    color: 'var(--color-text)',
+    border: '1px solid var(--color-border)',
+  };
+
+  return (
+    <SetupFrame>
+      <BackButton onClick={onCancel} label="Cancel" disabled={busy} />
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <div>
+          <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--color-text)' }}>
+            Connect Google Gemini
+          </h2>
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            Cloud inference powered by Google Gemini. Your API key will be saved securely in Windows Credential Manager.
+          </p>
+        </div>
+        <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          API key
+          <input
+            aria-label="API key"
+            type="password"
+            required
+            placeholder="AIzaSy..."
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            autoComplete="off"
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle}
+          />
+        </label>
+        <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          Model ID
+          <input
+            aria-label="Model ID"
+            type="text"
+            required
+            value={model}
+            onChange={(event) => setModel(event.target.value)}
+            placeholder={GEMINI_DEFAULT_MODEL}
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle}
+          />
+        </label>
+        <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          Server URL
+          <input
+            aria-label="Server URL"
+            type="url"
+            required
+            value={host}
+            onChange={(event) => setHost(event.target.value)}
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
+            style={fieldStyle}
+          />
+        </label>
+        {error && <SetupError message={error} />}
+        <button
+          type="submit"
+          disabled={busy || !host.trim() || !model.trim() || !apiKey.trim()}
+          className="w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ background: 'var(--color-accent)', color: 'white' }}
+        >
+          {busy && <Loader2 size={16} className="animate-spin" />}
+          {busy ? 'Connecting...' : 'Save and connect'}
+        </button>
+      </form>
+    </SetupFrame>
+  );
+}
+
 export function CustomEndpointSetup({
   onCancel,
   onConfirm,
@@ -282,16 +407,16 @@ export function CustomEndpointSetup({
               setEngine(nextEngine);
               if (nextEngine === 'gemini') {
                 if (host === 'http://localhost:1234/v1' || !host.trim()) {
-                  setHost('https://generativelanguage.googleapis.com/v1beta/openai/');
+                  setHost(GEMINI_DEFAULT_ENDPOINT);
                 }
                 if (!model.trim() || model === 'qwen2.5-7b-instruct') {
-                  setModel('gemini-3.8-flash');
+                  setModel(GEMINI_DEFAULT_MODEL);
                 }
               } else if (engine === 'gemini') {
-                if (host === 'https://generativelanguage.googleapis.com/v1beta/openai/') {
+                if (host === GEMINI_DEFAULT_ENDPOINT) {
                   setHost('http://localhost:1234/v1');
                 }
-                if (model === 'gemini-3.8-flash') {
+                if (model === GEMINI_DEFAULT_MODEL) {
                   setModel('');
                 }
               }
@@ -315,7 +440,7 @@ export function CustomEndpointSetup({
             required
             value={model}
             onChange={(event) => setModel(event.target.value)}
-            placeholder={engine === 'gemini' ? 'gemini-3.8-flash' : 'qwen2.5-7b-instruct'}
+            placeholder={engine === 'gemini' ? GEMINI_DEFAULT_MODEL : 'qwen2.5-7b-instruct'}
             className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
             style={fieldStyle}
           />
@@ -386,6 +511,16 @@ export function InferenceSourceSetup({ onStarted }: { onStarted: () => void }) {
       />
     );
   }
+  if (step === 'gemini') {
+    return (
+      <GeminiSetup
+        busy={busy}
+        error={error}
+        onCancel={() => dispatch('back')}
+        onConfirm={(source) => void begin(source)}
+      />
+    );
+  }
   if (step === 'custom') {
     return (
       <CustomEndpointSetup
@@ -398,7 +533,11 @@ export function InferenceSourceSetup({ onStarted }: { onStarted: () => void }) {
   }
   return (
     <InferenceSourceChooser
-      onChoose={(source) => dispatch(source === 'ollama' ? 'choose_ollama' : 'choose_custom')}
+      onChoose={(source) => {
+        if (source === 'ollama') dispatch('choose_ollama');
+        else if (source === 'gemini') dispatch('choose_gemini');
+        else dispatch('choose_custom');
+      }}
     />
   );
 }

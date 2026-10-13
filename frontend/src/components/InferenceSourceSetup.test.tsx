@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CustomEndpointSetup,
+  GeminiSetup,
   InferenceRecoveryButton,
   InferenceSourceChooser,
   OllamaConsent,
@@ -16,15 +17,21 @@ describe('first-run inference source navigation', () => {
     expect(inferenceSetupReducer('ollama', 'back')).toBe('choose');
   });
 
+  it('navigates to Google Gemini cloud setup and back safely', () => {
+    expect(inferenceSetupReducer('choose', 'choose_gemini')).toBe('gemini');
+    expect(inferenceSetupReducer('gemini', 'back')).toBe('choose');
+  });
+
   it('lets custom endpoint setup cancel safely back to the chooser', () => {
     expect(inferenceSetupReducer('choose', 'choose_custom')).toBe('custom');
     expect(inferenceSetupReducer('custom', 'back')).toBe('choose');
   });
 
-  it('renders both sources without claiming either has started', () => {
+  it('renders all three provider options without claiming any has started', () => {
     const html = renderToStaticMarkup(<InferenceSourceChooser onChoose={vi.fn()} />);
 
     expect(html).toContain('Local Ollama');
+    expect(html).toContain('Google Gemini');
     expect(html).toContain('OpenAI-compatible server');
     expect(html).toContain('Nothing is installed, started, or downloaded until you confirm');
     expect(html).not.toContain('Starting local setup');
@@ -42,7 +49,22 @@ describe('first-run inference source navigation', () => {
     expect(html).toContain('Back');
   });
 
-  it('requires endpoint coordinates and keeps an explicit cancel control', () => {
+  it('renders explicit Google Gemini setup with official endpoint and model defaults', () => {
+    const html = renderToStaticMarkup(
+      <GeminiSetup onCancel={vi.fn()} onConfirm={vi.fn()} />,
+    );
+
+    expect(html).toContain('Connect Google Gemini');
+    expect(html).toContain('https://generativelanguage.googleapis.com/v1beta/openai/');
+    expect(html).toContain('gemini-3.8-flash');
+    expect(html).toMatch(/aria-label="API key"[^>]*required/);
+    expect(html).toMatch(/aria-label="Model ID"[^>]*required/);
+    expect(html).toMatch(/aria-label="Server URL"[^>]*required/);
+    expect(html).toContain('Windows Credential Manager');
+    expect(html).toContain('Cancel');
+  });
+
+  it('requires endpoint coordinates and keeps Google Gemini in server type dropdown', () => {
     const html = renderToStaticMarkup(
       <CustomEndpointSetup onCancel={vi.fn()} onConfirm={vi.fn()} />,
     );
@@ -50,6 +72,8 @@ describe('first-run inference source navigation', () => {
     expect(html).toContain('Server URL');
     expect(html).toContain('Model ID');
     expect(html).toContain('Google Gemini');
+    expect(html).toContain('LM Studio');
+    expect(html).toContain('vLLM');
     expect(html).toMatch(/aria-label="Server URL"[^>]*required/);
     expect(html).toMatch(/aria-label="Model ID"[^>]*required/);
     expect(html).toContain('Ollama will not start or download models');

@@ -588,9 +588,24 @@ export function SettingsPage() {
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
                 <SettingRow label="Server type" description="OpenAI-compatible engine">
-                  <select value={customEngine} onChange={(e) => { setCustomEngine(e.target.value); setSrcMsg(''); }}
+                  <select
+                    value={customEngine}
+                    onChange={(e) => {
+                      const nextEngine = e.target.value;
+                      setCustomEngine(nextEngine);
+                      setSrcMsg('');
+                      if (nextEngine === 'gemini') {
+                        if (customHost === 'http://localhost:1234/v1' || !customHost.trim()) {
+                          setCustomHost('https://generativelanguage.googleapis.com/v1beta/openai/');
+                        }
+                        if (!customModel.trim() || customModel === 'qwen2.5-7b-instruct') {
+                          setCustomModel('gemini-3.8-flash');
+                        }
+                      }
+                    }}
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
+                    <option value="gemini">Google Gemini</option>
                     <option value="lmstudio">LM Studio</option>
                     <option value="vllm">vLLM</option>
                     <option value="sglang">SGLang</option>

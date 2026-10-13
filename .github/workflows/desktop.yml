@@ -128,7 +128,9 @@ jobs:
 
       - name: Cargo build (Windows desktop application)
         working-directory: frontend/src-tauri
-        run: cargo build
+        run: |
+          cargo clean -p openjarvis-desktop
+          cargo build
 
       - name: Verify Windows desktop executable
         shell: pwsh
@@ -136,7 +138,7 @@ jobs:
           $exePath = "frontend/src-tauri/target/debug/openjarvis-desktop.exe"
           if (Test-Path $exePath) {
             $item = Get-Item $exePath
-            Write-Host "Windows desktop executable successfully built: $($item.FullName) ($($item.Length) bytes)"
+            Write-Host "Windows desktop executable successfully built: $($item.FullName) ($($item.Length) bytes, LastWriteTimeUtc: $($item.LastWriteTimeUtc))"
           } else {
             Write-Error "openjarvis-desktop.exe was not found at $exePath"
             exit 1

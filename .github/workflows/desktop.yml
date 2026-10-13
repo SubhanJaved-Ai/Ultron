@@ -79,11 +79,74 @@ jobs:
         working-directory: frontend/src-tauri
         run: cargo test
 
+  validate-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Use the reviewed npm toolchain
+        shell: bash
+        run: npm install --global npm@11.19.0
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: TypeScript type-check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: 'frontend/src-tauri -> target'
+
+      - name: Build frontend for desktop
+        working-directory: frontend
+        run: npm run build:tauri
+
+      - name: Ensure frontend dist exists
+        shell: bash
+        run: |
+          mkdir -p frontend/dist
+          if [ ! -f frontend/dist/index.html ]; then
+            echo '<html><body></body></html>' > frontend/dist/index.html
+          fi
+
+      - name: Cargo test (Windows target)
+        working-directory: frontend/src-tauri
+        run: cargo test
+
+      - name: Cargo build (Windows desktop application)
+        working-directory: frontend/src-tauri
+        run: cargo build
+
+      - name: Verify Windows desktop executable
+        shell: pwsh
+        run: |
+          $exePath = "frontend/src-tauri/target/debug/openjarvis-desktop.exe"
+          if (Test-Path $exePath) {
+            $item = Get-Item $exePath
+            Write-Host "Windows desktop executable successfully built: $($item.FullName) ($($item.Length) bytes)"
+          } else {
+            Write-Error "openjarvis-desktop.exe was not found at $exePath"
+            exit 1
+          }
+
   # Remove stale artifacts from the desktop-edge rolling pre-release so that
   # only the current build's files are available for download. (The stable
   # `desktop-latest` channel the installed app polls is never cleaned here.)
   clean-release:
-    needs: [validate]
+    needs: [validate, validate-windows]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -120,7 +183,7 @@ jobs:
           done
 
   build-and-release:
-    needs: [validate, clean-release]
+    needs: [validate, validate-windows, clean-release]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     outputs:
       tag: ${{ steps.release-info.outputs.tag }}

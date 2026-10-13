@@ -5018,17 +5018,22 @@ api_key = "   "
         store.put("GEMINI_API_KEY", "old-gemini-key");
         store.put("GOOGLE_API_KEY", "old-google-key");
 
-        let invalid_path =
-            Path::new("/unlikely_directory_path_that_fails_to_write_123/inference.json");
+        let root = unique_test_root("gemini-restore-test");
+        let path = root.join("config-is-a-directory");
+        std::fs::create_dir_all(&path).unwrap();
+
         let mut rollback = PendingInferenceRollback::at_path_with_store(
             &cfg,
-            invalid_path.to_path_buf(),
+            path.clone(),
             store.clone(),
         );
 
         let mut current_cfg = cfg.clone();
         let res = rollback.confirm(&mut current_cfg);
-        assert!(res.is_err(), "confirm should fail because path is unwritable");
+        assert!(
+            res.is_err(),
+            "confirm should fail because path is an existing directory"
+        );
 
         // Both GEMINI_API_KEY and GOOGLE_API_KEY should be restored to their previous values
         assert_eq!(
@@ -5039,5 +5044,7 @@ api_key = "   "
             store.get("GOOGLE_API_KEY").unwrap(),
             Some("old-google-key".to_string())
         );
+
+        let _ = std::fs::remove_dir_all(root);
     }
 }

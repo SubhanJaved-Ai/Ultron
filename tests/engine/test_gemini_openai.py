@@ -36,7 +36,7 @@ class TestGeminiOpenAIEngineBasics:
         )
 
     def test_api_prefix(self) -> None:
-        assert GeminiOpenAIEngine._api_prefix == "/v1"
+        assert GeminiOpenAIEngine._api_prefix == ""
 
     def test_registry_registration(self) -> None:
         EngineRegistry.register_value("gemini", GeminiOpenAIEngine)
@@ -71,12 +71,12 @@ class TestGeminiOpenAIEngineBasics:
 
 
 class TestGeminiOpenAIGenerate:
-    def test_generate_sends_bearer_and_uses_v1_prefix(
+    def test_generate_sends_bearer_and_uses_openai_endpoint(
         self, engine: GeminiOpenAIEngine
     ) -> None:
         with respx.mock:
             route = respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions"
+                "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
             ).mock(
                 return_value=httpx.Response(
                     200,
@@ -109,7 +109,7 @@ class TestGeminiOpenAIGenerate:
     def test_generate_connection_error(self, engine: GeminiOpenAIEngine) -> None:
         with respx.mock:
             respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions"
+                "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
             ).mock(side_effect=httpx.ConnectError("Connection refused"))
             with pytest.raises(EngineConnectionError) as exc_info:
                 engine.generate(
@@ -123,7 +123,7 @@ class TestGeminiOpenAIHealthAndModels:
     def test_health_true_on_200(self, engine: GeminiOpenAIEngine) -> None:
         with respx.mock:
             route = respx.get(
-                "https://generativelanguage.googleapis.com/v1beta/openai/v1/models"
+                "https://generativelanguage.googleapis.com/v1beta/openai/models"
             ).mock(
                 return_value=httpx.Response(200, json={"data": [{"id": "gemini-3.8-flash"}]})
             )
@@ -133,7 +133,7 @@ class TestGeminiOpenAIHealthAndModels:
     def test_health_false_on_400_invalid_key(self, engine: GeminiOpenAIEngine) -> None:
         with respx.mock:
             respx.get(
-                "https://generativelanguage.googleapis.com/v1beta/openai/v1/models"
+                "https://generativelanguage.googleapis.com/v1beta/openai/models"
             ).mock(
                 return_value=httpx.Response(
                     400,
@@ -151,14 +151,14 @@ class TestGeminiOpenAIHealthAndModels:
     def test_health_false_on_timeout(self, engine: GeminiOpenAIEngine) -> None:
         with respx.mock:
             respx.get(
-                "https://generativelanguage.googleapis.com/v1beta/openai/v1/models"
+                "https://generativelanguage.googleapis.com/v1beta/openai/models"
             ).mock(side_effect=httpx.TimeoutException("Timed out"))
             assert engine.health() is False
 
     def test_list_models_extracts_model_ids(self, engine: GeminiOpenAIEngine) -> None:
         with respx.mock:
             respx.get(
-                "https://generativelanguage.googleapis.com/v1beta/openai/v1/models"
+                "https://generativelanguage.googleapis.com/v1beta/openai/models"
             ).mock(
                 return_value=httpx.Response(
                     200,

@@ -40,7 +40,7 @@ _OPENAI_COMPAT_ENGINES = [
 
 def _api_prefix(engine_key: str) -> str:
     """Return the API prefix for an engine."""
-    if engine_key == "uzu":
+    if engine_key in ("uzu", "gemini"):
         return ""
     if engine_key == "lemonade":
         return "/v1"

@@ -19,7 +19,7 @@ _ENGINES = {
     "gemini": (
         "GeminiOpenAIEngine",
         "https://generativelanguage.googleapis.com/v1beta/openai",
-        "/v1",
+        "",
     ),
 }
 

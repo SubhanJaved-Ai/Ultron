@@ -2807,7 +2807,7 @@ fn persist_confirmed_inference_config_at(
     let google_previous = if target_key == "GEMINI_API_KEY" {
         let prev = store.get("GOOGLE_API_KEY").ok().flatten();
         let _ = store.set("GOOGLE_API_KEY", api_key);
-        Some(prev)
+        prev
     } else {
         None
     };
@@ -2816,7 +2816,7 @@ fn persist_confirmed_inference_config_at(
             let _ = restore_credential(
                 store,
                 "GOOGLE_API_KEY",
-                google_previous.as_deref().and_then(|p| p.as_deref()),
+                google_previous.as_deref(),
             );
         }
         return match restore_credential(store, &target_key, previous.as_deref()) {
@@ -2970,7 +2970,7 @@ impl PendingInferenceRollback {
         let mut confirmed = cfg.clone();
         confirmed.confirmed = true;
 
-        let mut promoted: Option<(String, Option<String>, Option<Option<String>>)> = None;
+        let mut promoted: Option<(String, Option<String>, Option<String>)> = None;
         if let (Some(credential), Some(store)) = (&self.credential, &self.credential_store) {
             if let Some(staged) = store.get(PENDING_INFERENCE_API_KEY)? {
                 if !staged.is_empty() {
@@ -2979,7 +2979,7 @@ impl PendingInferenceRollback {
                     let google_previous = if credential.target_key == "GEMINI_API_KEY" {
                         let prev = store.get("GOOGLE_API_KEY")?;
                         store.set("GOOGLE_API_KEY", &staged)?;
-                        Some(prev)
+                        prev
                     } else {
                         None
                     };
@@ -2993,7 +2993,7 @@ impl PendingInferenceRollback {
                             let _ = restore_credential(
                                 store.as_ref(),
                                 "GOOGLE_API_KEY",
-                                google_previous.as_ref().and_then(|p| p.as_deref()),
+                                google_previous.as_deref(),
                             );
                         }
                         return match restore_result {
@@ -3017,7 +3017,7 @@ impl PendingInferenceRollback {
                     let _ = restore_credential(
                         store.as_ref(),
                         "GOOGLE_API_KEY",
-                        google_previous.as_ref().and_then(|p| p.as_deref()),
+                        google_previous.as_deref(),
                     );
                 }
                 return match restore_credential(store.as_ref(), &target_key, previous.as_deref()) {

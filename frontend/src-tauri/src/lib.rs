@@ -374,6 +374,244 @@ fn project_root_near_executable(exe: &std::path::Path) -> Option<std::path::Path
     None
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum BackendRunner {
+    /// Direct binary runner (e.g. jarvis.exe in a virtual environment, or bundled openjarvis-server.exe)
+    Binary {
+        program: std::path::PathBuf,
+        base_args: Vec<String>,
+        working_dir: std::path::PathBuf,
+    },
+    /// Python interpreter runner (e.g. python.exe -m openjarvis.cli serve)
+    Python {
+        python_bin: std::path::PathBuf,
+        base_args: Vec<String>,
+        working_dir: std::path::PathBuf,
+    },
+    /// uv runner in a project checkout (uv run jarvis serve)
+    Uv {
+        uv_bin: String,
+        base_args: Vec<String>,
+        working_dir: std::path::PathBuf,
+    },
+}
+
+impl BackendRunner {
+    pub(crate) fn program(&self) -> std::path::PathBuf {
+        match self {
+            BackendRunner::Binary { program, .. } => program.clone(),
+            BackendRunner::Python { python_bin, .. } => python_bin.clone(),
+            BackendRunner::Uv { uv_bin, .. } => std::path::PathBuf::from(uv_bin),
+        }
+    }
+
+    pub(crate) fn base_args(&self) -> &[String] {
+        match self {
+            BackendRunner::Binary { base_args, .. } => base_args,
+            BackendRunner::Python { base_args, .. } => base_args,
+            BackendRunner::Uv { base_args, .. } => base_args,
+        }
+    }
+
+    pub(crate) fn working_dir(&self) -> &std::path::Path {
+        match self {
+            BackendRunner::Binary { working_dir, .. } => working_dir,
+            BackendRunner::Python { working_dir, .. } => working_dir,
+            BackendRunner::Uv { working_dir, .. } => working_dir,
+        }
+    }
+
+    pub(crate) fn display_name(&self) -> String {
+        match self {
+            BackendRunner::Binary { program, .. } => program.display().to_string(),
+            BackendRunner::Python { python_bin, .. } => python_bin.display().to_string(),
+            BackendRunner::Uv { uv_bin, .. } => uv_bin.clone(),
+        }
+    }
+}
+
+pub(crate) fn format_missing_backend_runner(root: Option<&std::path::Path>) -> String {
+    if let Some(r) = root {
+        #[cfg(target_os = "windows")]
+        return format!(
+            "Could not find a Python virtual environment (e.g. '.venv') in {} or the 'uv' package manager.\n\n\
+             To start OpenJarvis:\n\
+             1. Verify your virtual environment at {}\\.venv has dependencies installed, or\n\
+             2. Install 'uv' in PowerShell: powershell -ExecutionPolicy Bypass -c \"irm https://astral.sh/uv/install.ps1 | iex\"",
+            r.display(),
+            r.display()
+        );
+        #[cfg(not(target_os = "windows"))]
+        return format!(
+            "Could not find a Python virtual environment (e.g. '.venv') in {} or the 'uv' package manager.\n\n\
+             To start OpenJarvis:\n\
+             1. Verify your virtual environment at {}/.venv has dependencies installed, or\n\
+             2. Install 'uv': curl -LsSf https://astral.sh/uv/install.sh | sh",
+            r.display(),
+            r.display()
+        );
+    } else {
+        "Could not find OpenJarvis or a compatible backend runner. Clone the repository or set OPENJARVIS_ROOT.".to_string()
+    }
+}
+
+pub(crate) fn discover_backend_runner_with(
+    exe_dir: Option<&std::path::Path>,
+    project_root: Option<&std::path::Path>,
+    port: u16,
+    env_lookup: impl Fn(&str) -> Option<String>,
+    uv_resolver: impl Fn(&str) -> String,
+    path_exists: impl Fn(&std::path::Path) -> bool,
+) -> Result<BackendRunner, String> {
+    let port_str = port.to_string();
+    let fallback_dir = project_root
+        .map(|p| p.to_path_buf())
+        .or_else(|| exe_dir.map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    // 1. Explicit environment variable overrides
+    if let Some(backend_bin) = env_lookup("OPENJARVIS_BACKEND_BIN") {
+        let p = std::path::PathBuf::from(&backend_bin);
+        if path_exists(&p) {
+            return Ok(BackendRunner::Binary {
+                program: p,
+                base_args: vec!["serve".into(), "--port".into(), port_str],
+                working_dir: fallback_dir,
+            });
+        }
+    }
+
+    if let Some(python_bin) = env_lookup("OPENJARVIS_PYTHON") {
+        let p = std::path::PathBuf::from(&python_bin);
+        if path_exists(&p) {
+            return Ok(BackendRunner::Python {
+                python_bin: p,
+                base_args: vec![
+                    "-m".into(),
+                    "openjarvis.cli".into(),
+                    "serve".into(),
+                    "--port".into(),
+                    port_str,
+                ],
+                working_dir: fallback_dir,
+            });
+        }
+    }
+
+    // 2. Bundled / Standalone Server Executable beside openjarvis-desktop
+    if let Some(dir) = exe_dir {
+        let bundled_candidates = [
+            dir.join("openjarvis-server.exe"),
+            dir.join("openjarvis-server"),
+            dir.join("jarvis.exe"),
+            dir.join("jarvis"),
+            dir.join("bin").join("openjarvis-server.exe"),
+            dir.join("bin").join("openjarvis-server"),
+            dir.join("bin").join("jarvis.exe"),
+            dir.join("bin").join("jarvis"),
+            dir.join("resources").join("bin").join("openjarvis-server.exe"),
+            dir.join("resources").join("bin").join("openjarvis-server"),
+            dir.join("resources").join("bin").join("jarvis.exe"),
+            dir.join("resources").join("bin").join("jarvis"),
+        ];
+        for candidate in &bundled_candidates {
+            if path_exists(candidate) {
+                return Ok(BackendRunner::Binary {
+                    program: candidate.clone(),
+                    base_args: vec!["serve".into(), "--port".into(), port_str],
+                    working_dir: project_root.map(|p| p.to_path_buf()).unwrap_or_else(|| dir.to_path_buf()),
+                });
+            }
+        }
+    }
+
+    // 3. Project Virtual Environment (e.g. .venv, venv, env, or OPENJARVIS_VENV)
+    let mut venv_candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(custom_venv) = env_lookup("OPENJARVIS_VENV") {
+        venv_candidates.push(std::path::PathBuf::from(custom_venv));
+    }
+    if let Some(root) = project_root {
+        venv_candidates.push(root.join(".venv"));
+        venv_candidates.push(root.join("venv"));
+        venv_candidates.push(root.join("env"));
+    }
+
+    for venv in &venv_candidates {
+        let jarvis_candidates = [
+            venv.join("Scripts").join("jarvis.exe"),
+            venv.join("bin").join("jarvis"),
+            venv.join("Scripts").join("jarvis"),
+        ];
+        for candidate in &jarvis_candidates {
+            if path_exists(candidate) {
+                return Ok(BackendRunner::Binary {
+                    program: candidate.clone(),
+                    base_args: vec!["serve".into(), "--port".into(), port_str.clone()],
+                    working_dir: project_root.map(|p| p.to_path_buf()).unwrap_or_else(|| fallback_dir.clone()),
+                });
+            }
+        }
+
+        let python_candidates = [
+            venv.join("Scripts").join("python.exe"),
+            venv.join("bin").join("python"),
+            venv.join("Scripts").join("python"),
+        ];
+        for candidate in &python_candidates {
+            if path_exists(candidate) {
+                return Ok(BackendRunner::Python {
+                    python_bin: candidate.clone(),
+                    base_args: vec![
+                        "-m".into(),
+                        "openjarvis.cli".into(),
+                        "serve".into(),
+                        "--port".into(),
+                        port_str.clone(),
+                    ],
+                    working_dir: project_root.map(|p| p.to_path_buf()).unwrap_or_else(|| fallback_dir.clone()),
+                });
+            }
+        }
+    }
+
+    // 4. Fallback to uv toolchain
+    let uv_bin = uv_resolver("uv");
+    if path_exists(std::path::Path::new(&uv_bin)) || uv_bin != "uv" {
+        if let Some(root) = project_root {
+            return Ok(BackendRunner::Uv {
+                uv_bin,
+                base_args: vec![
+                    "run".into(),
+                    "jarvis".into(),
+                    "serve".into(),
+                    "--port".into(),
+                    port_str,
+                ],
+                working_dir: root.to_path_buf(),
+            });
+        }
+    }
+
+    // 5. Actionable failure
+    Err(format_missing_backend_runner(project_root))
+}
+
+pub(crate) fn discover_backend_runner(
+    exe: Option<&std::path::Path>,
+    project_root: Option<&std::path::Path>,
+    port: u16,
+) -> Result<BackendRunner, String> {
+    let exe_dir = exe.and_then(|e| e.parent());
+    discover_backend_runner_with(
+        exe_dir,
+        project_root,
+        port,
+        |k| std::env::var(k).ok(),
+        resolve_bin,
+        |p| p.exists(),
+    )
+}
+
 // ---------------------------------------------------------------------------
 // BackendManager — owns the Ollama + Jarvis server child processes
 // ---------------------------------------------------------------------------
@@ -1201,42 +1439,17 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
         s.detail = "Starting API server...".into();
     }
 
-    let uv_bin = resolve_bin("uv");
-
-    // Verify uv is actually installed. Concrete per-OS instructions —
-    // the generic "install it from astral.sh" was the #1 source of
-    // confusion on the Discord support thread; users couldn't tell whether
-    // to use winget, scoop, pip, or the official installer.
-    if !std::path::Path::new(&uv_bin).exists() && uv_bin == "uv" {
-        let mut s = status.lock().await;
-        #[cfg(target_os = "windows")]
-        let msg = "Could not find 'uv' (Python package manager). \
-                   To install on Windows, open PowerShell and run:\n\n\
-                   powershell -ExecutionPolicy Bypass -c \"irm https://astral.sh/uv/install.ps1 | iex\"\n\n\
-                   Then close and relaunch this app. \
-                   (If the install completes but the app still can't find uv, \
-                   you may need to log out and back in so PATH refreshes.)";
-        #[cfg(target_os = "macos")]
-        let msg = "Could not find 'uv' (Python package manager). \
-                   To install on macOS, open Terminal and run:\n\n\
-                   curl -LsSf https://astral.sh/uv/install.sh | sh\n\n\
-                   Then relaunch this app.";
-        #[cfg(target_os = "linux")]
-        let msg = "Could not find 'uv' (Python package manager). \
-                   To install on Linux, open a terminal and run:\n\n\
-                   curl -LsSf https://astral.sh/uv/install.sh | sh\n\n\
-                   Then relaunch this app.";
-        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-        let msg = "Could not find 'uv' (Python package manager). \
-                   Install it from https://astral.sh/uv then relaunch.";
-        s.error = Some(msg.into());
-        return;
-    }
-
+    let current_exe = std::env::current_exe().ok();
     let mut project_root = find_project_root();
 
-    if project_root.is_none() {
-        // Auto-clone on first launch
+    let mut runner_res = discover_backend_runner(
+        current_exe.as_deref(),
+        project_root.as_deref(),
+        JARVIS_PORT,
+    );
+
+    if runner_res.is_err() && project_root.is_none() {
+        // Auto-clone on first launch if git is available
         let git_bin = resolve_bin("git");
 
         // Check that git is installed
@@ -1287,6 +1500,11 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             Ok(child) => match child.wait_with_output().await {
                 Ok(output) if output.status.success() => {
                     project_root = Some(target_path);
+                    runner_res = discover_backend_runner(
+                        current_exe.as_deref(),
+                        project_root.as_deref(),
+                        JARVIS_PORT,
+                    );
                 }
                 Ok(output) => {
                     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -1320,6 +1538,15 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             }
         }
     }
+
+    let runner = match runner_res {
+        Ok(r) => r,
+        Err(err) => {
+            let mut s = status.lock().await;
+            s.error = Some(err);
+            return;
+        }
+    };
 
     // If something is already serving on our port, decide what to do based
     // on what it actually responds with — don't blindly kill it (#455).
@@ -1452,94 +1679,75 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
         return;
     }
 
-    let root = project_root.as_ref().unwrap();
-
-    let cargo_bin = resolve_bin("cargo");
-    if !std::path::Path::new(&cargo_bin).exists() && cargo_bin == "cargo" {
-        let mut s = status.lock().await;
-        s.error = Some(format_missing_rust_toolchain());
-        return;
-    }
-
-    // Install dependencies automatically (handles fresh clones).
-    //
-    // Previously we ran `uv sync` with both stdout AND stderr piped to
-    // /dev/null and discarded the exit code (`let _ = …`). When `uv sync`
-    // failed — Windows path issues, network problems, lockfile conflicts —
-    // the user saw no error, the boot continued, `uv run jarvis serve`
-    // then ran in an under-provisioned venv, and the user waited the full
-    // 600s health-check window before getting "Jarvis server did not
-    // become healthy in time" with no actionable detail (issue #331).
-    //
-    // Now: capture stderr, check the exit status, surface a useful error
-    // to the user BEFORE the long server-start wait. The status detail
-    // message also indicates this can take a couple of minutes on first
-    // boot so users don't restart the app thinking it's stuck.
+    if let BackendRunner::Uv {
+        ref uv_bin,
+        ref working_dir,
+        ..
+    } = runner
     {
-        let mut s = status.lock().await;
-        s.detail = "Installing dependencies (uv sync — may take 1-2 min on first boot)...".into();
-    }
-    let mut sync_cmd = tokio::process::Command::new(&uv_bin);
-    sync_cmd
-        .args([
-            "sync",
-            "--extra",
-            "desktop",
-            "--extra",
-            "inference-cloud",
-            "--extra",
-            "inference-google",
-            // openjarvis_rust lives in a uv dependency group (not the published
-            // `desktop` extra) so pip installs from PyPI don't require it (#584).
-            "--group",
-            "desktop-native",
-        ])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .current_dir(root);
-    // Avoid LD_LIBRARY_PATH leak when running inside an AppImage (#455).
-    prepare_subprocess_for_appimage(&mut sync_cmd);
-    add_cargo_bin_to_path(&mut sync_cmd);
-    sync_cmd.kill_on_drop(true);
-    let sync_output = sync_cmd.output().await;
-    match sync_output {
-        Ok(out) if !out.status.success() => {
-            let stderr = String::from_utf8_lossy(&out.stderr);
+        let cargo_bin = resolve_bin("cargo");
+        if !std::path::Path::new(&cargo_bin).exists() && cargo_bin == "cargo" {
             let mut s = status.lock().await;
-            s.error = Some(format_uv_sync_failure(root, out.status.code(), &stderr));
+            s.error = Some(format_missing_rust_toolchain());
             return;
         }
-        Err(e) => {
+
+        // Install dependencies automatically (handles fresh clones).
+        {
             let mut s = status.lock().await;
-            s.error = Some(format_uv_sync_spawn_error(root, &uv_bin, &e.to_string()));
+            s.detail =
+                "Installing dependencies (uv sync — may take 1-2 min on first boot)...".into();
+        }
+        let mut sync_cmd = tokio::process::Command::new(uv_bin);
+        sync_cmd
+            .args([
+                "sync",
+                "--extra",
+                "desktop",
+                "--extra",
+                "inference-cloud",
+                "--extra",
+                "inference-google",
+                // openjarvis_rust lives in a uv dependency group (not the published
+                // `desktop` extra) so pip installs from PyPI don't require it (#584).
+                "--group",
+                "desktop-native",
+            ])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .current_dir(working_dir);
+        // Avoid LD_LIBRARY_PATH leak when running inside an AppImage (#455).
+        prepare_subprocess_for_appimage(&mut sync_cmd);
+        add_cargo_bin_to_path(&mut sync_cmd);
+        sync_cmd.kill_on_drop(true);
+        let sync_output = sync_cmd.output().await;
+        match sync_output {
+            Ok(out) if !out.status.success() => {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                let mut s = status.lock().await;
+                s.error = Some(format_uv_sync_failure(working_dir, out.status.code(), &stderr));
+                return;
+            }
+            Err(e) => {
+                let mut s = status.lock().await;
+                s.error = Some(format_uv_sync_spawn_error(working_dir, uv_bin, &e.to_string()));
+                return;
+            }
+            Ok(_) => {} // success — fall through
+        }
+
+        {
+            let mut s = status.lock().await;
+            s.detail = "Verifying Rust extension (openjarvis_rust)...".into();
+        }
+        if let Err(err) = verify_openjarvis_rust_extension(working_dir, uv_bin).await {
+            let mut s = status.lock().await;
+            s.error = Some(err);
             return;
         }
-        Ok(_) => {} // success — fall through
     }
 
-    {
-        let mut s = status.lock().await;
-        s.detail = "Verifying Rust extension (openjarvis_rust)...".into();
-    }
-    if let Err(err) = verify_openjarvis_rust_extension(root, &uv_bin).await {
-        let mut s = status.lock().await;
-        s.error = Some(err);
-        return;
-    }
-
-    {
-        let mut s = status.lock().await;
-        s.detail = format!("Starting API server from {}...", root.display());
-    }
-
-    let mut cmd = tokio::process::Command::new(&uv_bin);
-    let mut serve_argv: Vec<String> = vec![
-        "run".into(),
-        "jarvis".into(),
-        "serve".into(),
-        "--port".into(),
-        JARVIS_PORT.to_string(),
-    ];
+    let mut serve_argv: Vec<String> = runner.base_args().to_vec();
     serve_argv.extend(plan.serve_args.iter().cloned());
     // If the Ollama pull fell back to a different tag than planned, serve the
     // tag that is actually present. boot_plan always emits `--model` followed
@@ -1554,10 +1762,20 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             ),
         }
     }
+
+    let program_path = runner.program();
+    let working_dir = runner.working_dir();
+
+    {
+        let mut s = status.lock().await;
+        s.detail = format!("Starting API server from {}...", working_dir.display());
+    }
+
+    let mut cmd = tokio::process::Command::new(&program_path);
     cmd.args(&serve_argv)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
-        .current_dir(root);
+        .current_dir(working_dir);
     // Avoid LD_LIBRARY_PATH leak when running inside an AppImage (#455) —
     // do this BEFORE cmd.env() calls below so our explicit cloud-key env
     // additions aren't accidentally stripped.
@@ -1587,10 +1805,11 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
         Err(e) => {
             let mut s = status.lock().await;
             s.error = Some(format!(
-                "Could not start jarvis server: {}. \
-                 Make sure uv is installed (https://astral.sh/uv) and the OpenJarvis repo is cloned at {}",
+                "Could not start jarvis server with {}: {}. \
+                 Working directory: {}",
+                runner.display_name(),
                 e,
-                root.display(),
+                working_dir.display(),
             ));
             return;
         }
@@ -1604,17 +1823,12 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             s.error = Some(format!(
                 "Jarvis server is running but the inference engine is not available \
                  (HTTP 503). This usually means the configured model couldn't be loaded.\n\n\
-                 Check the server logs, or run 'uv run jarvis serve --port {}{}' \
+                 Check the server logs, or run '{} {}' \
                  from {} to see the engine error.\n\n\
                  Server response:\n{}",
-                JARVIS_PORT,
-                // Show the args actually passed (after `serve --port <port>`),
-                // including any post-fallback `--model` override.
-                match serve_argv.get(5..) {
-                    Some(rest) if !rest.is_empty() => format!(" {}", rest.join(" ")),
-                    _ => String::new(),
-                },
-                root.display(),
+                runner.display_name(),
+                serve_argv.join(" "),
+                working_dir.display(),
                 body.trim(),
             ));
             return;
@@ -1631,13 +1845,12 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             s.error = Some(if stderr.is_empty() {
                 format!(
                     "Jarvis server exited (code {}) before becoming ready.\n\n\
-                     No stderr output. Check that:\n\
-                     1. uv is installed ({})\n\
-                     2. The OpenJarvis repo is at {}\n\
-                     3. 'uv sync' completes in that directory",
+                     Runner: {}\n\
+                     Working directory: {}\n\
+                     No stderr output.",
                     code_str,
-                    uv_bin,
-                    root.display(),
+                    runner.display_name(),
+                    working_dir.display(),
                 )
             } else {
                 format!(
@@ -1652,12 +1865,11 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             let mut s = status.lock().await;
             s.error = Some(if stderr.is_empty() {
                 format!(
-                    "Jarvis server did not become ready within 10 minutes. Check that:\n\
-                     1. uv is installed ({})\n\
-                     2. The OpenJarvis repo is at {}\n\
-                     3. Run 'uv sync' in that directory",
-                    uv_bin,
-                    root.display(),
+                    "Jarvis server did not become ready within 10 minutes.\n\
+                     Runner: {}\n\
+                     Working directory: {}",
+                    runner.display_name(),
+                    working_dir.display(),
                 )
             } else {
                 format!(
@@ -2310,7 +2522,11 @@ fn cloud_keys_for_inference(cfg: &InferenceConfig) -> Vec<(String, String)> {
         return keys;
     }
     keys.retain(|(name, _)| name != &credential.target_key);
-    keys.push((credential.target_key, staged));
+    keys.push((credential.target_key.clone(), staged.clone()));
+    if credential.target_key == "GEMINI_API_KEY" {
+        keys.retain(|(name, _)| name != "GOOGLE_API_KEY");
+        keys.push(("GOOGLE_API_KEY".to_string(), staged));
+    }
     keys
 }
 
@@ -2588,7 +2804,21 @@ fn persist_confirmed_inference_config_at(
     store
         .set(&target_key, api_key)
         .map_err(|err| format!("Could not store the API key: {}", err))?;
+    let google_previous = if target_key == "GEMINI_API_KEY" {
+        let prev = store.get("GOOGLE_API_KEY").ok().flatten();
+        let _ = store.set("GOOGLE_API_KEY", api_key);
+        Some(prev)
+    } else {
+        None
+    };
     if let Err(config_err) = write_inference_config_at(cfg, path) {
+        if target_key == "GEMINI_API_KEY" {
+            let _ = restore_credential(
+                store,
+                "GOOGLE_API_KEY",
+                google_previous.as_deref().and_then(|p| p.as_deref()),
+            );
+        }
         return match restore_credential(store, &target_key, previous.as_deref()) {
             Ok(()) => Err(config_err),
             Err(restore_err) => Err(format!(
@@ -2740,18 +2970,32 @@ impl PendingInferenceRollback {
         let mut confirmed = cfg.clone();
         confirmed.confirmed = true;
 
-        let mut promoted: Option<(String, Option<String>)> = None;
+        let mut promoted: Option<(String, Option<String>, Option<Option<String>>)> = None;
         if let (Some(credential), Some(store)) = (&self.credential, &self.credential_store) {
             if let Some(staged) = store.get(PENDING_INFERENCE_API_KEY)? {
                 if !staged.is_empty() {
                     let previous = store.get(&credential.target_key)?;
                     store.set(&credential.target_key, &staged)?;
+                    let google_previous = if credential.target_key == "GEMINI_API_KEY" {
+                        let prev = store.get("GOOGLE_API_KEY")?;
+                        store.set("GOOGLE_API_KEY", &staged)?;
+                        Some(prev)
+                    } else {
+                        None
+                    };
                     if let Err(cleanup_err) = store.set(PENDING_INFERENCE_API_KEY, "") {
                         let restore_result = restore_credential(
                             store.as_ref(),
                             &credential.target_key,
                             previous.as_deref(),
                         );
+                        if credential.target_key == "GEMINI_API_KEY" {
+                            let _ = restore_credential(
+                                store.as_ref(),
+                                "GOOGLE_API_KEY",
+                                google_previous.as_ref().and_then(|p| p.as_deref()),
+                            );
+                        }
                         return match restore_result {
                             Ok(()) => Err(cleanup_err),
                             Err(restore_err) => Err(format!(
@@ -2760,14 +3004,22 @@ impl PendingInferenceRollback {
                             )),
                         };
                     }
-                    promoted = Some((credential.target_key.clone(), previous));
+                    promoted = Some((credential.target_key.clone(), previous, google_previous));
                 }
             }
         }
 
         if let Err(config_err) = write_inference_config_at(&confirmed, path) {
-            if let (Some((target_key, previous)), Some(store)) = (promoted, &self.credential_store)
+            if let (Some((target_key, previous, google_previous)), Some(store)) =
+                (promoted, &self.credential_store)
             {
+                if target_key == "GEMINI_API_KEY" {
+                    let _ = restore_credential(
+                        store.as_ref(),
+                        "GOOGLE_API_KEY",
+                        google_previous.as_ref().and_then(|p| p.as_deref()),
+                    );
+                }
                 return match restore_credential(store.as_ref(), &target_key, previous.as_deref()) {
                     Ok(()) => Err(config_err),
                     Err(restore_err) => Err(format!(
@@ -4549,5 +4801,243 @@ api_key = "oj_sk_test_12345"
 api_key = "   "
 "#;
         assert_eq!(super::parse_api_key_from_config(blank_key_cfg), None);
+    }
+
+    #[test]
+    fn test_discover_backend_runner_prefers_custom_backend_bin_env() {
+        let runner = super::discover_backend_runner_with(
+            Some(Path::new("/app")),
+            Some(Path::new("/workspace")),
+            8000,
+            |k| {
+                if k == "OPENJARVIS_BACKEND_BIN" {
+                    Some("/custom/bin/jarvis".to_string())
+                } else {
+                    None
+                }
+            },
+            |_| "uv".to_string(),
+            |_| true,
+        )
+        .expect("should find runner");
+
+        match runner {
+            super::BackendRunner::Binary {
+                program,
+                base_args,
+                working_dir,
+            } => {
+                assert_eq!(program, Path::new("/custom/bin/jarvis"));
+                assert_eq!(base_args, vec!["serve", "--port", "8000"]);
+                assert_eq!(working_dir, Path::new("/workspace"));
+            }
+            _ => panic!("Expected Binary runner"),
+        }
+    }
+
+    #[test]
+    fn test_discover_backend_runner_prefers_custom_python_env() {
+        let runner = super::discover_backend_runner_with(
+            Some(Path::new("/app")),
+            Some(Path::new("/workspace")),
+            8000,
+            |k| {
+                if k == "OPENJARVIS_PYTHON" {
+                    Some("/custom/python".to_string())
+                } else {
+                    None
+                }
+            },
+            |_| "uv".to_string(),
+            |_| true,
+        )
+        .expect("should find runner");
+
+        match runner {
+            super::BackendRunner::Python {
+                python_bin,
+                base_args,
+                working_dir,
+            } => {
+                assert_eq!(python_bin, Path::new("/custom/python"));
+                assert_eq!(
+                    base_args,
+                    vec!["-m", "openjarvis.cli", "serve", "--port", "8000"]
+                );
+                assert_eq!(working_dir, Path::new("/workspace"));
+            }
+            _ => panic!("Expected Python runner"),
+        }
+    }
+
+    #[test]
+    fn test_discover_backend_runner_finds_bundled_server_binary() {
+        let exe_dir = Path::new("/Applications/OpenJarvis/bin");
+        let runner = super::discover_backend_runner_with(
+            Some(exe_dir),
+            None,
+            8000,
+            |_| None,
+            |_| "uv".to_string(),
+            |p| p == exe_dir.join("openjarvis-server") || p == exe_dir.join("openjarvis-server.exe"),
+        )
+        .expect("should discover bundled binary");
+
+        match runner {
+            super::BackendRunner::Binary {
+                program,
+                base_args,
+                ..
+            } => {
+                assert!(program
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .starts_with("openjarvis-server"));
+                assert_eq!(base_args, vec!["serve", "--port", "8000"]);
+            }
+            _ => panic!("Expected Binary runner"),
+        }
+    }
+
+    #[test]
+    fn test_discover_backend_runner_finds_project_venv_jarvis() {
+        let root = Path::new("/repo");
+        let expected_jarvis = root.join(".venv").join("Scripts").join("jarvis.exe");
+        let runner = super::discover_backend_runner_with(
+            Some(Path::new("/repo/dist")),
+            Some(root),
+            8000,
+            |_| None,
+            |_| "uv".to_string(),
+            |p| p == expected_jarvis,
+        )
+        .expect("should discover jarvis.exe in .venv");
+
+        match runner {
+            super::BackendRunner::Binary {
+                program,
+                base_args,
+                working_dir,
+            } => {
+                assert_eq!(program, expected_jarvis);
+                assert_eq!(base_args, vec!["serve", "--port", "8000"]);
+                assert_eq!(working_dir, root);
+            }
+            _ => panic!("Expected Binary runner"),
+        }
+    }
+
+    #[test]
+    fn test_discover_backend_runner_finds_project_venv_python_fallback() {
+        let root = Path::new("/repo");
+        let expected_python = root.join(".venv").join("bin").join("python");
+        let runner = super::discover_backend_runner_with(
+            Some(Path::new("/repo/dist")),
+            Some(root),
+            8000,
+            |_| None,
+            |_| "uv".to_string(),
+            |p| p == expected_python,
+        )
+        .expect("should discover python in .venv");
+
+        match runner {
+            super::BackendRunner::Python {
+                python_bin,
+                base_args,
+                working_dir,
+            } => {
+                assert_eq!(python_bin, expected_python);
+                assert_eq!(
+                    base_args,
+                    vec!["-m", "openjarvis.cli", "serve", "--port", "8000"]
+                );
+                assert_eq!(working_dir, root);
+            }
+            _ => panic!("Expected Python runner"),
+        }
+    }
+
+    #[test]
+    fn test_discover_backend_runner_falls_back_to_uv() {
+        let root = Path::new("/repo");
+        let runner = super::discover_backend_runner_with(
+            Some(Path::new("/repo/dist")),
+            Some(root),
+            8000,
+            |_| None,
+            |_| "/usr/bin/uv".to_string(),
+            |p| p == Path::new("/usr/bin/uv"),
+        )
+        .expect("should fall back to uv runner");
+
+        match runner {
+            super::BackendRunner::Uv {
+                uv_bin,
+                base_args,
+                working_dir,
+            } => {
+                assert_eq!(uv_bin, "/usr/bin/uv");
+                assert_eq!(base_args, vec!["run", "jarvis", "serve", "--port", "8000"]);
+                assert_eq!(working_dir, root);
+            }
+            _ => panic!("Expected Uv runner"),
+        }
+    }
+
+    #[test]
+    fn test_discover_backend_runner_missing_uv_and_venv_fails_actionably() {
+        let root = Path::new("/repo");
+        let err = super::discover_backend_runner_with(
+            Some(Path::new("/repo/dist")),
+            Some(root),
+            8000,
+            |_| None,
+            |_| "uv".to_string(),
+            |_| false,
+        )
+        .expect_err("should return error when no runner found");
+
+        assert!(err.contains("Could not find a Python virtual environment"));
+        assert!(err.contains("/repo"));
+    }
+
+    #[test]
+    fn test_confirm_gemini_promotes_google_api_key_and_restores_on_failure() {
+        let cfg = InferenceConfig {
+            kind: SourceKind::Custom,
+            model: Some("gemini-2.5-flash".into()),
+            host: Some("https://generativelanguage.googleapis.com/v1beta/openai".into()),
+            engine: Some("gemini".into()),
+            confirmed: false,
+        };
+        let store = std::sync::Arc::new(MemoryCredentialStore::default());
+        store.put(PENDING_INFERENCE_API_KEY, "test-gemini-key");
+        store.put("GEMINI_API_KEY", "old-gemini-key");
+        store.put("GOOGLE_API_KEY", "old-google-key");
+
+        let invalid_path =
+            Path::new("/unlikely_directory_path_that_fails_to_write_123/inference.json");
+        let mut rollback = PendingInferenceRollback::at_path_with_store(
+            &cfg,
+            invalid_path.to_path_buf(),
+            store.clone(),
+        );
+
+        let mut current_cfg = cfg.clone();
+        let res = rollback.confirm(&mut current_cfg);
+        assert!(res.is_err(), "confirm should fail because path is unwritable");
+
+        // Both GEMINI_API_KEY and GOOGLE_API_KEY should be restored to their previous values
+        assert_eq!(
+            store.get("GEMINI_API_KEY").unwrap(),
+            Some("old-gemini-key".to_string())
+        );
+        assert_eq!(
+            store.get("GOOGLE_API_KEY").unwrap(),
+            Some("old-google-key".to_string())
+        );
     }
 }

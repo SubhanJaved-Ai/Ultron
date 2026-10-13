@@ -32,8 +32,14 @@
 
 ### 2.2 Major Process Boundaries & IPC
 1. **Desktop Shell (Tauri v2):**
-   - Implemented in `frontend/src-tauri/src/lib.rs` (4,417 lines).
+   - Implemented in `frontend/src-tauri/src/lib.rs`.
    - Manages the native system tray, global hotkeys, window chrome, and sidecar process lifecycles for Ollama (`port 11434`) and OpenJarvis (`port 8000`).
+   - Features production-ready multi-tier backend runner discovery (`discover_backend_runner_with`):
+     1. Explicit environment variable overrides (`OPENJARVIS_BACKEND_BIN`, `OPENJARVIS_PYTHON`).
+     2. Bundled standalone executable beside desktop application (`openjarvis-server.exe`, `jarvis.exe`).
+     3. Project virtual environments (`.venv`, `venv`, `env`, or `OPENJARVIS_VENV`) via `Scripts/jarvis.exe`, `bin/jarvis`, or `python.exe -m openjarvis.cli serve`.
+     4. Fallback to `uv run jarvis serve` only if no pre-installed environment/binary is found and `uv` is installed.
+     5. Bypasses `cargo` and `uv sync` toolchain requirements when running from pre-installed environments or standalone binaries.
    - Note on Project Layout: `desktop/src-tauri/` is an incomplete legacy stub containing only `overlay.html` and a Darwin binary; the active, production Tauri v2 configuration resides in `frontend/src-tauri/`.
 2. **Server & Engine Runtime (FastAPI):**
    - Bootstrapped via `openjarvis.cli.serve:main` (`jarvis serve`) and `openjarvis.server.app:create_app`.
@@ -56,7 +62,7 @@
 - **Native Windows TTS (`tts_engine.py`):** Windows SAPI speech synthesis via `cscript` and PowerShell `System.Speech` with in-memory WAV caching.
 - **Multi-Tenant Security & Auth:** 600,000-iteration PBKDF2 password hashing, timing-safe verification, transparent re-hash on login, 15-minute account lockout after 5 consecutive failed attempts (HTTP 423), and bootstrap admin privilege guard.
 - **Tenant Data Boundaries:** 100% isolation across sessions (`/v1/sessions` anti-enumeration 404), user preferences, workflow directories, and scheduled cron tasks.
-- **Google Gemini Remote Inference (`TSK-P5-01`):** Integrated Google's official Gemini API (`https://generativelanguage.googleapis.com/v1beta/openai/`, model `gemini-3.8-flash`) as an explicit first-class choice directly in the first-run desktop setup wizard (`InferenceSourceSetup.tsx`), in the server-type dropdown for custom endpoints, in `SettingsPage.tsx`, and in the backend engine registry (`GeminiOpenAIEngine` in `src/openjarvis/engine/openai_compat_engines.py`, `GeminiEngineConfig` in `config.py`, `_discovery.py`, and `frontend/src-tauri/src/lib.rs`). API key credentials are securely handled via OS `keyring` (Windows Credential Manager on Windows) through the `PENDING_INFERENCE_API_KEY` -> `GEMINI_API_KEY` staging lifecycle. Zero credential leakage, logging, or hardcoding. Fresh build bundling hardened via `build.rs` `rerun-if-changed=../dist` and CI crate re-linking (`cargo clean -p openjarvis-desktop`). Validated across 13 dedicated unit tests (`test_gemini_openai.py`), 132 model matrix tests (`test_engine_model_matrix.py`), Rust boot plan tests, and 95 Vitest frontend tests.
+- **Google Gemini Remote Inference & Desktop Runner Discovery (`TSK-P5-01`):** Integrated Google's official Gemini API (`https://generativelanguage.googleapis.com/v1beta/openai/`, model `gemini-3.8-flash`) as an explicit first-class choice directly in the first-run desktop setup wizard (`InferenceSourceSetup.tsx`), in the server-type dropdown for custom endpoints, in `SettingsPage.tsx`, and in the backend engine registry (`GeminiOpenAIEngine` in `src/openjarvis/engine/openai_compat_engines.py`, `GeminiEngineConfig` in `config.py`, `_discovery.py`, and `frontend/src-tauri/src/lib.rs`). API key credentials are securely handled via OS `keyring` (Windows Credential Manager on Windows) through the `PENDING_INFERENCE_API_KEY` -> `GEMINI_API_KEY` staging lifecycle, automatically synchronizing `GOOGLE_API_KEY` for Python SDK interoperability. Eliminated hard runtime dependency on global `uv` by introducing multi-tier runner discovery in `lib.rs` (supporting bundled standalone binaries and project `.venv` environments). Zero credential leakage, logging, or hardcoding. Fresh build bundling hardened via `build.rs` `rerun-if-changed=../dist` and CI crate re-linking (`cargo clean -p openjarvis-desktop`). Validated across 13 dedicated unit tests (`test_gemini_openai.py`), 132 model matrix tests (`test_engine_model_matrix.py`), 8 runner discovery and credential restoration unit tests in `lib.rs`, and 95 Vitest frontend tests.
 - **Disaster Recovery:** Verified online hot backup snapshot (`sqlite3.backup`) and point-in-time database restoration (`deploy/staging_rehearsal.py` 8/8 PASS).
 
 ### 3.2 Partially Implemented / External Dependency Gated

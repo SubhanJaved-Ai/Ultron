@@ -7,8 +7,13 @@ httpx directly so no cloud SDK packages are required.
 
 from __future__ import annotations
 
+import asyncio
+import datetime
+import email.utils
 import json
+import logging
 import os
+import random
 from collections.abc import AsyncIterator
 from typing import Any, Sequence
 
@@ -20,6 +25,45 @@ from openjarvis.security.credential_stripper import (
     sanitize_error_message,
     sanitize_url,
 )
+
+logger = logging.getLogger("openjarvis.server.cloud_router")
+
+RETRYABLE_STATUS_CODES = (429, 502, 503, 504)
+
+
+def _parse_retry_after(header_val: str | None) -> float | None:
+    """Parse a Retry-After header as either seconds or an HTTP date."""
+    if not header_val:
+        return None
+    val = header_val.strip()
+    try:
+        sec = float(val)
+        if sec >= 0:
+            return sec
+    except ValueError:
+        pass
+    try:
+        dt = email.utils.parsedate_to_datetime(val)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return max(0.0, (dt - now).total_seconds())
+    except Exception:
+        pass
+    return None
+
+
+def _compute_retry_delay(
+    attempt: int,
+    retry_after: float | None = None,
+    base_delay: float = 1.0,
+    max_delay: float = 8.0,
+) -> float:
+    """Compute exponential backoff delay with jitter, respecting Retry-After."""
+    backoff = min(max_delay, base_delay * (2**attempt))
+    jitter = backoff * random.uniform(-0.25, 0.25)
+    delay = max(0.1, backoff + jitter)
+    if retry_after is not None:
+        delay = max(delay, retry_after)
+    return min(delay, 15.0)
 
 # ---------------------------------------------------------------------------
 # Key / provider detection
@@ -149,6 +193,7 @@ async def _stream_openai(
     base_url: str = "https://api.openai.com/v1",
     api_key_name: str = "OPENAI_API_KEY",
     api_key: str | None = None,
+    max_retries: int = 3,
 ) -> AsyncIterator[str]:
     if not api_key:
         keys = _load_keys()
@@ -170,39 +215,95 @@ async def _stream_openai(
         "Content-Type": "application/json",
     }
 
-    async with httpx.AsyncClient(timeout=180) as client:
-        async with client.stream(
-            "POST",
-            url,
-            json=payload,
-            headers=headers,
-        ) as resp:
-            if resp.status_code >= 400:
-                err_body = await resp.aread()
-                err_msg = ""
-                try:
-                    err_json = json.loads(err_body)
-                    err_msg = err_json.get("error", {}).get("message") or str(err_json)
-                except Exception:
-                    err_msg = err_body.decode("utf-8", errors="replace")[:300]
-                clean_msg = sanitize_error_message(err_msg)
-                clean_url = sanitize_url(str(resp.request.url))
-                raise RuntimeError(
-                    f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+    attempt = 0
+    yielded_any_token = False
+
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=180) as client:
+                async with client.stream(
+                    "POST",
+                    url,
+                    json=payload,
+                    headers=headers,
+                ) as resp:
+                    if resp.status_code >= 400:
+                        err_body = await resp.aread()
+                        err_msg = ""
+                        try:
+                            err_json = json.loads(err_body)
+                            err_msg = (
+                                err_json.get("error", {}).get("message")
+                                or str(err_json)
+                            )
+                        except Exception:
+                            err_msg = err_body.decode("utf-8", errors="replace")[:300]
+                        clean_msg = sanitize_error_message(err_msg)
+                        clean_url = sanitize_url(str(resp.request.url))
+
+                        if (
+                            not yielded_any_token
+                            and attempt < max_retries
+                            and resp.status_code in RETRYABLE_STATUS_CODES
+                        ):
+                            retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                            delay = _compute_retry_delay(attempt, retry_after)
+                            logger.warning(
+                                "Transient cloud error (%d) from %s: %s; retrying in %.2fs (attempt %d/%d)",
+                                resp.status_code,
+                                clean_url,
+                                clean_msg,
+                                delay,
+                                attempt + 1,
+                                max_retries,
+                            )
+                            attempt += 1
+                            await asyncio.sleep(delay)
+                            continue
+
+                        raise RuntimeError(
+                            f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+                        )
+
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data = line[6:].strip()
+                        if data == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            delta = chunk["choices"][0]["delta"].get("content") or ""
+                            if delta:
+                                yielded_any_token = True
+                                yield delta
+                        except Exception:
+                            pass
+            break
+        except (
+            httpx.ConnectError,
+            httpx.ConnectTimeout,
+            httpx.ReadTimeout,
+            httpx.RemoteProtocolError,
+        ) as exc:
+            clean_url = sanitize_url(url)
+            clean_err = sanitize_error_message(str(exc))
+            if not yielded_any_token and attempt < max_retries:
+                delay = _compute_retry_delay(attempt)
+                logger.warning(
+                    "Transient connection error from %s: %s; retrying in %.2fs (attempt %d/%d)",
+                    clean_url,
+                    clean_err,
+                    delay,
+                    attempt + 1,
+                    max_retries,
                 )
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                data = line[6:].strip()
-                if data == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(data)
-                    delta = chunk["choices"][0]["delta"].get("content") or ""
-                    if delta:
-                        yield delta
-                except Exception:
-                    pass
+                attempt += 1
+                await asyncio.sleep(delay)
+                continue
+            raise RuntimeError(
+                f"Cloud provider connection error from {clean_url}: {clean_err}"
+            ) from exc
 
 
 async def _stream_anthropic(
@@ -210,6 +311,7 @@ async def _stream_anthropic(
     messages: Sequence[Message],
     temperature: float,
     max_tokens: int,
+    max_retries: int = 3,
 ) -> AsyncIterator[str]:
     keys = _load_keys()
     api_key = keys.get("ANTHROPIC_API_KEY", "")
@@ -227,42 +329,99 @@ async def _stream_anthropic(
     if system_text:
         payload["system"] = system_text
 
-    async with httpx.AsyncClient(timeout=180) as client:
-        async with client.stream(
-            "POST",
-            "https://api.anthropic.com/v1/messages",
-            json=payload,
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "Content-Type": "application/json",
-            },
-        ) as resp:
-            if resp.status_code >= 400:
-                err_body = await resp.aread()
-                err_msg = ""
-                try:
-                    err_json = json.loads(err_body)
-                    err_msg = err_json.get("error", {}).get("message") or str(err_json)
-                except Exception:
-                    err_msg = err_body.decode("utf-8", errors="replace")[:300]
-                clean_msg = sanitize_error_message(err_msg)
-                clean_url = sanitize_url(str(resp.request.url))
-                raise RuntimeError(
-                    f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+    url = "https://api.anthropic.com/v1/messages"
+    attempt = 0
+    yielded_any_token = False
+
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=180) as client:
+                async with client.stream(
+                    "POST",
+                    url,
+                    json=payload,
+                    headers={
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json",
+                    },
+                ) as resp:
+                    if resp.status_code >= 400:
+                        err_body = await resp.aread()
+                        err_msg = ""
+                        try:
+                            err_json = json.loads(err_body)
+                            err_msg = (
+                                err_json.get("error", {}).get("message")
+                                or str(err_json)
+                            )
+                        except Exception:
+                            err_msg = err_body.decode("utf-8", errors="replace")[:300]
+                        clean_msg = sanitize_error_message(err_msg)
+                        clean_url = sanitize_url(str(resp.request.url))
+
+                        if (
+                            not yielded_any_token
+                            and attempt < max_retries
+                            and resp.status_code in RETRYABLE_STATUS_CODES
+                        ):
+                            retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                            delay = _compute_retry_delay(attempt, retry_after)
+                            logger.warning(
+                                "Transient cloud error (%d) from %s: %s; retrying in %.2fs (attempt %d/%d)",
+                                resp.status_code,
+                                clean_url,
+                                clean_msg,
+                                delay,
+                                attempt + 1,
+                                max_retries,
+                            )
+                            attempt += 1
+                            await asyncio.sleep(delay)
+                            continue
+
+                        raise RuntimeError(
+                            f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+                        )
+
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data = line[6:].strip()
+                        try:
+                            event = json.loads(data)
+                            if event.get("type") == "content_block_delta":
+                                text = event.get("delta", {}).get("text", "")
+                                if text:
+                                    yielded_any_token = True
+                                    yield text
+                        except Exception:
+                            pass
+            break
+        except (
+            httpx.ConnectError,
+            httpx.ConnectTimeout,
+            httpx.ReadTimeout,
+            httpx.RemoteProtocolError,
+        ) as exc:
+            clean_url = sanitize_url(url)
+            clean_err = sanitize_error_message(str(exc))
+            if not yielded_any_token and attempt < max_retries:
+                delay = _compute_retry_delay(attempt)
+                logger.warning(
+                    "Transient connection error from %s: %s; retrying in %.2fs (attempt %d/%d)",
+                    clean_url,
+                    clean_err,
+                    delay,
+                    attempt + 1,
+                    max_retries,
                 )
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                data = line[6:].strip()
-                try:
-                    event = json.loads(data)
-                    if event.get("type") == "content_block_delta":
-                        text = event.get("delta", {}).get("text", "")
-                        if text:
-                            yield text
-                except Exception:
-                    pass
+                attempt += 1
+                await asyncio.sleep(delay)
+                continue
+            raise RuntimeError(
+                f"Cloud provider connection error from {clean_url}: {clean_err}"
+            ) from exc
 
 
 async def _stream_google(

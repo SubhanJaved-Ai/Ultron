@@ -65,4 +65,23 @@ describe('chat engine telemetry', () => {
     expect(resolveChatEngine({ selectedModel: 'gpt-5' })).toBe('cloud');
     expect(resolveChatEngine({ selectedModel: 'qwen3:8b' })).toBe('ollama');
   });
+
+  it('accurately attributes gemini models even if routedEngine is undefined on stream failure', () => {
+    expect(
+      resolveChatEngine({
+        routedEngine: undefined,
+        serverEngine: 'ollama',
+        selectedModel: 'gemini-3.8-flash',
+      }),
+    ).toBe('gemini');
+
+    expect(
+      resolveChatEngine({
+        routedEngine: undefined,
+        serverEngine: 'ollama',
+        selectedModel: 'custom-model',
+        selectedOwner: 'gemini',
+      }),
+    ).toBe('gemini');
+  });
 });

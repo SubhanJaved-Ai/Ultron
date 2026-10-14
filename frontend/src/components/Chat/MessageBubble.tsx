@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
@@ -96,7 +96,7 @@ function CopyMessageButton({ content }: { content: string }) {
   );
 }
 
-export function MessageBubble({ message, isLive = false }: Props) {
+export const MessageBubble = memo(function MessageBubble({ message, isLive = false }: Props) {
   const isUser = message.role === 'user';
 
   const cleanContent = useMemo(() => stripThinkTags(message.content), [message.content]);
@@ -112,10 +112,13 @@ export function MessageBubble({ message, isLive = false }: Props) {
   }, [message.researchSources]);
 
   const rehypePlugins = useMemo(() => {
-    const base: any[] = [[rehypeHighlight, { detect: true }], rehypeKatex];
+    const base: any[] = [
+      isLive ? [rehypeHighlight, { detect: false, ignoreMissing: true }] : [rehypeHighlight, { detect: true }],
+      rehypeKatex,
+    ];
     if (sourcesMap.size > 0) base.push([rehypeCitations, { sources: sourcesMap }]);
     return base;
-  }, [sourcesMap]);
+  }, [sourcesMap, isLive]);
 
   if (isUser) {
     return (
@@ -188,4 +191,4 @@ export function MessageBubble({ message, isLive = false }: Props) {
       />
     </div>
   );
-}
+});

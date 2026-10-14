@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import datetime
+import email.utils
 import json
 import logging
+import random
 from collections.abc import AsyncIterator, Sequence
 from typing import Any, Dict, List
 
@@ -25,6 +29,43 @@ from openjarvis.engine._stubs import StreamChunk
 from openjarvis.intelligence.model_catalog import resolve_model_id_for_engine
 
 logger = logging.getLogger(__name__)
+
+RETRYABLE_STATUS_CODES = (429, 502, 503, 504)
+
+
+def _parse_retry_after(header_val: str | None) -> float | None:
+    """Parse a Retry-After header as either seconds or an HTTP date."""
+    if not header_val:
+        return None
+    val = header_val.strip()
+    try:
+        sec = float(val)
+        if sec >= 0:
+            return sec
+    except ValueError:
+        pass
+    try:
+        dt = email.utils.parsedate_to_datetime(val)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return max(0.0, (dt - now).total_seconds())
+    except Exception:
+        pass
+    return None
+
+
+def _compute_retry_delay(
+    attempt: int,
+    retry_after: float | None = None,
+    base_delay: float = 1.0,
+    max_delay: float = 8.0,
+) -> float:
+    """Compute exponential backoff delay with jitter, respecting Retry-After."""
+    backoff = min(max_delay, base_delay * (2**attempt))
+    jitter = backoff * random.uniform(-0.25, 0.25)
+    delay = max(0.1, backoff + jitter)
+    if retry_after is not None:
+        delay = max(delay, retry_after)
+    return min(delay, 15.0)
 
 
 class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
@@ -99,35 +140,69 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         # Default to tool_choice=auto when tools are provided
         if "tools" in payload and "tool_choice" not in payload:
             payload["tool_choice"] = "auto"
-        try:
-            url = f"{self._api_prefix}/chat/completions"
-            resp = self._client.post(url, json=payload)
-            if resp.status_code == 400 and "tools" in payload:
-                payload.pop("tools", None)
-                payload.pop("tool_choice", None)
+        url = f"{self._api_prefix}/chat/completions"
+        attempt = 0
+        max_retries = 3
+        while True:
+            try:
                 resp = self._client.post(url, json=payload)
-            resp.raise_for_status()
-        except (httpx.ConnectError, httpx.TimeoutException) as exc:
-            raise EngineConnectionError(
-                f"{self.engine_id} engine not reachable at {self._host}"
-            ) from exc
-        except httpx.HTTPStatusError as exc:
-            error_detail = exc.response.text.strip()
-            if exc.response.status_code == 404:
-                detail_suffix = (
-                    f" Response body: {error_detail}" if error_detail else ""
-                )
+                if resp.status_code == 400 and "tools" in payload:
+                    payload.pop("tools", None)
+                    payload.pop("tool_choice", None)
+                    resp = self._client.post(url, json=payload)
+                if resp.status_code in RETRYABLE_STATUS_CODES and attempt < max_retries:
+                    retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                    delay = _compute_retry_delay(attempt, retry_after)
+                    logger.warning(
+                        "%s engine busy (HTTP %d); retrying in %.2fs (attempt %d/%d)",
+                        self.engine_id,
+                        resp.status_code,
+                        delay,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    attempt += 1
+                    import time
+
+                    time.sleep(delay)
+                    continue
+                resp.raise_for_status()
+                break
+            except (httpx.ConnectError, httpx.TimeoutException) as exc:
+                if attempt < max_retries:
+                    delay = _compute_retry_delay(attempt)
+                    logger.warning(
+                        "%s engine connection error; retrying in %.2fs (attempt %d/%d)",
+                        self.engine_id,
+                        delay,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    attempt += 1
+                    import time
+
+                    time.sleep(delay)
+                    continue
                 raise EngineConnectionError(
-                    f"{self.engine_id} engine at {self._host} returned 404 for "
-                    f"{self._api_prefix}/chat/completions. Make sure this port "
-                    "is running an OpenAI-compatible chat server, not another "
-                    f"local web service.{detail_suffix}"
+                    f"{self.engine_id} engine not reachable at {self._host}"
                 ) from exc
-            detail_suffix = f": {error_detail}" if error_detail else ""
-            raise EngineConnectionError(
-                f"{self.engine_id} engine at {self._host} returned HTTP "
-                f"{exc.response.status_code}{detail_suffix}"
-            ) from exc
+            except httpx.HTTPStatusError as exc:
+                error_detail = exc.response.text.strip()
+                if exc.response.status_code == 404:
+                    detail_suffix = (
+                        f" Response body: {error_detail}" if error_detail else ""
+                    )
+                    raise EngineConnectionError(
+                        f"{self.engine_id} engine at {self._host} returned 404 for "
+                        f"{self._api_prefix}/chat/completions. Make sure this port "
+                        "is running an OpenAI-compatible chat server, not another "
+                        f"local web service.{detail_suffix}"
+                    ) from exc
+                detail_suffix = f": {error_detail}" if error_detail else ""
+                raise EngineConnectionError(
+                    f"{self.engine_id} engine at {self._host} returned HTTP "
+                    f"{exc.response.status_code}{detail_suffix}"
+                ) from exc
         data = resp.json()
         choices = data.get("choices", [])
         if not choices:
@@ -192,46 +267,83 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         if "tools" in payload and "tool_choice" not in payload:
             payload["tool_choice"] = "auto"
         url = f"{self._api_prefix}/chat/completions"
-        try:
-            # ASYNC streaming: ``httpx.AsyncClient`` + ``aiter_lines`` never
-            # blocks the event loop between tokens (the previous SYNC
-            # ``httpx.Client`` + ``iter_lines`` inside this ``async def`` blocked
-            # the single uvicorn worker on every inter-token wait, serializing all
-            # concurrent chats and letting one wedged read freeze the whole API).
-            # The shared client keeps pooled connections across turns.
-            client = self._get_async_client()
-            async with client.stream("POST", url, json=payload) as resp:
-                # ``not is_success`` covers 3xx as well as 4xx/5xx. With
-                # ``follow_redirects`` off (the default) an unexpected redirect
-                # would otherwise fall through to ``aiter_lines`` and surface as
-                # a silent EMPTY stream instead of a clean engine error.
-                if not resp.is_success:
-                    # Load the (short) error body before touching ``.text``:
-                    # a streaming response is otherwise unread.
-                    await resp.aread()
-                    self._raise_stream_http_error(resp.status_code, resp.text)
-                async for line in resp.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    data_str = line[len("data:") :].strip()
-                    if data_str == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data_str)
-                    except json.JSONDecodeError:
-                        continue
-                    delta = chunk.get("choices", [{}])[0].get("delta", {})
-                    content = delta.get("content")
-                    if content:
-                        yield content
-        except STREAM_TRANSPORT_ERRORS as exc:
-            # A wedged upstream read trips ``timeout`` (ReadTimeout) and is mapped
-            # here, so the request fails cleanly at the configured bound instead
-            # of hanging indefinitely (see STREAM_TRANSPORT_ERRORS for why the
-            # set is exactly this narrow).
-            raise EngineConnectionError(
-                f"{self.engine_id} engine not reachable at {self._host}"
-            ) from exc
+        attempt = 0
+        max_retries = 3
+        yielded_any_token = False
+
+        while True:
+            try:
+                # ASYNC streaming: ``httpx.AsyncClient`` + ``aiter_lines`` never
+                # blocks the event loop between tokens (the previous SYNC
+                # ``httpx.Client`` + ``iter_lines`` inside this ``async def`` blocked
+                # the single uvicorn worker on every inter-token wait, serializing all
+                # concurrent chats and letting one wedged read freeze the whole API).
+                # The shared client keeps pooled connections across turns.
+                client = self._get_async_client()
+                async with client.stream("POST", url, json=payload) as resp:
+                    # ``not is_success`` covers 3xx as well as 4xx/5xx. With
+                    # ``follow_redirects`` off (the default) an unexpected redirect
+                    # would otherwise fall through to ``aiter_lines`` and surface as
+                    # a silent EMPTY stream instead of a clean engine error.
+                    if not resp.is_success:
+                        # Load the (short) error body before touching ``.text``:
+                        # a streaming response is otherwise unread.
+                        await resp.aread()
+                        if (
+                            not yielded_any_token
+                            and attempt < max_retries
+                            and resp.status_code in RETRYABLE_STATUS_CODES
+                        ):
+                            retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                            delay = _compute_retry_delay(attempt, retry_after)
+                            logger.warning(
+                                "%s engine busy (HTTP %d); retrying in %.2fs (attempt %d/%d)",
+                                self.engine_id,
+                                resp.status_code,
+                                delay,
+                                attempt + 1,
+                                max_retries,
+                            )
+                            attempt += 1
+                            await asyncio.sleep(delay)
+                            continue
+                        self._raise_stream_http_error(resp.status_code, resp.text)
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        data_str = line[len("data:") :].strip()
+                        if data_str == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data_str)
+                        except json.JSONDecodeError:
+                            continue
+                        delta = chunk.get("choices", [{}])[0].get("delta", {})
+                        content = delta.get("content")
+                        if content:
+                            yielded_any_token = True
+                            yield content
+                break
+            except STREAM_TRANSPORT_ERRORS as exc:
+                # A wedged upstream read trips ``timeout`` (ReadTimeout) and is mapped
+                # here, so the request fails cleanly at the configured bound instead
+                # of hanging indefinitely (see STREAM_TRANSPORT_ERRORS for why the
+                # set is exactly this narrow).
+                if not yielded_any_token and attempt < max_retries:
+                    delay = _compute_retry_delay(attempt)
+                    logger.warning(
+                        "%s engine connection error; retrying in %.2fs (attempt %d/%d)",
+                        self.engine_id,
+                        delay,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    attempt += 1
+                    await asyncio.sleep(delay)
+                    continue
+                raise EngineConnectionError(
+                    f"{self.engine_id} engine not reachable at {self._host}"
+                ) from exc
 
     async def stream_full(
         self,
@@ -255,49 +367,86 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         if "tools" in payload and "tool_choice" not in payload:
             payload["tool_choice"] = "auto"
         url = f"{self._api_prefix}/chat/completions"
-        try:
-            # ASYNC streaming (see ``stream``): non-blocking shared client so
-            # rich streaming never stalls the event loop and honours ``timeout``.
-            client = self._get_async_client()
-            async with client.stream("POST", url, json=payload) as resp:
-                # ``not is_success`` covers 3xx as well as 4xx/5xx. With
-                # ``follow_redirects`` off (the default) an unexpected redirect
-                # would otherwise fall through to ``aiter_lines`` and surface as
-                # a silent EMPTY stream instead of a clean engine error.
-                if not resp.is_success:
-                    await resp.aread()
-                    self._raise_stream_http_error(resp.status_code, resp.text)
-                async for line in resp.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    data_str = line[len("data:") :].strip()
-                    if data_str == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data_str)
-                    except json.JSONDecodeError:
-                        continue
-                    choice = chunk.get("choices", [{}])[0]
-                    delta = choice.get("delta", {})
-                    finish = choice.get("finish_reason")
-                    content = delta.get("content")
-                    tool_calls = delta.get("tool_calls")
-                    usage = chunk.get("usage")
+        attempt = 0
+        max_retries = 3
+        yielded_any = False
 
-                    if content or tool_calls or finish or usage:
-                        yield StreamChunk(
-                            content=content,
-                            tool_calls=tool_calls,
-                            finish_reason=finish,
-                            usage=usage,
-                        )
-        except STREAM_TRANSPORT_ERRORS as exc:
-            # See ``stream``: transport failures (incl. a mid-stream server
-            # disconnect) map to a clean error; the set is kept narrow so
-            # cancellation still propagates.
-            raise EngineConnectionError(
-                f"{self.engine_id} engine not reachable at {self._host}"
-            ) from exc
+        while True:
+            try:
+                # ASYNC streaming (see ``stream``): non-blocking shared client so
+                # rich streaming never stalls the event loop and honours ``timeout``.
+                client = self._get_async_client()
+                async with client.stream("POST", url, json=payload) as resp:
+                    # ``not is_success`` covers 3xx as well as 4xx/5xx. With
+                    # ``follow_redirects`` off (the default) an unexpected redirect
+                    # would otherwise fall through to ``aiter_lines`` and surface as
+                    # a silent EMPTY stream instead of a clean engine error.
+                    if not resp.is_success:
+                        await resp.aread()
+                        if (
+                            not yielded_any
+                            and attempt < max_retries
+                            and resp.status_code in RETRYABLE_STATUS_CODES
+                        ):
+                            retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                            delay = _compute_retry_delay(attempt, retry_after)
+                            logger.warning(
+                                "%s engine busy (HTTP %d); retrying in %.2fs (attempt %d/%d)",
+                                self.engine_id,
+                                resp.status_code,
+                                delay,
+                                attempt + 1,
+                                max_retries,
+                            )
+                            attempt += 1
+                            await asyncio.sleep(delay)
+                            continue
+                        self._raise_stream_http_error(resp.status_code, resp.text)
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        data_str = line[len("data:") :].strip()
+                        if data_str == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data_str)
+                        except json.JSONDecodeError:
+                            continue
+                        choice = chunk.get("choices", [{}])[0]
+                        delta = choice.get("delta", {})
+                        finish = choice.get("finish_reason")
+                        content = delta.get("content")
+                        tool_calls = delta.get("tool_calls")
+                        usage = chunk.get("usage")
+
+                        if content or tool_calls or finish or usage:
+                            yielded_any = True
+                            yield StreamChunk(
+                                content=content,
+                                tool_calls=tool_calls,
+                                finish_reason=finish,
+                                usage=usage,
+                            )
+                break
+            except STREAM_TRANSPORT_ERRORS as exc:
+                # See ``stream``: transport failures (incl. a mid-stream server
+                # disconnect) map to a clean error; the set is kept narrow so
+                # cancellation still propagates.
+                if not yielded_any and attempt < max_retries:
+                    delay = _compute_retry_delay(attempt)
+                    logger.warning(
+                        "%s engine connection error; retrying in %.2fs (attempt %d/%d)",
+                        self.engine_id,
+                        delay,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    attempt += 1
+                    await asyncio.sleep(delay)
+                    continue
+                raise EngineConnectionError(
+                    f"{self.engine_id} engine not reachable at {self._host}"
+                ) from exc
 
     def list_models(self) -> List[str]:
         try:

@@ -19,7 +19,10 @@ function getGreeting(): string {
 export function ChatArea() {
   const activeId = useAppStore((s) => s.activeId);
   const messages = useAppStore((s) => s.messages);
-  const streamState = useAppStore((s) => s.streamState);
+  const isStreaming = useAppStore((s) => s.streamState.isStreaming);
+  const streamConversationId = useAppStore((s) => s.streamState.conversationId);
+  const streamContent = useAppStore((s) => s.streamState.content);
+  const streamPhase = useAppStore((s) => s.streamState.phase);
   const systemPanelOpen = useAppStore((s) => s.systemPanelOpen);
   const toggleSystemPanel = useAppStore((s) => s.toggleSystemPanel);
   const navigate = useNavigate();
@@ -27,7 +30,7 @@ export function ChatArea() {
   const shouldAutoScroll = useRef(true);
   const wasStreaming = useRef(false);
   const lastScrollTop = useRef(0);
-  const isCurrentChatStreaming = streamState.isStreaming && streamState.conversationId === activeId;
+  const isCurrentChatStreaming = isStreaming && streamConversationId === activeId;
 
   // Autoplay: speak a reply once it is finished, never while it streams -- a
   // partial sentence would be synthesized and then cut off by the next chunk.
@@ -55,7 +58,7 @@ export function ChatArea() {
     const justFinished = shouldAutoplayFinishedReply(
       streamingConversationRef.current,
       activeId,
-      streamState.isStreaming,
+      isStreaming,
       last,
       tts.autoSpokenId,
     );
@@ -84,8 +87,8 @@ export function ChatArea() {
       currentTts.markAutoSpoken(completedMessageId);
       void currentTts.speak(completedMessageId, text);
     });
-  }, [activeId, messages, streamState.isStreaming, isCurrentChatStreaming, voiceOutputEnabled, voiceAutoplay]);
-  const currentStreamContent = isCurrentChatStreaming ? streamState.content : '';
+  }, [activeId, messages, isStreaming, isCurrentChatStreaming, voiceOutputEnabled, voiceAutoplay]);
+  const currentStreamContent = isCurrentChatStreaming ? streamContent : '';
 
   // Check if any data sources are connected
   const [hasConnectedSources, setHasConnectedSources] = useState<boolean | null>(null);
@@ -241,14 +244,14 @@ export function ChatArea() {
               );
             })}
             {(() => {
-              if (!isCurrentChatStreaming || streamState.content !== '') return null;
+              if (!isCurrentChatStreaming || streamContent !== '') return null;
               // For research messages the ResearchTimeline handles its own
               // pre-content loading state — suppress the generic dots.
               const last = messages[messages.length - 1];
               if (last?.role === 'assistant' && last.isResearch) return null;
               return (
                 <div className="flex justify-start mb-4">
-                  <StreamingDots phase={streamState.phase} />
+                  <StreamingDots phase={streamPhase} />
                 </div>
               );
             })()}

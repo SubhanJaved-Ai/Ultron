@@ -172,6 +172,113 @@ class TestCloudRouterGemini:
             == "Bearer AQ.FallbackGoogleApiKey1234567890"
         )
 
+    @pytest.mark.asyncio
+    async def test_gemini_retries_transient_503_and_succeeds(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GEMINI_API_KEY", "AQ.GeminiKey12345678901234567890")
+        monkeypatch.setattr("openjarvis.server.cloud_router._compute_retry_delay", lambda *a, **k: 0.01)
+
+        expected_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+
+        with respx.mock:
+            route = respx.post(expected_url)
+            # 1st call fails with 503 (high demand), 2nd call succeeds
+            route.side_effect = [
+                httpx.Response(
+                    503,
+                    json={"error": {"code": 503, "message": "The model is overloaded. Please try again later."}},
+                ),
+                httpx.Response(
+                    200,
+                    text='data: {"choices": [{"delta": {"content": "Recovered response"}}]}\n\ndata: [DONE]\n\n',
+                    headers={"content-type": "text/event-stream"},
+                ),
+            ]
+
+            tokens = [
+                t
+                async for t in stream_cloud(
+                    "gemini-3.8-flash",
+                    [Message(role=Role.USER, content="hello")],
+                )
+            ]
+
+        assert "".join(tokens) == "Recovered response"
+        assert route.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_gemini_retries_transient_429_respecting_retry_after(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GEMINI_API_KEY", "AQ.GeminiKey12345678901234567890")
+        delays_computed = []
+
+        def recording_compute(attempt, retry_after=None, **kwargs):
+            delays_computed.append((attempt, retry_after))
+            return 0.01
+
+        monkeypatch.setattr("openjarvis.server.cloud_router._compute_retry_delay", recording_compute)
+
+        expected_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+
+        with respx.mock:
+            route = respx.post(expected_url)
+            route.side_effect = [
+                httpx.Response(
+                    429,
+                    json={"error": {"code": 429, "message": "Rate limit exceeded"}},
+                    headers={"Retry-After": "3"},
+                ),
+                httpx.Response(
+                    200,
+                    text='data: {"choices": [{"delta": {"content": "After 429"}}]}\n\ndata: [DONE]\n\n',
+                    headers={"content-type": "text/event-stream"},
+                ),
+            ]
+
+            tokens = [
+                t
+                async for t in stream_cloud(
+                    "gemini-3.8-flash",
+                    [Message(role=Role.USER, content="rate check")],
+                )
+            ]
+
+        assert "".join(tokens) == "After 429"
+        assert route.call_count == 2
+        assert len(delays_computed) == 1
+        assert delays_computed[0][1] == 3.0
+
+    @pytest.mark.asyncio
+    async def test_gemini_does_not_retry_non_retryable_401(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GEMINI_API_KEY", "AQ.GeminiKey12345678901234567890")
+
+        expected_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+
+        with respx.mock:
+            route = respx.post(expected_url).mock(
+                return_value=httpx.Response(
+                    401,
+                    json={"error": {"code": 401, "message": "Invalid API key"}},
+                )
+            )
+
+            with pytest.raises(RuntimeError) as exc_info:
+                async for _ in stream_cloud(
+                    "gemini-3.8-flash",
+                    [Message(role=Role.USER, content="auth check")],
+                ):
+                    pass
+
+        assert "401" in str(exc_info.value)
+        assert route.call_count == 1  # Exactly 1 call, zero retries
+
 
 class TestServerRoutesGemini:
     def test_list_models_includes_gemini_model_when_engine_is_gemini(self) -> None:
@@ -224,3 +331,6 @@ class TestServerRoutesGemini:
         assert leaked_secret not in content
         assert "[REDACTED" in content
         assert "Error during generation" in content
+        # Ensure telemetry with engine is included even on error chunk
+        assert '"telemetry"' in content
+        assert '"gemini"' in content

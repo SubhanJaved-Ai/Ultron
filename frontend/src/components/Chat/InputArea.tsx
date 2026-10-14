@@ -212,10 +212,6 @@ export function InputArea() {
 
     // Start streaming
     const startTime = Date.now();
-    const timer = setInterval(() => {
-      setStreamState({ elapsedMs: Date.now() - startTime });
-    }, 100);
-    timerRef.current = timer;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -436,14 +432,20 @@ export function InputArea() {
             if (delta?.content) {
               if (!ttftMs) ttftMs = Date.now() - startTime;
               accumulatedContent += delta.content;
-              setStreamState({ content: accumulatedContent, phase: '' });
 
               const now = Date.now();
               if (now - lastFlush >= 80) {
+                setStreamState({ content: accumulatedContent, phase: '' });
                 updateLastAssistant(
                   convId,
                   accumulatedContent,
                   toolCalls.length > 0 ? [...toolCalls] : undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  false,
                 );
                 lastFlush = now;
               }
@@ -517,6 +519,7 @@ export function InputArea() {
         audioMeta,
         researchTraces.length > 0 ? researchTraces : undefined,
         researchSourcesByRef.size > 0 ? flushSources() : undefined,
+        true,
       );
       if (timerRef.current) {
         clearInterval(timerRef.current);

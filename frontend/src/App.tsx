@@ -60,8 +60,19 @@ export default function App() {
   useEffect(() => {
     if (!isTauri()) return;
     importOverlay();
-    const interval = setInterval(importOverlay, 5000);
-    return () => clearInterval(interval);
+    const handleFocus = () => {
+      importOverlay();
+    };
+    window.addEventListener('focus', handleFocus);
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        importOverlay();
+      }
+    }, 10000);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
   }, [importOverlay]);
 
   // Fetch models on mount

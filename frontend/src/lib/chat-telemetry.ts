@@ -33,9 +33,9 @@ export function resolveChatEngine({
   // The finish chunk describes the backend that handled this exact request.
   // /v1/info describes only the server's configured wrapper (often "multi").
   if (routedEngine?.trim()) return routedEngine.trim();
-  if (serverEngine?.trim()) return serverEngine.trim();
+  if (selectedOwner === 'gemini' || selectedModel.startsWith('gemini-')) return 'gemini';
   if (selectedOwner === 'litellm') return 'litellm';
-  return CLOUD_PREFIXES.some((prefix) => selectedModel.startsWith(prefix))
-    ? 'cloud'
-    : 'ollama';
+  if (CLOUD_PREFIXES.some((prefix) => selectedModel.startsWith(prefix))) return 'cloud';
+  if (serverEngine?.trim()) return serverEngine.trim();
+  return 'ollama';
 }

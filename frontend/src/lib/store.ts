@@ -48,14 +48,35 @@ interface ConversationStore {
   activeId: string | null;
 }
 
+let _cachedStore: ConversationStore | null = null;
+let _saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+export function flushPendingConversationSave(): void {
+  if (_saveTimeout) {
+    clearTimeout(_saveTimeout);
+    _saveTimeout = null;
+  }
+  if (_cachedStore) {
+    try {
+      localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(_cachedStore));
+    } catch {
+      // Best-effort disk write
+    }
+  }
+}
+
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 function loadConversations(): ConversationStore {
+  if (_cachedStore) return _cachedStore;
   try {
     const raw = localStorage.getItem(CONVERSATIONS_KEY);
-    if (!raw) return { version: 1, conversations: {}, activeId: null };
+    if (!raw) {
+      _cachedStore = { version: 1, conversations: {}, activeId: null };
+      return _cachedStore;
+    }
     const parsed = JSON.parse(raw);
     if (parsed.version === 1) {
       let repaired = false;
@@ -79,16 +100,37 @@ function loadConversations(): ConversationStore {
           // otherwise readable conversation history disappear from the UI.
         }
       }
+      _cachedStore = parsed;
       return parsed;
     }
-    return { version: 1, conversations: {}, activeId: null };
+    _cachedStore = { version: 1, conversations: {}, activeId: null };
+    return _cachedStore;
   } catch {
-    return { version: 1, conversations: {}, activeId: null };
+    _cachedStore = { version: 1, conversations: {}, activeId: null };
+    return _cachedStore;
   }
 }
 
-function saveConversations(store: ConversationStore): void {
-  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(store));
+function saveConversations(store: ConversationStore, immediate = true): void {
+  _cachedStore = store;
+  if (immediate) {
+    if (_saveTimeout) {
+      clearTimeout(_saveTimeout);
+      _saveTimeout = null;
+    }
+    try {
+      localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(store));
+    } catch {
+      // Best-effort disk write
+    }
+  } else {
+    if (!_saveTimeout) {
+      _saveTimeout = setTimeout(() => {
+        _saveTimeout = null;
+        flushPendingConversationSave();
+      }, 3000);
+    }
+  }
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -199,6 +241,7 @@ interface AppState {
     audio?: { url: string },
     researchTraces?: ResearchSearchTrace[],
     researchSources?: ResearchSource[],
+    immediate?: boolean,
   ) => void;
   setStreamState: (state: Partial<StreamState>) => void;
   resetStream: () => void;
@@ -446,6 +489,7 @@ export const useAppStore = create<AppState>((set, get) => {
       audio?: { url: string },
       researchTraces?: ResearchSearchTrace[],
       researchSources?: ResearchSource[],
+      immediate = false,
     ) => {
       const store = loadConversations();
       const conv = store.conversations[conversationId];
@@ -460,7 +504,7 @@ export const useAppStore = create<AppState>((set, get) => {
         if (researchTraces) lastMsg.researchTraces = researchTraces;
         if (researchSources) lastMsg.researchSources = researchSources;
         conv.updatedAt = Date.now();
-        saveConversations(store);
+        saveConversations(store, immediate);
         if (get().activeId === conversationId) {
           set({ messages: [...conv.messages] });
         }

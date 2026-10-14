@@ -880,8 +880,13 @@ async def _handle_stream_tools(
     messages = _ensure_identity_prompt(messages, app_config)
     chunk_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     use_cloud = _uses_direct_cloud_router(engine, model)
+    from openjarvis.server.cloud_router import get_provider
+
+    cloud_provider = get_provider(model) if use_cloud else None
     telemetry_engine = (
-        "cloud" if use_cloud else (_engine_key_for_model(engine, model) or "ollama")
+        ("gemini" if cloud_provider == "google" else "cloud")
+        if use_cloud
+        else (_engine_key_for_model(engine, model) or "ollama")
     )
     query_text = ""
     for _m in reversed(req.messages):
@@ -891,6 +896,7 @@ async def _handle_stream_tools(
 
     async def generate():
         full_content = ""
+        actual_telemetry_engine = telemetry_engine
         # Send the role chunk first (OpenAI convention).
         first_chunk = ChatCompletionChunk(
             id=chunk_id,
@@ -928,6 +934,7 @@ async def _handle_stream_tools(
                 if sc.finish_reason:
                     finish_reason = sc.finish_reason
         except Exception as exc:
+            import json as _json
             import logging
 
             from openjarvis.security.credential_stripper import (
@@ -951,7 +958,10 @@ async def _handle_stream_tools(
                     )
                 ],
             )
-            yield f"data: {error_chunk.model_dump_json()}\n\n"
+            error_dict = _json.loads(error_chunk.model_dump_json())
+            error_dict.setdefault("telemetry", {})
+            error_dict["telemetry"]["engine"] = actual_telemetry_engine
+            yield f"data: {_json.dumps(error_dict)}\n\n"
             yield "data: [DONE]\n\n"
             return
 
@@ -1023,8 +1033,13 @@ async def _handle_stream(
     # Route directly to the right backend — bypasses engine routing entirely
     # so broken MultiEngine state can never misdirect requests.
     use_cloud = _uses_direct_cloud_router(engine, model)
+    from openjarvis.server.cloud_router import get_provider
+
+    cloud_provider = get_provider(model) if use_cloud else None
     telemetry_engine = (
-        "cloud" if use_cloud else (_engine_key_for_model(engine, model) or "ollama")
+        ("gemini" if cloud_provider == "google" else "cloud")
+        if use_cloud
+        else (_engine_key_for_model(engine, model) or "ollama")
     )
 
     async def generate():
@@ -1100,6 +1115,7 @@ async def _handle_stream(
         except Exception as exc:
             # Surface errors as a content chunk so the frontend can
             # display them instead of silently failing.
+            import json as _json
             import logging
 
             from openjarvis.security.credential_stripper import (
@@ -1123,7 +1139,10 @@ async def _handle_stream(
                     )
                 ],
             )
-            yield f"data: {error_chunk.model_dump_json()}\n\n"
+            error_dict = _json.loads(error_chunk.model_dump_json())
+            error_dict.setdefault("telemetry", {})
+            error_dict["telemetry"]["engine"] = actual_telemetry_engine
+            yield f"data: {_json.dumps(error_dict)}\n\n"
             yield "data: [DONE]\n\n"
             return
 

@@ -79,4 +79,37 @@ describe('conversation stream ownership', () => {
       store.getState().conversations.map((conversation) => conversation.id),
     ).not.toContain(sourceId);
   });
+
+  it('defers synchronous localStorage disk writes during streaming chunks', async () => {
+    const storeModule = await import('./store');
+    const store = storeModule.useAppStore;
+    const convId = store.getState().createConversation('test-model');
+    store.getState().addMessage(convId, {
+      id: 'assistant-live',
+      role: 'assistant',
+      content: '',
+      timestamp: 1,
+    });
+
+    const setItemSpy = vi.spyOn(localStorage, 'setItem');
+    setItemSpy.mockClear();
+
+    // Simulate 20 fast streaming token flushes
+    for (let i = 1; i <= 20; i++) {
+      store.getState().updateLastAssistant(convId, `token ${i}`, undefined, undefined, undefined, undefined, undefined, undefined, false);
+    }
+
+    // Must NOT have written to localStorage 20 times!
+    expect(setItemSpy).not.toHaveBeenCalled();
+
+    // Active in-memory state is immediately updated
+    expect(store.getState().messages[0].content).toBe('token 20');
+
+    // Final completion flush writes immediately to disk
+    store.getState().updateLastAssistant(convId, 'token 20 final', undefined, undefined, undefined, undefined, undefined, undefined, true);
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+
+    const stored = JSON.parse(localStorage.getItem('openjarvis-conversations')!);
+    expect(stored.conversations[convId].messages[0].content).toBe('token 20 final');
+  });
 });

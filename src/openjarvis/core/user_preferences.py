@@ -243,3 +243,91 @@ def set_personality(updates: dict[str, float]) -> dict[str, float]:
     f.write_text(json.dumps(data, indent=2), encoding="utf-8")
     logger.info("Personality settings updated: %s", merged)
     return merged
+
+
+# ---------------------------------------------------------------------------
+# Theme Controls (TSK-P5-03 — Tri-Theme Hologram HUD)
+# ---------------------------------------------------------------------------
+
+VALID_THEMES = ("cyan", "crimson", "emerald")
+DEFAULT_THEME = "cyan"
+
+
+def _validate_theme(value: object) -> str:
+    """Validate theme name against allowed options.
+
+    Returns normalized lower-case theme string, or raises ValueError.
+    """
+    if not isinstance(value, str):
+        raise ValueError(f"Theme must be a string, got: {type(value).__name__}")
+    t = value.strip().lower()
+    if t not in VALID_THEMES:
+        raise ValueError(
+            f"Invalid theme {value!r}. Must be one of: {', '.join(VALID_THEMES)}"
+        )
+    return t
+
+
+def get_theme(user_id: str | None = None) -> str:
+    """Return the currently selected hologram theme (cyan, crimson, emerald).
+
+    Falls back to DEFAULT_THEME ('cyan') if not configured or corrupt.
+    """
+    if user_id and user_id != "default":
+        try:
+            from openjarvis.auth.manager import get_user_manager
+
+            val = get_user_manager().get_preference(user_id, "hologram_theme")
+            if val:
+                return _validate_theme(val)
+        except Exception:
+            pass
+
+    f = _get_pref_file()
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            raw = data.get("theme")
+            if raw is not None:
+                return _validate_theme(raw)
+        except Exception:
+            pass
+
+    return DEFAULT_THEME
+
+
+def set_theme(theme: str, user_id: str | None = None) -> str:
+    """Validate and persist the hologram HUD theme.
+
+    Args:
+        theme: One of 'cyan', 'crimson', or 'emerald' (case-insensitive).
+        user_id: Optional user identifier for multi-tenant preference storage.
+
+    Returns:
+        The normalized theme string saved.
+
+    Raises:
+        ValueError: If theme is invalid or not in VALID_THEMES.
+    """
+    validated = _validate_theme(theme)
+
+    if user_id and user_id != "default":
+        try:
+            from openjarvis.auth.manager import get_user_manager
+
+            get_user_manager().set_preference(user_id, "hologram_theme", validated)
+        except Exception as exc:
+            logger.debug("Failed to set per-user theme preference: %s", exc)
+
+    f = _get_pref_file()
+    data: dict = {}
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    data["theme"] = validated
+    f.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    logger.info("Hologram theme updated: %s", validated)
+    return validated

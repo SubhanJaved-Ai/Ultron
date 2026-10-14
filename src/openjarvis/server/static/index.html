@@ -48,6 +48,60 @@
       --purple: #818cf8;
       --text: #f8fafc;
       --muted: #94a3b8;
+
+      /* Centralized Hologram Theme Tokens (TSK-P5-03) */
+      --theme-accent: #38bdf8;
+      --theme-accent-bright: #7dd3fc;
+      --theme-accent-dim: rgba(56, 189, 248, 0.18);
+      --theme-accent-border: rgba(56, 189, 248, 0.35);
+      --theme-accent-glow: 0 0 24px rgba(56, 189, 248, 0.45);
+      --theme-pill-bg: rgba(56, 189, 248, 0.14);
+      --theme-pill-text: #7dd3fc;
+    }
+
+    [data-theme="cyan"] {
+      --theme-accent: #38bdf8;
+      --theme-accent-bright: #7dd3fc;
+      --theme-accent-dim: rgba(56, 189, 248, 0.18);
+      --theme-accent-border: rgba(56, 189, 248, 0.35);
+      --theme-accent-glow: 0 0 24px rgba(56, 189, 248, 0.45);
+      --theme-pill-bg: rgba(56, 189, 248, 0.14);
+      --theme-pill-text: #7dd3fc;
+      --accent-cyan: #38bdf8;
+      --accent-cyan-dim: rgba(56, 189, 248, 0.18);
+      --cyan: #38bdf8;
+      --cyan-bright: #7dd3fc;
+      --cyan-dim: rgba(56, 189, 248, 0.2);
+    }
+
+    [data-theme="crimson"] {
+      --theme-accent: #f43f5e;
+      --theme-accent-bright: #fb7185;
+      --theme-accent-dim: rgba(244, 63, 94, 0.18);
+      --theme-accent-border: rgba(244, 63, 94, 0.38);
+      --theme-accent-glow: 0 0 24px rgba(244, 63, 94, 0.45);
+      --theme-pill-bg: rgba(244, 63, 94, 0.14);
+      --theme-pill-text: #fda4af;
+      --accent-cyan: #fb7185;
+      --accent-cyan-dim: rgba(244, 63, 94, 0.18);
+      --cyan: #f43f5e;
+      --cyan-bright: #fb7185;
+      --cyan-dim: rgba(244, 63, 94, 0.2);
+    }
+
+    [data-theme="emerald"] {
+      --theme-accent: #10b981;
+      --theme-accent-bright: #34d399;
+      --theme-accent-dim: rgba(16, 185, 129, 0.18);
+      --theme-accent-border: rgba(16, 185, 129, 0.38);
+      --theme-accent-glow: 0 0 24px rgba(16, 185, 129, 0.45);
+      --theme-pill-bg: rgba(16, 185, 129, 0.14);
+      --theme-pill-text: #6ee7b7;
+      --accent-cyan: #34d399;
+      --accent-cyan-dim: rgba(16, 185, 129, 0.18);
+      --cyan: #10b981;
+      --cyan-bright: #34d399;
+      --cyan-dim: rgba(16, 185, 129, 0.2);
     }
     body {
       background: var(--bg);
@@ -1013,6 +1067,49 @@
       background: rgba(239, 68, 68, 0.2);
     }
 
+    /* ── Tri-Theme Hologram Selector (TSK-P5-03) ─────────────────────────────── */
+    .theme-selector-pill {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid var(--theme-accent-border, rgba(56, 189, 248, 0.35));
+      border-radius: 9999px;
+      padding: 3px 4px;
+      gap: 3px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .theme-selector-pill:hover {
+      box-shadow: var(--theme-accent-glow, 0 0 20px rgba(56, 189, 248, 0.35));
+    }
+    .theme-btn {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      line-height: 1;
+    }
+    .theme-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .theme-btn.active {
+      background: var(--theme-pill-bg, rgba(56, 189, 248, 0.16));
+      color: var(--theme-pill-text, #7dd3fc);
+      box-shadow: inset 0 0 0 1px var(--theme-accent-border, rgba(56, 189, 248, 0.35));
+    }
+
     /* ── Personality Panel (TSK-P5-02) ─────────────────────────────────────── */
     .personality-toggle-pill {
       font-size: 11px;
@@ -1231,6 +1328,12 @@
           <span>💬</span>
           <span>CHAT LOG (<span id="chat-pill-count">0</span>)</span>
         </button>
+        <!-- Tri-Theme Hologram Selector (TSK-P5-03) -->
+        <div id="theme-selector" class="theme-selector-pill" title="Tri-Theme Hologram HUD (Cyan, Crimson, Emerald)">
+          <button type="button" id="theme-btn-cyan" class="theme-btn active" onclick="setHologramTheme('cyan')" title="Cyan Core Theme">CYAN</button>
+          <button type="button" id="theme-btn-crimson" class="theme-btn" onclick="setHologramTheme('crimson')" title="Crimson Core Theme">CRIMSON</button>
+          <button type="button" id="theme-btn-emerald" class="theme-btn" onclick="setHologramTheme('emerald')" title="Emerald Core Theme">EMERALD</button>
+        </div>
         <!-- Soul Circuit Personality Button (TSK-P5-02) -->
         <button id="personality-btn" class="personality-toggle-pill" onclick="openPersonalityModal()" title="Soul Circuit — Personality Controls">
           <span>🧬</span>
@@ -1519,8 +1622,29 @@
     let electronParticles, electronGeometry, electronMaterial;
     let orbitalRings = [];
 
-    // State Colors
-    const COLOR_STANDBY  = new THREE.Color(0x00f3ff); // Cyan / Blue
+    // State Colors & Centralized Theme Palettes (TSK-P5-03 — Tri-Theme Hologram HUD)
+    const THEME_PALETTES = {
+      cyan: {
+        standby: 0x00f3ff,
+        listen:  0xffea00,
+        think:   0xc800ff,
+        speak:   0x00ff88
+      },
+      crimson: {
+        standby: 0xff2a4b,
+        listen:  0xffb703,
+        think:   0xd946ef,
+        speak:   0xff6b81
+      },
+      emerald: {
+        standby: 0x00ff88,
+        listen:  0xfacc15,
+        think:   0x06b6d4,
+        speak:   0x10b981
+      }
+    };
+
+    const COLOR_STANDBY  = new THREE.Color(0x00f3ff); // Cyan / Blue default
     const COLOR_LISTEN   = new THREE.Color(0xffea00); // Yellow Core Ball
     const COLOR_THINK    = new THREE.Color(0xc800ff); // Violet
     const COLOR_SPEAK    = new THREE.Color(0x00ff88); // Vibrant Green Core Ball
@@ -3185,6 +3309,100 @@
     _loadPersonalitySettings();
 
     // ── End Soul Circuit ───────────────────────────────────────────────────────
+
+    // ── Tri-Theme Hologram HUD Controller (TSK-P5-03) ─────────────────────────
+    let currentHologramTheme = 'cyan';
+
+    function setHologramTheme(themeName, persist = true) {
+      const valid = (themeName || '').toLowerCase().trim();
+      const theme = (valid === 'crimson' || valid === 'emerald') ? valid : 'cyan';
+      currentHologramTheme = theme;
+
+      // 1. Update HTML document attribute for CSS custom properties
+      document.documentElement.setAttribute('data-theme', theme);
+
+      // 2. Update active pill buttons in UI
+      const buttons = ['cyan', 'crimson', 'emerald'];
+      buttons.forEach(t => {
+        const btn = document.getElementById('theme-btn-' + t);
+        if (btn) {
+          if (t === theme) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        }
+      });
+
+      // 3. Update WebGL color references dynamically
+      if (typeof THEME_PALETTES !== 'undefined' && THEME_PALETTES[theme]) {
+        const palette = THEME_PALETTES[theme];
+        if (typeof COLOR_STANDBY !== 'undefined') COLOR_STANDBY.setHex(palette.standby);
+        if (typeof COLOR_LISTEN !== 'undefined') COLOR_LISTEN.setHex(palette.listen);
+        if (typeof COLOR_THINK !== 'undefined') COLOR_THINK.setHex(palette.think);
+        if (typeof COLOR_SPEAK !== 'undefined') COLOR_SPEAK.setHex(palette.speak);
+
+        // Update targetColor immediately for seamless transition
+        if (typeof targetColor !== 'undefined' && typeof jarvisState !== 'undefined') {
+          if (jarvisState === 'STANDBY') {
+            targetColor.copy(COLOR_STANDBY);
+          } else if (jarvisState === 'LISTENING') {
+            targetColor.copy(COLOR_LISTEN);
+          } else if (jarvisState === 'THINKING') {
+            targetColor.copy(COLOR_THINK);
+          } else if (jarvisState === 'SPEAKING') {
+            targetColor.copy(COLOR_SPEAK);
+          }
+        }
+      }
+
+      // 4. Client-side persistence in localStorage
+      try {
+        localStorage.setItem('ultron_hologram_theme', theme);
+      } catch (e) {}
+
+      // 5. Server-side persistence via user preferences API
+      if (persist) {
+        fetch('/api/hologram/theme', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}) },
+          credentials: 'include',
+          body: JSON.stringify({ theme: theme })
+        }).catch(err => {
+          console.debug('Failed to sync theme preference to backend:', err);
+        });
+      }
+    }
+
+    async function _loadHologramTheme() {
+      // Priority 1: Check localStorage for instantaneous render
+      try {
+        const localTheme = localStorage.getItem('ultron_hologram_theme');
+        if (localTheme && (localTheme === 'cyan' || localTheme === 'crimson' || localTheme === 'emerald')) {
+          setHologramTheme(localTheme, false);
+        }
+      } catch (e) {}
+
+      // Priority 2: Hydrate from server-side user preferences
+      try {
+        const resp = await fetch('/api/hologram/theme', {
+          headers: typeof getAuthHeaders === 'function' ? getAuthHeaders() : {},
+          credentials: 'include'
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.theme && data.theme !== currentHologramTheme) {
+            setHologramTheme(data.theme, false);
+          }
+        }
+      } catch (e) {
+        console.debug('Could not hydrate theme from backend:', e);
+      }
+    }
+
+    // Hydrate hologram theme on startup
+    _loadHologramTheme();
+    // ── End Tri-Theme Hologram Controller ─────────────────────────────────────
   </script>
 </body>
 </html>

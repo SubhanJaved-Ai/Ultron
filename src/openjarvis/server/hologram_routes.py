@@ -309,3 +309,50 @@ async def update_personality_settings(payload: dict) -> dict:
         logger.warning("Invalid personality update rejected: %s", exc)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"personality": merged}
+
+
+# ---------------------------------------------------------------------------
+# Theme API  (TSK-P5-03 — Tri-Theme Hologram HUD)
+# ---------------------------------------------------------------------------
+
+
+@hologram_router.get("/api/hologram/theme")
+async def get_hologram_theme() -> dict:
+    """Return the current hologram HUD theme (cyan, crimson, emerald)."""
+    from openjarvis.core.user_preferences import get_theme
+
+    return {"theme": get_theme()}
+
+
+@hologram_router.post("/api/hologram/theme")
+async def update_hologram_theme(payload: dict) -> dict:
+    """Persist the hologram HUD theme.
+
+    Accepts a JSON body with key ``theme`` (or string directly).
+    Allowed values: 'cyan', 'crimson', 'emerald'.
+    Returns HTTP 422 for invalid theme values.
+    """
+    import logging
+
+    from fastapi import HTTPException
+
+    from openjarvis.core.user_preferences import set_theme
+
+    logger = logging.getLogger("openjarvis.server.hologram.theme")
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=422,
+            detail="Payload must be a JSON object with a 'theme' key.",
+        )
+    theme_val = payload.get("theme")
+    if not isinstance(theme_val, str):
+        raise HTTPException(
+            status_code=422,
+            detail="Theme value must be a string ('cyan', 'crimson', or 'emerald').",
+        )
+    try:
+        saved = set_theme(theme_val)
+    except ValueError as exc:
+        logger.warning("Invalid theme update rejected: %s", exc)
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"theme": saved}

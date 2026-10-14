@@ -461,3 +461,29 @@ class TestHologramRoutes:
         # API endpoint reference in JS
         assert "/api/hologram/personality" in html
 
+    def test_hologram_html_contains_theme_selector(self):
+        """Regression: Tri-Theme hologram controls must be present in HUD HTML (TSK-P5-03)."""
+        engine = _make_engine()
+        app = create_app(engine, "test-model")
+        client = TestClient(app)
+
+        resp = client.get("/hologram")
+        assert resp.status_code == 200
+        html = resp.text
+
+        # Theme selector buttons in HUD header
+        assert 'id="theme-selector"' in html
+        assert 'id="theme-btn-cyan"' in html
+        assert 'id="theme-btn-crimson"' in html
+        assert 'id="theme-btn-emerald"' in html
+
+        # JavaScript functions and structures
+        assert "setHologramTheme" in html
+        assert "THEME_PALETTES" in html
+        assert "_loadHologramTheme" in html
+        assert "/api/hologram/theme" in html
+
+        # Theme CSS tokens
+        assert '[data-theme="cyan"]' in html
+        assert '[data-theme="crimson"]' in html
+        assert '[data-theme="emerald"]' in html

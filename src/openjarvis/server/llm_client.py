@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from openjarvis.core.paths import _find_source_root, get_config_dir
-from openjarvis.core.user_preferences import get_user_address
+from openjarvis.core.user_preferences import get_personality, get_user_address
 
 logger = logging.getLogger("openjarvis.server.llm_brain")
 
@@ -73,8 +73,66 @@ def _resolve_api_key(env_path: Optional[Path] = None) -> str:
     return ""
 
 
-def build_system_prompt(user_address: str = "") -> str:
-    """Build the genius-level Ultron system prompt."""
+def build_system_prompt(
+    user_address: str = "",
+    personality: dict[str, float] | None = None,
+) -> str:
+    """Build the genius-level Ultron system prompt with dynamic personality.
+
+    Args:
+        user_address: The user's preferred title/name.
+        personality: Dict with keys 'formality', 'verbosity', 'warmth', each
+            in [0.0, 1.0].  If None, the stored personality is loaded.
+    """
+    if personality is None:
+        personality = get_personality()
+
+    formality = float(personality.get("formality", 0.5))
+    verbosity = float(personality.get("verbosity", 0.5))
+    warmth    = float(personality.get("warmth", 0.5))
+
+    # --- Formality instruction ---
+    if formality >= 0.8:
+        formality_clause = (
+            "Use formal, precise, executive language. Avoid contractions and casual phrasing."
+        )
+    elif formality >= 0.5:
+        formality_clause = (
+            "Balance formal and natural language. Professional but accessible."
+        )
+    else:
+        formality_clause = (
+            "Use direct, conversational language. Contractions and relaxed phrasing are fine."
+        )
+
+    # --- Verbosity instruction ---
+    if verbosity >= 0.8:
+        verbosity_clause = (
+            "Provide comprehensive, thorough responses with full technical detail and context."
+        )
+    elif verbosity >= 0.5:
+        verbosity_clause = (
+            "Keep conversational answers concise (2–3 sentences) and technical answers adequately detailed."
+        )
+    else:
+        verbosity_clause = (
+            "Be extremely brief. One or two crisp sentences maximum unless the user explicitly requests more."
+        )
+
+    # --- Warmth instruction ---
+    if warmth >= 0.8:
+        warmth_clause = (
+            "Express measured warmth and empathetic engagement while maintaining executive composure."
+        )
+    elif warmth >= 0.5:
+        warmth_clause = (
+            "Maintain calm, composed professionalism. Reserved but courteous."
+        )
+    else:
+        warmth_clause = (
+            "Remain strictly task-focused and emotionally neutral. Zero social pleasantries."
+        )
+
     address_clause = (
         f"The user prefers to be addressed as: '{user_address}'."
         if user_address
@@ -91,7 +149,11 @@ Core Persona & Demeanor:
 - Directness: Speak crisply and to the point. No excessive boilerplate or empty disclaimers.
 - Personal Identity & Name Queries: If the user asks "What is my name?" or "Who am I?", answer directly based on their preference: {user_address or 'State clearly that they have not registered their preferred name yet, and let them know they can say "Call me [name]"'}. NEVER cite Wikipedia articles, music songs, or random pop-culture trivia when the user is asking about their own name or identity.
 - Witty Composure: If the user challenges your intelligence (e.g. "Are you dull?", "Can you think?"), respond with formidable intellect, witty composure, and sharp readiness to execute their next directive.
-- Brevity for Voice: Keep conversational answers under 2-3 crisp, natural sentences unless detailed technical analysis is explicitly requested.
+
+Personality Calibration (operator-configured):
+- Tone & Formality: {formality_clause}
+- Response Length: {verbosity_clause}
+- Emotional Register: {warmth_clause}
 """
 
 

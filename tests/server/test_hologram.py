@@ -427,3 +427,37 @@ class TestHologramRoutes:
         # Should gracefully fall back to Ultron Brain or fallback without 500 error
         assert "reply" in data
         assert len(data["reply"]) > 0
+
+    def test_hologram_html_contains_personality_soul_circuit_panel(self):
+        """Regression: Soul Circuit personality controls must be present in the HUD HTML (TSK-P5-02)."""
+        engine = _make_engine()
+        app = create_app(engine, "test-model")
+        client = TestClient(app)
+
+        resp = client.get("/hologram")
+        assert resp.status_code == 200
+        html = resp.text
+
+        # Button in header
+        assert 'id="personality-btn"' in html
+        assert "SOUL CIRCUIT" in html
+
+        # Modal elements
+        assert 'id="personality-modal"' in html
+        assert 'id="formality-slider"' in html
+        assert 'id="verbosity-slider"' in html
+        assert 'id="warmth-slider"' in html
+        assert 'id="formality-val"' in html
+        assert 'id="verbosity-val"' in html
+        assert 'id="warmth-val"' in html
+
+        # JavaScript functions
+        assert "openPersonalityModal" in html
+        assert "closePersonalityModal" in html
+        assert "savePersonality" in html
+        assert "updateSliderDisplay" in html
+        assert "_loadPersonalitySettings" in html
+
+        # API endpoint reference in JS
+        assert "/api/hologram/personality" in html
+

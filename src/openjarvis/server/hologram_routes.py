@@ -261,3 +261,51 @@ async def handle_directive(request: Request, payload: dict) -> dict:
     finally:
         store.unregister(ctx_id)
         store.unregister("active")
+
+
+# ---------------------------------------------------------------------------
+# Personality API  (TSK-P5-02 — Soul Circuit)
+# ---------------------------------------------------------------------------
+
+
+@hologram_router.get("/api/hologram/personality")
+async def get_personality_settings() -> dict:
+    """Return the current personality dimension settings.
+
+    Returns a JSON object with keys ``formality``, ``verbosity``, and
+    ``warmth``, each a float in ``[0.0, 1.0]``.
+    """
+    from openjarvis.core.user_preferences import get_personality
+
+    return {"personality": get_personality()}
+
+
+@hologram_router.post("/api/hologram/personality")
+async def update_personality_settings(payload: dict) -> dict:
+    """Persist personality dimension updates.
+
+    Accepts a JSON body with any subset of ``formality``, ``verbosity``,
+    ``warmth`` as floats in ``[0.0, 1.0]``.  Unknown keys are ignored.
+    Values outside the valid range return HTTP 422.
+
+    Returns the full merged personality dict after saving.
+    """
+    import logging
+
+    from fastapi import HTTPException
+
+    from openjarvis.core.user_preferences import set_personality
+
+    logger = logging.getLogger("openjarvis.server.hologram.personality")
+    updates = payload.get("personality") or payload
+    if not isinstance(updates, dict):
+        raise HTTPException(
+            status_code=422,
+            detail="Payload must be a JSON object with personality dimension keys.",
+        )
+    try:
+        merged = set_personality(updates)
+    except ValueError as exc:
+        logger.warning("Invalid personality update rejected: %s", exc)
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"personality": merged}

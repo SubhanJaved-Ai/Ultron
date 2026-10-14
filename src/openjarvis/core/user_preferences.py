@@ -1,4 +1,4 @@
-"""User preferences and address/honorific management for OpenJarvis/Ultron."""
+"""User preferences, address/honorific management, and personality controls for OpenJarvis/Ultron."""
 
 from __future__ import annotations
 
@@ -141,3 +141,105 @@ def format_addressed(sentence: str) -> str:
     if title:
         return f"{clean}, {title}."
     return f"{clean}."
+
+
+# ---------------------------------------------------------------------------
+# Personality Controls (TSK-P5-02 — Soul Circuit)
+# ---------------------------------------------------------------------------
+
+#: Dimensions and their neutral defaults.
+PERSONALITY_DIMENSIONS = ("formality", "verbosity", "warmth")
+_PERSONALITY_DEFAULTS: dict[str, float] = {
+    "formality": 0.5,
+    "verbosity": 0.5,
+    "warmth": 0.5,
+}
+
+
+def _validate_personality_float(value: object) -> float:
+    """Return a clean float in [0.0, 1.0] or raise ValueError."""
+    try:
+        v = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Personality value must be a number, got: {value!r}") from exc
+    import math
+
+    if not math.isfinite(v):
+        raise ValueError(f"Personality value must be finite, got: {v!r}")
+    if not (0.0 <= v <= 1.0):
+        raise ValueError(
+            f"Personality value must be in [0.0, 1.0], got: {v!r}"
+        )
+    return round(v, 4)
+
+
+def get_personality() -> dict[str, float]:
+    """Return the current personality settings (Formality, Verbosity, Warmth).
+
+    Always returns a complete dict with all three keys; missing or corrupt
+    values fall back to the neutral default of 0.5.
+    """
+    result = dict(_PERSONALITY_DEFAULTS)
+    f = _get_pref_file()
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            pref = data.get("personality") or {}
+            if isinstance(pref, dict):
+                for dim in PERSONALITY_DIMENSIONS:
+                    raw = pref.get(dim)
+                    if raw is not None:
+                        try:
+                            result[dim] = _validate_personality_float(raw)
+                        except ValueError:
+                            pass  # keep default on invalid persisted value
+        except Exception:
+            pass
+    return result
+
+
+def set_personality(updates: dict[str, float]) -> dict[str, float]:
+    """Persist personality dimension updates and return the merged settings.
+
+    Only keys listed in PERSONALITY_DIMENSIONS are accepted.  Every value
+    is validated as a finite float in [0.0, 1.0].  Unknown keys and
+    injection payloads are silently discarded.
+
+    Args:
+        updates: Mapping of dimension name → float value in [0.0, 1.0].
+
+    Returns:
+        The full, merged personality dict after saving.
+
+    Raises:
+        ValueError: If any accepted dimension value fails validation.
+    """
+    # Validate accepted keys only — reject unknown/injection keys
+    sanitized: dict[str, float] = {}
+    for dim in PERSONALITY_DIMENSIONS:
+        if dim in updates:
+            sanitized[dim] = _validate_personality_float(updates[dim])
+
+    f = _get_pref_file()
+    data: dict = {}
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    existing_pref: dict[str, float] = {}
+    if isinstance(data.get("personality"), dict):
+        for dim in PERSONALITY_DIMENSIONS:
+            raw = data["personality"].get(dim)
+            if raw is not None:
+                try:
+                    existing_pref[dim] = _validate_personality_float(raw)
+                except ValueError:
+                    pass
+
+    merged = {**_PERSONALITY_DEFAULTS, **existing_pref, **sanitized}
+    data["personality"] = merged
+    f.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    logger.info("Personality settings updated: %s", merged)
+    return merged

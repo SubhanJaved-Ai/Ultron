@@ -33,6 +33,11 @@ class SecretScanner(BaseScanner):
                 self._rust_impl = None
 
     PATTERNS: Dict[str, Tuple[str, ThreatLevel, str]] = {
+        "google_gemini_key": (
+            r"(?:AIza[0-9A-Za-z\-_]{35}|AQ\.[0-9A-Za-z\-_]{30,})",
+            ThreatLevel.CRITICAL,
+            "Google Gemini API key",
+        ),
         "openai_key": (
             r"sk-[A-Za-z0-9_-]{20,}",
             ThreatLevel.CRITICAL,

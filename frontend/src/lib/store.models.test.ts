@@ -62,3 +62,44 @@ describe('setModels', () => {
     expect(useAppStore.getState().selectedModel).toBe('qwen3.5:4b');
   });
 });
+
+describe('setServerInfo model synchronization', () => {
+  it('synchronizes selectedModel when empty', async () => {
+    const { useAppStore } = await import('./store');
+    useAppStore.getState().setSelectedModel('');
+
+    useAppStore.getState().setServerInfo({
+      model: 'gemini-3.8-flash',
+      engine: 'gemini',
+      agent: 'jarvis',
+    });
+
+    expect(useAppStore.getState().selectedModel).toBe('gemini-3.8-flash');
+  });
+
+  it('migrates stale gemini-2.5 selection when server engine is gemini', async () => {
+    const { useAppStore } = await import('./store');
+    useAppStore.getState().setSelectedModel('gemini-2.5-flash');
+
+    useAppStore.getState().setServerInfo({
+      model: 'gemini-3.8-flash',
+      engine: 'gemini',
+      agent: 'jarvis',
+    });
+
+    expect(useAppStore.getState().selectedModel).toBe('gemini-3.8-flash');
+  });
+
+  it('preserves user selection when non-gemini or custom model is active', async () => {
+    const { useAppStore } = await import('./store');
+    useAppStore.getState().setSelectedModel('custom-llm-model');
+
+    useAppStore.getState().setServerInfo({
+      model: 'qwen3.5:4b',
+      engine: 'ollama',
+      agent: 'jarvis',
+    });
+
+    expect(useAppStore.getState().selectedModel).toBe('custom-llm-model');
+  });
+});

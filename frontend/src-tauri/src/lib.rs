@@ -3266,7 +3266,7 @@ mod native_overlay {
                     models.extend(["claude-sonnet-4-20250514", "claude-haiku-4-20250414"])
                 }
                 "GEMINI_API_KEY" | "GOOGLE_API_KEY" => {
-                    models.extend(["gemini-2.5-flash", "gemini-2.5-pro"])
+                    models.extend(["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-pro"])
                 }
                 _ => {}
             }
@@ -5008,7 +5008,7 @@ api_key = "   "
     fn test_confirm_gemini_promotes_google_api_key_and_restores_on_failure() {
         let cfg = InferenceConfig {
             kind: SourceKind::Custom,
-            model: Some("gemini-2.5-flash".into()),
+            model: Some("gemini-3.8-flash".into()),
             host: Some("https://generativelanguage.googleapis.com/v1beta/openai".into()),
             engine: Some("gemini".into()),
             confirmed: false,

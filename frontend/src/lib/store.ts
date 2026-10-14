@@ -514,7 +514,20 @@ export const useAppStore = create<AppState>((set, get) => {
       }),
     setModelsLoading: (loading: boolean) => set({ modelsLoading: loading }),
     setSelectedModel: (model: string) => set({ selectedModel: model }),
-    setServerInfo: (info: ServerInfo | null) => set({ serverInfo: info }),
+    setServerInfo: (info: ServerInfo | null) =>
+      set((state) => {
+        const shouldSync =
+          !!info?.model &&
+          (!state.selectedModel ||
+            (info.engine === 'gemini' &&
+              (state.selectedModel === 'gemini-2.5-pro' ||
+                state.selectedModel === 'gemini-2.5-flash')));
+
+        return {
+          serverInfo: info,
+          ...(shouldSync ? { selectedModel: info.model } : {}),
+        };
+      }),
     setSavings: (data: SavingsData | null) => set({ savings: data }),
     incrementSavings: (usage: TokenUsage) => {
       const cur = get().savings;

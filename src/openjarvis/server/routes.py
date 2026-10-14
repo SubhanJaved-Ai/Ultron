@@ -454,7 +454,10 @@ def _uses_direct_cloud_router(engine: Any, model: str) -> bool:
     """Whether *model* should bypass the configured engine for direct cloud."""
     from openjarvis.server.cloud_router import is_cloud_model
 
-    return is_cloud_model(model) and _engine_key_for_model(engine, model) != "litellm"
+    return is_cloud_model(model) and _engine_key_for_model(engine, model) not in (
+        "litellm",
+        "gemini",
+    )
 
 
 def _local_jarvis_response(query: str) -> str:
@@ -531,9 +534,13 @@ def _handle_direct(
                     **kwargs,
                 )
         except Exception as exc:
+            from openjarvis.security.credential_stripper import (
+                sanitize_error_message,
+            )
+
             logger.warning(
                 "LLM engine generation failed (%s); providing autonomous local response",
-                exc,
+                sanitize_error_message(str(exc)),
             )
             last_user_query = ""
             for m in reversed(messages):
@@ -923,10 +930,14 @@ async def _handle_stream_tools(
         except Exception as exc:
             import logging
 
+            from openjarvis.security.credential_stripper import (
+                sanitize_error_message,
+            )
+
+            clean_error = sanitize_error_message(str(exc))
             logging.getLogger("openjarvis.server").error(
                 "Tool stream error: %s",
-                exc,
-                exc_info=True,
+                clean_error,
             )
             error_chunk = ChatCompletionChunk(
                 id=chunk_id,
@@ -934,7 +945,7 @@ async def _handle_stream_tools(
                 choices=[
                     StreamChoice(
                         delta=DeltaMessage(
-                            content=f"\n\nError during generation: {exc}",
+                            content=f"\n\nError during generation: {clean_error}",
                         ),
                         finish_reason="stop",
                     )
@@ -1091,10 +1102,14 @@ async def _handle_stream(
             # display them instead of silently failing.
             import logging
 
+            from openjarvis.security.credential_stripper import (
+                sanitize_error_message,
+            )
+
+            clean_error = sanitize_error_message(str(exc))
             logging.getLogger("openjarvis.server").error(
                 "Stream error: %s",
-                exc,
-                exc_info=True,
+                clean_error,
             )
             error_chunk = ChatCompletionChunk(
                 id=chunk_id,
@@ -1102,7 +1117,7 @@ async def _handle_stream(
                 choices=[
                     StreamChoice(
                         delta=DeltaMessage(
-                            content=f"\n\nError during generation: {exc}",
+                            content=f"\n\nError during generation: {clean_error}",
                         ),
                         finish_reason="stop",
                     )
@@ -1189,10 +1204,15 @@ async def list_models(request: Request) -> ModelListResponse:
     model_ids = [
         m
         for m in all_ids
-        if not is_cloud_model(m) or _engine_key_for_model(engine, m) == "litellm"
+        if not is_cloud_model(m)
+        or _engine_key_for_model(engine, m) in ("litellm", "gemini")
     ]
     if not model_ids:
-        model_ids = await list_local_models()
+        if _engine_key_for_model(engine, "") == "gemini":
+            cfg_model = getattr(request.app.state, "model", None) or "gemini-3.8-flash"
+            model_ids = [cfg_model]
+        else:
+            model_ids = await list_local_models()
 
     # Keep embed-only models out of the chat model picker. They still work for
     # memory/retrieval via the embedder path; putting them in /v1/models made
@@ -1206,6 +1226,8 @@ async def list_models(request: Request) -> ModelListResponse:
                 owned_by=(
                     "litellm"
                     if _engine_key_for_model(engine, mid) == "litellm"
+                    else "gemini"
+                    if _engine_key_for_model(engine, mid) == "gemini"
                     else "openjarvis"
                 ),
             )

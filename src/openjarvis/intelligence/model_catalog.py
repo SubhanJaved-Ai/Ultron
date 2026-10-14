@@ -1079,6 +1079,21 @@ BUILTIN_MODELS: List[ModelSpec] = [
     # Cloud models — Google
     # -----------------------------------------------------------------------
     ModelSpec(
+        model_id="gemini-3.8-flash",
+        name="Gemini 3.8 Flash",
+        parameter_count_b=0.0,
+        context_length=1000000,
+        supported_engines=("cloud", "gemini"),
+        provider="google",
+        requires_api_key=True,
+        metadata={
+            "architecture": "proprietary",
+            "pricing_input": 0.30,
+            "pricing_output": 2.50,
+            "url": "https://ai.google.dev/gemini-api/docs/models#gemini-3.8-flash",
+        },
+    ),
+    ModelSpec(
         model_id="gemini-2.5-pro",
         name="Gemini 2.5 Pro",
         parameter_count_b=0.0,

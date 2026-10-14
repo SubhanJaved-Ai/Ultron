@@ -57,9 +57,9 @@ const CLOUD_PROVIDERS: CloudProvider[] = [
     name: 'Google',
     envKey: 'GEMINI_API_KEY',
     models: [
-      { id: 'gemini-2.5-pro', desc: 'Gemini 2.5 Pro — flagship' },
-      { id: 'gemini-2.5-flash', desc: 'Gemini 2.5 Flash — fast' },
-      { id: 'gemini-3-pro', desc: 'Gemini 3 Pro — latest' },
+      { id: 'gemini-3.8-flash', desc: 'Gemini 3.8 Flash — default, fast' },
+      { id: 'gemini-3.5-flash', desc: 'Gemini 3.5 Flash — balanced' },
+      { id: 'gemini-3.1-pro', desc: 'Gemini 3.1 Pro — capable' },
     ],
   },
   {

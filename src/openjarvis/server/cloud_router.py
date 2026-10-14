@@ -16,6 +16,10 @@ import httpx
 
 from openjarvis.core.paths import get_config_dir
 from openjarvis.core.types import Message
+from openjarvis.security.credential_stripper import (
+    sanitize_error_message,
+    sanitize_url,
+)
 
 # ---------------------------------------------------------------------------
 # Key / provider detection
@@ -132,23 +136,6 @@ def _to_anthropic_msgs(
     return system_text, chat
 
 
-def _to_google_contents(messages: Sequence[Message]) -> list[dict[str, Any]]:
-    """Convert to Google Gemini content format."""
-    contents = []
-    for m in messages:
-        role = m.role.value if hasattr(m.role, "value") else str(m.role)
-        if role == "system":
-            # Gemini doesn't have a system role in the contents array;
-            # prepend as a user message.
-            contents.append({"role": "user", "parts": [{"text": m.content or ""}]})
-            contents.append({"role": "model", "parts": [{"text": "Understood."}]})
-        elif role == "assistant":
-            contents.append({"role": "model", "parts": [{"text": m.content or ""}]})
-        else:
-            contents.append({"role": "user", "parts": [{"text": m.content or ""}]})
-    return contents
-
-
 # ---------------------------------------------------------------------------
 # Streaming generators
 # ---------------------------------------------------------------------------
@@ -161,9 +148,11 @@ async def _stream_openai(
     max_tokens: int,
     base_url: str = "https://api.openai.com/v1",
     api_key_name: str = "OPENAI_API_KEY",
+    api_key: str | None = None,
 ) -> AsyncIterator[str]:
-    keys = _load_keys()
-    api_key = keys.get(api_key_name, "")
+    if not api_key:
+        keys = _load_keys()
+        api_key = keys.get(api_key_name, "")
     if not api_key:
         raise ValueError(f"{api_key_name} not set — add it in the Cloud Models tab")
 
@@ -175,17 +164,32 @@ async def _stream_openai(
         "stream": True,
     }
 
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
     async with httpx.AsyncClient(timeout=180) as client:
         async with client.stream(
             "POST",
-            f"{base_url}/chat/completions",
+            url,
             json=payload,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
         ) as resp:
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                err_body = await resp.aread()
+                err_msg = ""
+                try:
+                    err_json = json.loads(err_body)
+                    err_msg = err_json.get("error", {}).get("message") or str(err_json)
+                except Exception:
+                    err_msg = err_body.decode("utf-8", errors="replace")[:300]
+                clean_msg = sanitize_error_message(err_msg)
+                clean_url = sanitize_url(str(resp.request.url))
+                raise RuntimeError(
+                    f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+                )
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -234,7 +238,19 @@ async def _stream_anthropic(
                 "Content-Type": "application/json",
             },
         ) as resp:
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                err_body = await resp.aread()
+                err_msg = ""
+                try:
+                    err_json = json.loads(err_body)
+                    err_msg = err_json.get("error", {}).get("message") or str(err_json)
+                except Exception:
+                    err_msg = err_body.decode("utf-8", errors="replace")[:300]
+                clean_msg = sanitize_error_message(err_msg)
+                clean_url = sanitize_url(str(resp.request.url))
+                raise RuntimeError(
+                    f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+                )
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -255,45 +271,22 @@ async def _stream_google(
     temperature: float,
     max_tokens: int,
 ) -> AsyncIterator[str]:
+    """Stream from Google Gemini using the official OpenAI-compatible endpoint."""
     keys = _load_keys()
     api_key = keys.get("GEMINI_API_KEY") or keys.get("GOOGLE_API_KEY", "")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not set — add it in the Cloud Models tab")
 
-    contents = _to_google_contents(messages)
-    payload: dict[str, Any] = {
-        "contents": contents,
-        "generationConfig": {
-            "temperature": temperature,
-            "maxOutputTokens": max_tokens,
-        },
-    }
-
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:streamGenerateContent?alt=sse&key={api_key}"
-    )
-
-    async with httpx.AsyncClient(timeout=180) as client:
-        async with client.stream("POST", url, json=payload) as resp:
-            resp.raise_for_status()
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                data = line[6:].strip()
-                try:
-                    chunk = json.loads(data)
-                    parts = (
-                        chunk.get("candidates", [{}])[0]
-                        .get("content", {})
-                        .get("parts", [])
-                    )
-                    for part in parts:
-                        text = part.get("text", "")
-                        if text:
-                            yield text
-                except Exception:
-                    pass
+    async for token in _stream_openai(
+        model,
+        messages,
+        temperature,
+        max_tokens,
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        api_key_name="GEMINI_API_KEY",
+        api_key=api_key,
+    ):
+        yield token
 
 
 # ---------------------------------------------------------------------------
@@ -327,7 +320,14 @@ async def stream_local(
     host = _ollama_host()
     async with httpx.AsyncClient(timeout=300) as client:
         async with client.stream("POST", f"{host}/api/chat", json=payload) as resp:
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                err_body = await resp.aread()
+                clean_msg = sanitize_error_message(
+                    err_body.decode("utf-8", errors="replace")[:300]
+                )
+                raise RuntimeError(
+                    f"Local provider error ({resp.status_code}): {clean_msg}"
+                )
             async for line in resp.aiter_lines():
                 if not line:
                     continue

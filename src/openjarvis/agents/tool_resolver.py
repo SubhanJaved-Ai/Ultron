@@ -217,12 +217,17 @@ def ensure_registries_populated() -> None:
                 except Exception:
                     pass
 
-    if not any(ToolRegistry.contains(name) for name in BROWSER_SUB_TOOLS):
+    if not all(ToolRegistry.contains(name) for name in BROWSER_SUB_TOOLS):
         for module_name in browser_modules:
             module = sys.modules.get(module_name)
             if module is not None:
                 try:
                     importlib.reload(module)
+                except Exception:
+                    pass
+            else:
+                try:
+                    importlib.import_module(module_name)
                 except Exception:
                     pass
 

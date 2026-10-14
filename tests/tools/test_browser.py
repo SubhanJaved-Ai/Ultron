@@ -216,7 +216,7 @@ class TestBrowserNavigateTool:
             tool.execute(url="https://example.com", wait_for="networkidle")
 
         page.goto.assert_called_once_with(
-            "https://example.com", wait_until="networkidle"
+            "https://example.com", wait_until="networkidle", timeout=30000
         )
 
     def test_execute_invalid_wait_for_defaults_to_load(self):
@@ -229,7 +229,9 @@ class TestBrowserNavigateTool:
             tool = BrowserNavigateTool()
             tool.execute(url="https://example.com", wait_for="invalid")
 
-        page.goto.assert_called_once_with("https://example.com", wait_until="load")
+        page.goto.assert_called_once_with(
+            "https://example.com", wait_until="load", timeout=30000
+        )
 
     def test_execute_content_truncation(self):
         from openjarvis.tools.browser import BrowserNavigateTool

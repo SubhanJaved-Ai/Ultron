@@ -275,9 +275,22 @@ class UltronBrain:
 
             return MemoryBackendManager.get_status()["message"]
 
+        # Self-identity queries
+        if any(
+            k in q
+            for k in (
+                "who are you",
+                "what are you",
+                "what is your name",
+                "identify yourself",
+            )
+        ):
+            addr_suffix = f", {user_addr}" if user_addr else ""
+            return f"I am Ultron{addr_suffix}—an autonomous digital execution assistant operating with full local and cloud cognitive systems. Assign me an objective and observe the results."
+
         # Default intelligent response
         addr_suffix = f", {user_addr}" if user_addr else ""
-        return f"Directive received: '{query}'. All core cognitive nodes are standing by to process and execute this task{addr_suffix}."
+        return f"Directive received: '{query}'. All core Ultron cognitive nodes are standing by to process and execute this task{addr_suffix}."
 
     def _eval_math(self, text: str) -> str | None:
         """Evaluate arithmetic directly."""

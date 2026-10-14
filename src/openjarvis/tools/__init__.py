@@ -207,4 +207,10 @@ try:
 except ImportError:
     pass
 
+try:
+    import openjarvis.tools.browser  # noqa: F401
+    import openjarvis.tools.browser_axtree  # noqa: F401
+except ImportError:
+    pass
+
 __all__ = ["BaseTool", "ToolExecutor", "ToolSpec"]

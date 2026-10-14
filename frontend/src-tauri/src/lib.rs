@@ -302,9 +302,21 @@ fn find_project_root() -> Option<std::path::PathBuf> {
         format!("{home}/repos/OpenJarvis"),
         format!("{home}/github/OpenJarvis"),
     ];
+    // Helper to check if a project root candidate is actually runnable
+    let is_usable_project_root = |path: &std::path::Path| -> bool {
+        if !path.join("pyproject.toml").exists() {
+            return false;
+        }
+        if path.join(".venv").exists() || path.join("venv").exists() || path.join("env").exists() {
+            return true;
+        }
+        let uv_bin = resolve_bin("uv");
+        std::path::Path::new(&uv_bin).exists() || uv_bin != "uv"
+    };
+
     for p in &direct {
         let path = std::path::PathBuf::from(p);
-        if path.join("pyproject.toml").exists() {
+        if is_usable_project_root(&path) {
             return Some(path);
         }
     }
@@ -329,13 +341,13 @@ fn find_project_root() -> Option<std::path::PathBuf> {
         if let Ok(entries) = std::fs::read_dir(&parent_path) {
             for entry in entries.flatten() {
                 let candidate = entry.path().join("OpenJarvis");
-                if candidate.join("pyproject.toml").exists() {
+                if is_usable_project_root(&candidate) {
                     return Some(candidate);
                 }
                 // Also check if the entry itself is OpenJarvis (case-insensitive match)
                 if let Some(name) = entry.file_name().to_str() {
                     if name.eq_ignore_ascii_case("openjarvis")
-                        && entry.path().join("pyproject.toml").exists()
+                        && is_usable_project_root(&entry.path())
                     {
                         return Some(entry.path());
                     }
@@ -451,7 +463,10 @@ pub(crate) fn format_missing_backend_runner(root: Option<&std::path::Path>) -> S
             r.display()
         );
     } else {
-        "Could not find OpenJarvis or a compatible backend runner. Clone the repository or set OPENJARVIS_ROOT.".to_string()
+        #[cfg(target_os = "windows")]
+        return "Could not find a supported Python backend runtime in the application directory (e.g. 'runtime\\python.exe' or 'resources\\runtime\\python.exe'). Please verify that the application was extracted with its bundled runtime.".to_string();
+        #[cfg(not(target_os = "windows"))]
+        return "Could not find a supported Python backend runtime in the application directory (e.g. 'runtime/bin/python' or 'resources/runtime/bin/python'). Please verify that the application was extracted with its bundled runtime.".to_string();
     }
 }
 
@@ -501,14 +516,26 @@ pub(crate) fn discover_backend_runner_with(
     // 2. Bundled / Standalone Server Executable beside openjarvis-desktop
     if let Some(dir) = exe_dir {
         let bundled_candidates = [
+            dir.join("openjarvis-backend.exe"),
+            dir.join("openjarvis-backend"),
             dir.join("openjarvis-server.exe"),
             dir.join("openjarvis-server"),
             dir.join("jarvis.exe"),
             dir.join("jarvis"),
+            dir.join("resources").join("openjarvis-backend.exe"),
+            dir.join("resources").join("openjarvis-backend"),
+            dir.join("resources").join("openjarvis-server.exe"),
+            dir.join("resources").join("openjarvis-server"),
+            dir.join("resources").join("jarvis.exe"),
+            dir.join("resources").join("jarvis"),
+            dir.join("bin").join("openjarvis-backend.exe"),
+            dir.join("bin").join("openjarvis-backend"),
             dir.join("bin").join("openjarvis-server.exe"),
             dir.join("bin").join("openjarvis-server"),
             dir.join("bin").join("jarvis.exe"),
             dir.join("bin").join("jarvis"),
+            dir.join("resources").join("bin").join("openjarvis-backend.exe"),
+            dir.join("resources").join("bin").join("openjarvis-backend"),
             dir.join("resources").join("bin").join("openjarvis-server.exe"),
             dir.join("resources").join("bin").join("openjarvis-server"),
             dir.join("resources").join("bin").join("jarvis.exe"),
@@ -519,6 +546,41 @@ pub(crate) fn discover_backend_runner_with(
                 return Ok(BackendRunner::Binary {
                     program: candidate.clone(),
                     base_args: vec!["serve".into(), "--port".into(), port_str],
+                    working_dir: project_root.map(|p| p.to_path_buf()).unwrap_or_else(|| dir.to_path_buf()),
+                });
+            }
+        }
+
+        // 2b. Bundled / Packaged Python Runtime beside openjarvis-desktop or in resources
+        let packaged_python_candidates = [
+            dir.join("runtime").join("python.exe"),
+            dir.join("runtime").join("Scripts").join("python.exe"),
+            dir.join("runtime").join("bin").join("python"),
+            dir.join("runtime").join("bin").join("python3"),
+            dir.join("resources").join("runtime").join("python.exe"),
+            dir.join("resources").join("runtime").join("Scripts").join("python.exe"),
+            dir.join("resources").join("runtime").join("bin").join("python"),
+            dir.join("resources").join("runtime").join("bin").join("python3"),
+            dir.join(".venv").join("Scripts").join("python.exe"),
+            dir.join(".venv").join("bin").join("python"),
+            dir.join("resources").join(".venv").join("Scripts").join("python.exe"),
+            dir.join("resources").join(".venv").join("bin").join("python"),
+            dir.join("python").join("python.exe"),
+            dir.join("python").join("bin").join("python"),
+            dir.join("resources").join("python").join("python.exe"),
+            dir.join("resources").join("python").join("bin").join("python"),
+        ];
+        for candidate in &packaged_python_candidates {
+            if path_exists(candidate) {
+                return Ok(BackendRunner::Python {
+                    python_bin: candidate.clone(),
+                    base_args: vec![
+                        "-m".into(),
+                        "openjarvis.cli".into(),
+                        "serve".into(),
+                        "--port".into(),
+                        port_str.clone(),
+                    ],
                     working_dir: project_root.map(|p| p.to_path_buf()).unwrap_or_else(|| dir.to_path_buf()),
                 });
             }
@@ -1713,7 +1775,13 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
         JARVIS_PORT,
     );
 
-    if runner_res.is_err() && project_root.is_none() {
+    // Auto-clone on first launch ONLY if explicitly enabled via OPENJARVIS_ENABLE_AUTOCLONE=1.
+    // Packaged consumer desktop builds must never attempt to git clone into ~/OpenJarvis.
+    let enable_autoclone = std::env::var("OPENJARVIS_ENABLE_AUTOCLONE")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
+    if runner_res.is_err() && project_root.is_none() && enable_autoclone {
         // Auto-clone on first launch if git is available
         let git_bin = resolve_bin("git");
 
@@ -5384,6 +5452,117 @@ api_key = "   "
 
         assert!(err.contains("Could not find a Python virtual environment"));
         assert!(err.contains("/repo"));
+    }
+
+    #[test]
+    fn test_discover_backend_runner_finds_packaged_runtime_in_exe_dir() {
+        let exe_dir = Path::new("C:/Program Files/OpenJarvis");
+        let expected_python = exe_dir.join("runtime").join("python.exe");
+        let runner = super::discover_backend_runner_with(
+            Some(exe_dir),
+            None,
+            8000,
+            |_| None,
+            |_| "uv".to_string(),
+            |p| p == expected_python,
+        )
+        .expect("should discover packaged runtime in exe_dir");
+
+        match runner {
+            super::BackendRunner::Python {
+                python_bin,
+                base_args,
+                working_dir,
+            } => {
+                assert_eq!(python_bin, expected_python);
+                assert_eq!(
+                    base_args,
+                    vec!["-m", "openjarvis.cli", "serve", "--port", "8000"]
+                );
+                assert_eq!(working_dir, exe_dir);
+            }
+            _ => panic!("Expected Python runner"),
+        }
+    }
+
+    #[test]
+    fn test_discover_backend_runner_finds_packaged_runtime_in_resources() {
+        let exe_dir = Path::new("C:/Program Files/OpenJarvis");
+        let expected_python = exe_dir.join("resources").join("runtime").join("python.exe");
+        let runner = super::discover_backend_runner_with(
+            Some(exe_dir),
+            None,
+            8000,
+            |_| None,
+            |_| "uv".to_string(),
+            |p| p == expected_python,
+        )
+        .expect("should discover packaged runtime in resources");
+
+        match runner {
+            super::BackendRunner::Python {
+                python_bin,
+                base_args,
+                working_dir,
+            } => {
+                assert_eq!(python_bin, expected_python);
+                assert_eq!(
+                    base_args,
+                    vec!["-m", "openjarvis.cli", "serve", "--port", "8000"]
+                );
+                assert_eq!(working_dir, exe_dir);
+            }
+            _ => panic!("Expected Python runner"),
+        }
+    }
+
+    #[test]
+    fn test_discover_backend_runner_finds_packaged_backend_binary() {
+        let exe_dir = Path::new("C:/Program Files/OpenJarvis");
+        let expected_bin = exe_dir.join("resources").join("openjarvis-backend.exe");
+        let runner = super::discover_backend_runner_with(
+            Some(exe_dir),
+            None,
+            8000,
+            |_| None,
+            |_| "uv".to_string(),
+            |p| p == expected_bin,
+        )
+        .expect("should discover packaged openjarvis-backend.exe");
+
+        match runner {
+            super::BackendRunner::Binary {
+                program,
+                base_args,
+                working_dir,
+            } => {
+                assert_eq!(program, expected_bin);
+                assert_eq!(base_args, vec!["serve", "--port", "8000"]);
+                assert_eq!(working_dir, exe_dir);
+            }
+            _ => panic!("Expected Binary runner"),
+        }
+    }
+
+    #[test]
+    fn test_discover_backend_runner_packaged_missing_runtime_fails_cleanly() {
+        let exe_dir = Path::new("C:/Program Files/OpenJarvis");
+        let err = super::discover_backend_runner_with(
+            Some(exe_dir),
+            None,
+            8000,
+            |_| None,
+            |_| "uv".to_string(),
+            |_| false,
+        )
+        .expect_err("should return actionable packaged missing runtime error");
+
+        assert!(
+            err.contains("Could not find a supported Python backend runtime in the application directory"),
+            "Error was: {}",
+            err
+        );
+        assert!(!err.contains("Install 'uv'"));
     }
 
     #[test]

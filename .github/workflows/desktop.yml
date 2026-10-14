@@ -90,6 +90,12 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
       - name: Use the reviewed npm toolchain
         shell: bash
         run: npm install --global npm@11.19.0
@@ -151,41 +157,60 @@ jobs:
           New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
           Copy-Item "frontend/src-tauri/target/debug/openjarvis-desktop.exe" -Destination (Join-Path $stageDir "openjarvis-desktop.exe")
 
+          # 1. Download official portable Python 3.12 64-bit embeddable zip
+          $runtimeDir = Join-Path $stageDir "runtime"
+          New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+          $zipPath = Join-Path $env:RUNNER_TEMP "python-3.12.9-embed-amd64.zip"
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+          Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.9/python-3.12.9-embed-amd64.zip" -OutFile $zipPath -UseBasicParsing
+          Expand-Archive -Path $zipPath -DestinationPath $runtimeDir -Force
+
+          # 2. Configure python312._pth to enable import site and Lib\site-packages
+          $pthFile = Join-Path $runtimeDir "python312._pth"
+          $pthContent = @(
+            "python312.zip",
+            ".",
+            "Lib\site-packages",
+            "import site"
+          )
+          Set-Content -Path $pthFile -Value $pthContent -Encoding ascii
+
+          # 3. Install OpenJarvis and server + cloud inference dependencies into Lib\site-packages
+          $siteDir = Join-Path $runtimeDir "Lib\site-packages"
+          New-Item -ItemType Directory -Path $siteDir -Force | Out-Null
+          python -m pip install --target $siteDir --no-warn-script-location ".[server,inference-cloud,inference-google]"
+
+          # 4. In-CI verification: execute openjarvis.cli serve --help using the packaged runtime
+          $runtimePython = Join-Path $runtimeDir "python.exe"
+          Write-Host "Verifying packaged Python runtime at: $runtimePython"
+          & $runtimePython -m openjarvis.cli serve --help
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Packaged Python runtime failed to execute 'openjarvis.cli serve --help'!"
+            exit 1
+          }
+          Write-Host "Packaged Python runtime verified successfully!"
+
           $lines = @(
             "======================================================================",
-            "ULTRON / OPENJARVIS WINDOWS DESKTOP SMOKE TEST BUNDLE (TSK-P5-01 / TSK-P5-06)",
+            "ULTRON / OPENJARVIS WINDOWS DESKTOP BUNDLE (STANDALONE RUNTIME INCLUDED)",
             "======================================================================",
             "Tested Commit SHA: ${{ github.sha }}",
             "Ref: ${{ github.ref }}",
             "Architecture: x86_64 Windows (MSVC)",
             "Built By: GitHub Actions (desktop.yml / validate-windows)",
             "",
-            "PREREQUISITES:",
-            "1. Windows 10 or Windows 11 (64-bit) with Microsoft Edge WebView2 Runtime.",
-            "2. Python backend running locally at http://127.0.0.1:8000.",
+            "FEATURES:",
+            "1. Self-contained portable Python 3.12 runtime included in .\runtime.",
+            "2. Zero dependency on system Python, uv, git, or compiler toolchains.",
+            "3. Automatic backend API server startup on application launch.",
             "",
-            "BACKEND STARTUP INSTRUCTIONS:",
-            "From repository root in PowerShell:",
-            "  .\.venv\Scripts\python.exe -m openjarvis.server",
-            "",
-            "OPTIONAL (Configured API Key Mode):",
-            "  `$env:OPENJARVIS_API_KEY=""test-key""",
-            "  .\.venv\Scripts\python.exe -m openjarvis.server",
-            "",
-            "REAL BROWSER AUTOMATION SMOKE TEST (Playwright / Chromium):",
-            "1. Launch openjarvis-desktop.exe.",
-            "2. Submit: 'Navigate to https://example.com and tell me what the page says.'",
-            "3. Verify HUD executes browser_navigate and returns content wrapped in untrusted boundaries.",
-            "4. Verify zero manual terminal setup required (automatic Chromium runtime initialization).",
-            "",
-            "MANUAL EMERGENCY STOP TEST STEPS (Ctrl+Alt+Escape):",
-            "1. Submit a long-running harmless command (e.g. ping -n 60 127.0.0.1).",
-            "2. Verify HUD transitions to active THINKING state.",
-            "3. Press physical Ctrl + Alt + Escape on keyboard.",
-            "4. Verify UI immediately transitions to CANCELLED state (amber indicator) and subprocess halts.",
+            "INSTRUCTIONS:",
+            "1. Extract this entire zip archive to a folder of your choice.",
+            "2. Double-click openjarvis-desktop.exe to launch.",
+            "3. Configure your API key in the Setup wizard (e.g. Gemini, OpenAI, Claude).",
             "",
             "SECURITY NOTICE:",
-            "This bundle contains only the compiled native binary and instructions.",
+            "This bundle contains only the compiled native binary and runtime dependencies.",
             "Zero credentials, .env files, private keys, or configs are included.",
             "======================================================================"
           )

@@ -291,15 +291,27 @@ if (Test-Path (Join-Path $srcDir '.git')) {
 }
 
 # ---------------------------------------------------------------------------
-# 6. uv sync --extra desktop --group desktop-native
+# 6. uv sync --extra desktop --extra browser --group desktop-native
 # ---------------------------------------------------------------------------
 
-Write-Info "Running 'uv sync --extra desktop --group desktop-native' in $srcDir (this can take a few minutes)..."
+Write-Info "Running 'uv sync --extra desktop --extra browser --group desktop-native' in $srcDir (this can take a few minutes)..."
 Push-Location $srcDir
 try {
-    & $uvExe sync --extra desktop --group desktop-native
+    & $uvExe sync --extra desktop --extra browser --group desktop-native
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "uv sync failed with exit code $LASTEXITCODE. Check the output above."
+    }
+
+    Write-Info "Ensuring Playwright Chromium browser runtime is available..."
+    try {
+        & $uvExe run python -m playwright install chromium
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "Chromium browser runtime ready"
+        } else {
+            Write-Warn2 "Playwright install chromium exited with code $LASTEXITCODE; automatic first-use fallback will initialize on demand."
+        }
+    } catch {
+        Write-Warn2 "Could not run playwright install chromium directly; automatic first-use fallback will initialize on demand."
     }
 } finally {
     Pop-Location

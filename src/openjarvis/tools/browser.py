@@ -5,7 +5,10 @@ from __future__ import annotations
 import base64
 import concurrent.futures
 import os
+import subprocess
+import sys
 import threading
+from pathlib import Path
 from typing import Any, Callable
 
 from openjarvis.core.registry import ToolRegistry
@@ -38,6 +41,30 @@ class _BrowserSession:
                 )
             return self._executor
 
+    @staticmethod
+    def _auto_install_chromium() -> bool:
+        """Attempt automatic first-use installation of Chromium runtime without manual terminal setup."""
+        try:
+            from playwright._impl._driver import compute_driver_executable
+
+            driver = compute_driver_executable()
+            cmd = [*driver, "install", "chromium"]
+            res = subprocess.run(cmd, capture_output=True, timeout=120)
+            if res.returncode == 0:
+                return True
+        except Exception:
+            pass
+
+        try:
+            res = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                capture_output=True,
+                timeout=120,
+            )
+            return res.returncode == 0
+        except Exception:
+            return False
+
     def _ensure_browser(self) -> None:
         if self._page is not None:
             return
@@ -54,10 +81,39 @@ class _BrowserSession:
             "--disable-dev-shm-usage",
             "--disable-gpu",
         ]
-        self._browser = self._playwright.chromium.launch(
-            headless=True,
-            args=launch_args,
-        )
+
+        exec_path = getattr(self._playwright.chromium, "executable_path", None)
+        if not exec_path or not Path(exec_path).is_file():
+            self._auto_install_chromium()
+
+        try:
+            self._browser = self._playwright.chromium.launch(
+                headless=True,
+                args=launch_args,
+            )
+        except Exception:
+            self._auto_install_chromium()
+            try:
+                self._browser = self._playwright.chromium.launch(
+                    headless=True,
+                    args=launch_args,
+                )
+            except Exception:
+                launched = False
+                for channel in ("msedge", "chrome"):
+                    try:
+                        self._browser = self._playwright.chromium.launch(
+                            headless=True,
+                            args=launch_args,
+                            channel=channel,
+                        )
+                        launched = True
+                        break
+                    except Exception:
+                        continue
+                if not launched:
+                    raise
+
         # Use an isolated ephemeral context so user cookies/profiles are never touched
         self._context = self._browser.new_context(
             viewport={"width": 1280, "height": 720},
@@ -1118,7 +1174,18 @@ def get_browser_runtime_status() -> dict[str, Any]:
         try:
             exec_path = pw.chromium.executable_path
             status["chromium_path"] = exec_path
-            status["chromium_available"] = bool(exec_path and Path(exec_path).is_file())
+            available = bool(exec_path and Path(exec_path).is_file())
+            if not available:
+                for ch in ("msedge", "chrome"):
+                    try:
+                        b = pw.chromium.launch(headless=True, channel=ch)
+                        b.close()
+                        available = True
+                        status["chromium_path"] = f"system:{ch}"
+                        break
+                    except Exception:
+                        continue
+            status["chromium_available"] = available
         finally:
             pw.stop()
     except Exception as exc:

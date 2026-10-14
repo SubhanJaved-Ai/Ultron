@@ -1058,6 +1058,46 @@ class TestBrowserSession:
         session._ensure_browser()
         assert session._page is mock_page
 
+    def test_auto_install_chromium_calls_driver_or_subprocess(self):
+        from openjarvis.tools.browser import _BrowserSession
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            success = _BrowserSession._auto_install_chromium()
+            assert success is True
+            assert mock_run.called
+
+    def test_ensure_browser_falls_back_to_channel_on_initial_error(self):
+        from openjarvis.tools.browser import _BrowserSession
+
+        session = _BrowserSession()
+        mock_pw = MagicMock()
+        mock_browser = MagicMock()
+        mock_context = MagicMock()
+        mock_page = MagicMock()
+        mock_context.new_page.return_value = mock_page
+        mock_browser.new_context.return_value = mock_context
+
+        # First launch throws; fallback with channel succeeds
+        mock_pw.chromium.launch.side_effect = [
+            Exception("Executable doesn't exist"),
+            Exception("Executable still doesn't exist"),
+            mock_browser,
+        ]
+        mock_pw.chromium.executable_path = "non_existent_chrome.exe"
+
+        with (
+            patch("playwright.sync_api.sync_playwright", return_value=MagicMock(start=MagicMock(return_value=mock_pw))),
+            patch.object(_BrowserSession, "_auto_install_chromium", return_value=True),
+        ):
+            session._ensure_browser()
+            assert session._browser is mock_browser
+            assert session._page is mock_page
+            # Confirm channel='msedge' was attempted
+            assert mock_pw.chromium.launch.call_count >= 3
+            last_call = mock_pw.chromium.launch.call_args_list[2]
+            assert last_call.kwargs.get("channel") == "msedge"
+
 
 # ---------------------------------------------------------------------------
 # TestRegistryIntegration

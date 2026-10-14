@@ -1336,12 +1336,16 @@ async def reload_cloud_engine(request: Request):
     try:
         body = await request.json()
         raw_keys = body.get("keys") if isinstance(body, dict) else None
+        if not isinstance(raw_keys, dict) and isinstance(body, dict):
+            raw_keys = body
         if isinstance(raw_keys, dict):
-            submitted_keys = {
-                str(k): str(v)
-                for k, v in raw_keys.items()
-                if str(k).endswith("_API_KEY")
-            }
+            submitted_keys = {}
+            for k, v in raw_keys.items():
+                k_str = str(k).strip()
+                k_upper = k_str.upper()
+                if not k_upper.endswith("_API_KEY"):
+                    k_upper = f"{k_upper}_API_KEY"
+                submitted_keys[k_upper] = str(v)
     except Exception:
         submitted_keys = None
 
@@ -1395,6 +1399,13 @@ async def reload_cloud_engine(request: Request):
         else:
             request.app.state.engine = new_multi
         request.app.state.engine_name = "multi"
+
+    try:
+        from openjarvis.server.llm_client import ultron_brain
+
+        ultron_brain._init_client()
+    except Exception:
+        pass
 
     return {"status": "ok", "message": "Cloud engine reloaded"}
 

@@ -97,7 +97,12 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         # Bearer auth for endpoints started with e.g. ``vllm serve --api-key``.
         # Setting it on the client covers generate/stream/stream_full/
         # list_models/health alike; ``None`` keeps requests header-free.
-        self._api_key = api_key or os.environ.get(f"{env_prefix}_API_KEY") or None
+        resolved_key = api_key or os.environ.get(f"{env_prefix}_API_KEY")
+        if not resolved_key and env_prefix == "GEMINI":
+            resolved_key = os.environ.get("GOOGLE_API_KEY")
+        if resolved_key:
+            resolved_key = resolved_key.strip().strip("'\"").strip()
+        self._api_key = resolved_key or None
         headers = (
             {"Authorization": f"Bearer {self._api_key}"} if self._api_key else None
         )

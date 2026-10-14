@@ -1,5 +1,6 @@
 import { useReducer, useState, type FormEvent } from 'react';
-import { ArrowLeft, Cpu, Download, Loader2, Server, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Cpu, Download, Loader2, Server, ShieldCheck, Sparkles } from 'lucide-react';
+import { sanitizeDiagnosticText } from '../lib/sanitize';
 import {
   resetInferenceSource,
   stageInferenceSource,
@@ -565,6 +566,9 @@ export function CredentialRecoveryCard({
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const sanitizedDetails = sanitizeDiagnosticText(error);
+
   const displayProvider =
     provider === 'gemini'
       ? 'Google Gemini'
@@ -625,15 +629,56 @@ export function CredentialRecoveryCard({
 
       <div
         role="alert"
-        className="px-3.5 py-3 rounded-xl text-xs mb-4 leading-relaxed"
+        className="px-4 py-3 rounded-xl text-xs mb-4 leading-relaxed flex flex-col gap-2"
         style={{
-          background: 'color-mix(in srgb, var(--color-error) 10%, transparent)',
-          border: '1px solid color-mix(in srgb, var(--color-error) 20%, transparent)',
-          color: 'var(--color-error)',
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
         }}
       >
-        {error ||
-          'An API key is required or your existing key was rejected. Please enter a valid API key to reconnect.'}
+        <div style={{ color: 'var(--color-text)' }}>
+          {error ||
+            'An API key is required or your existing key was rejected. Please enter a valid API key to reconnect.'}
+        </div>
+        <div
+          className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium"
+          style={{
+            background: 'var(--color-accent-subtle)',
+            color: 'var(--color-text)',
+          }}
+        >
+          <span className="font-semibold" style={{ color: 'var(--color-accent)' }}>
+            Recommended Action:{' '}
+          </span>
+          Generate a valid API key from your provider and enter it below to reconnect.
+        </div>
+        {sanitizedDetails && (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowDiagnostics(!showDiagnostics)}
+              className="text-[11px] flex items-center gap-1 cursor-pointer font-medium hover:underline"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              <span>{showDiagnostics ? 'Hide diagnostic details' : 'Show diagnostic details'}</span>
+              <ChevronDown
+                size={12}
+                className={`transition-transform duration-200 ${showDiagnostics ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {showDiagnostics && (
+              <pre
+                className="mt-1.5 p-2 rounded-lg font-mono text-[10px] leading-relaxed overflow-x-auto whitespace-pre-wrap select-all max-h-36"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border-subtle)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                {sanitizedDetails}
+              </pre>
+            )}
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -699,6 +744,8 @@ export function ProviderBusyCard({
 }) {
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState('');
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const sanitizedDetails = sanitizeDiagnosticText(error);
 
   const displayProvider =
     provider === 'gemini'
@@ -746,15 +793,57 @@ export function ProviderBusyCard({
 
       <div
         role="alert"
-        className="px-3.5 py-3 rounded-xl text-xs mb-4 leading-relaxed"
+        className="px-3.5 py-3 rounded-xl text-xs mb-4 leading-relaxed flex flex-col gap-2"
         style={{
-          background: 'color-mix(in srgb, var(--color-accent) 10%, transparent)',
-          border: '1px solid color-mix(in srgb, var(--color-accent) 20%, transparent)',
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
           color: 'var(--color-text)',
         }}
       >
-        {error ||
-          'The provider is experiencing temporary rate limiting or maintenance (HTTP 429/503). You can retry without re-entering your settings.'}
+        <div>
+          {error ||
+            'The provider is experiencing temporary rate limiting or maintenance (HTTP 429/503). You can retry without re-entering your settings.'}
+        </div>
+        <div
+          className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium"
+          style={{
+            background: 'var(--color-accent-subtle)',
+            color: 'var(--color-text)',
+          }}
+        >
+          <span className="font-semibold" style={{ color: 'var(--color-accent)' }}>
+            Recommended Action:{' '}
+          </span>
+          Wait a moment for provider capacity to recover, then retry connecting.
+        </div>
+        {sanitizedDetails && (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowDiagnostics(!showDiagnostics)}
+              className="text-[11px] flex items-center gap-1 cursor-pointer font-medium hover:underline"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              <span>{showDiagnostics ? 'Hide diagnostic details' : 'Show diagnostic details'}</span>
+              <ChevronDown
+                size={12}
+                className={`transition-transform duration-200 ${showDiagnostics ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {showDiagnostics && (
+              <pre
+                className="mt-1.5 p-2 rounded-lg font-mono text-[10px] leading-relaxed overflow-x-auto whitespace-pre-wrap select-all max-h-36"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border-subtle)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                {sanitizedDetails}
+              </pre>
+            )}
+          </div>
+        )}
       </div>
 
       {retryError && <SetupError message={retryError} />}

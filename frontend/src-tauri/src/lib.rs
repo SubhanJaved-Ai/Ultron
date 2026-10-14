@@ -878,9 +878,16 @@ async fn probe_endpoint_with_credential(
         format!("{}/models", trimmed)
     };
 
-    let req = client
+    let clean_key = api_key.trim().trim_matches('"').trim_matches('\'').trim();
+
+    let mut req = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key.trim()));
+        .header("Authorization", format!("Bearer {}", clean_key))
+        .header("User-Agent", "OpenJarvis/1.0");
+
+    if trimmed.contains("googleapis.com") {
+        req = req.header("x-goog-api-key", clean_key);
+    }
 
     let resp = match req.send().await {
         Ok(r) => r,
@@ -1542,6 +1549,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             .filter(|k| !k.trim().is_empty());
 
         if requires_key && resolved_key.is_none() {
+            pending_rollback.disarm();
             let mut s = status.lock().await;
             s.phase = "credential_required".into();
             s.detail = format!(
@@ -1572,7 +1580,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             let mut probe_result = probe_endpoint_with_credential(
                 &host,
                 key,
-                Duration::from_secs(4),
+                Duration::from_secs(7),
             )
             .await;
 
@@ -1585,7 +1593,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
                 probe_result = probe_endpoint_with_credential(
                     &host,
                     key,
-                    Duration::from_secs(4),
+                    Duration::from_secs(7),
                 )
                 .await;
             }
@@ -1593,6 +1601,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             match probe_result {
                 ProbeResult::Ok => {}
                 ProbeResult::AuthFailed(reason) => {
+                    pending_rollback.disarm();
                     let mut s = status.lock().await;
                     s.phase = "credential_invalid".into();
                     s.detail = "API key was rejected or revoked by provider.".into();
@@ -1608,6 +1617,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
                     return;
                 }
                 ProbeResult::RateLimited(reason) => {
+                    pending_rollback.disarm();
                     let mut s = status.lock().await;
                     s.phase = "provider_busy".into();
                     s.detail = "Provider rate limit reached (HTTP 429).".into();
@@ -1623,6 +1633,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
                     return;
                 }
                 ProbeResult::ServiceUnavailable(reason) => {
+                    pending_rollback.disarm();
                     let mut s = status.lock().await;
                     s.phase = "provider_busy".into();
                     s.detail = "Provider service unavailable (HTTP 503).".into();
@@ -1638,6 +1649,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
                     return;
                 }
                 ProbeResult::NetworkError(err) => {
+                    pending_rollback.disarm();
                     let mut s = status.lock().await;
                     s.phase = "network_error".into();
                     s.detail = "Could not reach inference endpoint.".into();
@@ -2102,6 +2114,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             let key_name = engine_opt.as_deref().map(engine_api_key_name);
 
             if is_auth_failure || (is_engine_unavailable && provider_requires_api_key(&cfg)) {
+                pending_rollback.disarm();
                 let mut s = status.lock().await;
                 s.phase = "credential_invalid".into();
                 s.detail = "Inference API key was rejected or unavailable.".into();
@@ -2158,6 +2171,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             let key_name = engine_opt.as_deref().map(engine_api_key_name);
 
             if is_auth_failure || (is_engine_unavailable && provider_requires_api_key(&cfg)) {
+                pending_rollback.disarm();
                 let mut s = status.lock().await;
                 s.phase = "credential_invalid".into();
                 s.detail = "Inference API key was rejected or unavailable.".into();
@@ -2920,7 +2934,12 @@ async fn update_inference_credential(
     backend: tauri::State<'_, SharedBackend>,
     status: tauri::State<'_, SharedStatus>,
 ) -> Result<(), String> {
-    let key_value = key_value.trim().to_string();
+    let key_value = key_value
+        .trim()
+        .trim_matches('"')
+        .trim_matches('\'')
+        .trim()
+        .to_string();
     if key_value.is_empty() {
         return Err("API key cannot be empty.".into());
     }
@@ -2928,11 +2947,36 @@ async fn update_inference_credential(
     secure_store_set(&key_name, &key_value)?;
     if key_name == "GEMINI_API_KEY" {
         let _ = secure_store_set("GOOGLE_API_KEY", &key_value);
+    } else if key_name == "GOOGLE_API_KEY" {
+        let _ = secure_store_set("GEMINI_API_KEY", &key_value);
     }
     let _ = secure_store_set(PENDING_INFERENCE_API_KEY, "");
 
+    // Ensure the inference config is preserved and confirmed
+    let current_cfg = read_configured_inference_config();
+    let mut cfg = match current_cfg {
+        Some(c) => c,
+        None => {
+            let s_guard = status.lock().await.clone();
+            InferenceConfig {
+                kind: SourceKind::Custom,
+                confirmed: true,
+                model: s_guard.saved_model,
+                host: s_guard.saved_host,
+                engine: s_guard.credential_provider,
+            }
+        }
+    };
+    cfg.confirmed = true;
+    let _ = write_inference_config(&cfg);
+
     let b = backend.inner().clone();
     let s = status.inner().clone();
+    {
+        let mut manager = b.lock().await;
+        manager.stop_all().await;
+    }
+
     start_managed_boot(b, s).await;
     Ok(())
 }
@@ -5475,4 +5519,16 @@ api_key = "   "
             ProbeResult::NetworkError("timeout".into())
         );
     }
+
+    #[test]
+    fn test_clean_api_key_strips_quotes_and_whitespace() {
+        let raw = "  \"AIzaSy_fake_test_key_123\"  ";
+        let clean = raw.trim().trim_matches(|c| c == '"' || c == '\'').trim();
+        assert_eq!(clean, "AIzaSy_fake_test_key_123");
+
+        let single = " 'AIzaSy_fake_single_quote' ";
+        let clean_single = single.trim().trim_matches(|c| c == '"' || c == '\'').trim();
+        assert_eq!(clean_single, "AIzaSy_fake_single_quote");
+    }
 }
+

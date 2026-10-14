@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, CheckCircle2, XCircle, Cpu, Server, Database } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Cpu, Server, Database } from 'lucide-react';
 import {
   getSetupStatus,
   fetchModels,
@@ -17,6 +17,7 @@ import {
   InferenceSourceSetup,
   ProviderBusyCard,
 } from './InferenceSourceSetup';
+import { SetupStatusCard } from './SetupStatusCard';
 
 const STEPS = [
   { key: 'ollama_ready', label: 'Inference Engine', icon: Cpu, detail: 'Starting Ollama...' },
@@ -26,18 +27,20 @@ const STEPS = [
 
 type StepKey = (typeof STEPS)[number]['key'];
 
-function StepRow({
+export function StepRow({
   icon: Icon,
   label,
   done,
   active,
   detail,
+  hasError,
 }: {
   icon: typeof Cpu;
   label: string;
   done: boolean;
   active: boolean;
   detail: string;
+  hasError?: boolean;
 }) {
   return (
     <div
@@ -54,8 +57,16 @@ function StepRow({
       <div
         className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
         style={{
-          background: done ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
-          color: done ? 'white' : 'var(--color-text-tertiary)',
+          background: done
+            ? 'var(--color-accent)'
+            : hasError && active
+              ? 'color-mix(in srgb, var(--color-warning, #f59e0b) 15%, transparent)'
+              : 'var(--color-bg-tertiary)',
+          color: done
+            ? 'white'
+            : hasError && active
+              ? 'var(--color-warning, #f59e0b)'
+              : 'var(--color-text-tertiary)',
         }}
       >
         <Icon size={18} />
@@ -65,12 +76,14 @@ function StepRow({
           {label}
         </div>
         <div className="text-xs truncate" style={{ color: 'var(--color-text-tertiary)', maxWidth: '280px' }}>
-          {done ? 'Ready' : active ? detail : 'Waiting...'}
+          {done ? 'Ready' : active ? (hasError ? 'Stopped (see details below)' : detail) : 'Waiting...'}
         </div>
       </div>
       <div className="shrink-0">
         {done ? (
           <CheckCircle2 size={18} style={{ color: 'var(--color-accent)' }} />
+        ) : active && hasError ? (
+          <AlertCircle size={18} style={{ color: 'var(--color-warning, #f59e0b)' }} />
         ) : active ? (
           <Loader2 size={18} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
         ) : (
@@ -143,7 +156,6 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
   const submitReplacementCredential = useCallback(
     async (keyName: string, keyValue: string) => {
       await updateInferenceCredential(keyName, keyValue);
-      setSetupInitiated(true);
       await poll();
     },
     [poll],
@@ -151,7 +163,6 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
 
   const retryBackendStartup = useCallback(async () => {
     await startBackend();
-    setSetupInitiated(true);
     await poll();
   }, [poll]);
 
@@ -172,7 +183,7 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
     );
   }
 
-  if (statusChecked && status?.requires_credential && !setupInitiated) {
+  if (statusChecked && status?.requires_credential) {
     return (
       <div
         className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4 sm:p-6"
@@ -210,8 +221,7 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
 
   if (
     statusChecked &&
-    (status?.phase === 'provider_busy' || status?.phase === 'network_error') &&
-    !setupInitiated
+    (status?.phase === 'provider_busy' || status?.phase === 'network_error')
   ) {
     return (
       <div
@@ -251,6 +261,8 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
           ? 'server_ready'
           : null;
 
+  const hasStepError = Boolean(status?.error);
+
   return (
     <div
       className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4 sm:p-6"
@@ -278,7 +290,7 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
         </div>
 
         {/* Steps */}
-        <div className="flex flex-col gap-2 mb-8">
+        <div className="flex flex-col gap-2 mb-6">
           {(status?.source === 'custom'
             ? [
                 { key: 'ollama_ready' as const, label: 'Inference Engine', icon: Cpu, detail: 'Connecting to your server...' },
@@ -293,6 +305,7 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
               label={step.label}
               done={status?.[step.key] ?? false}
               active={activeStep === step.key}
+              hasError={hasStepError}
               detail={
                 activeStep === step.key && status?.detail
                   ? status.detail
@@ -302,18 +315,16 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
           ))}
         </div>
 
-        {/* Error */}
+        {/* Polished Status Card for Errors */}
         {status?.error && (
-          <div
-            className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
-            style={{
-              background: 'color-mix(in srgb, var(--color-error) 10%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--color-error) 20%, transparent)',
-              color: 'var(--color-error)',
-            }}
-          >
-            <XCircle size={16} className="shrink-0 mt-0.5" />
-            <span style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{status.error}</span>
+          <div className="mb-6">
+            <SetupStatusCard
+              status={status}
+              onRetry={retryBackendStartup}
+              onUpdateCredential={submitReplacementCredential}
+              onChangeProvider={() => void changeInferenceSource()}
+              recovering={recovering}
+            />
           </div>
         )}
 
@@ -327,7 +338,7 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
           </div>
         )}
 
-        {statusChecked && status && !status.requires_source && status.phase !== 'ready' && (
+        {statusChecked && status && !status.requires_source && status.phase !== 'ready' && !status.error && (
           <InferenceRecoveryButton
             recovering={recovering}
             onChange={() => void changeInferenceSource()}
@@ -358,3 +369,4 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
     </div>
   );
 }
+

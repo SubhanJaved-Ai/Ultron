@@ -57,4 +57,39 @@ describe('SetupScreen state machine transitions', () => {
     expect(html).toContain('overflow-y-auto');
     expect(html).toContain('OpenJarvis');
   });
+
+  it('stops infinite spinner on terminal step error in StepRow', async () => {
+    const { StepRow } = await import('./SetupScreen');
+    const { Cpu } = await import('lucide-react');
+
+    const errorHtml = renderToStaticMarkup(
+      <StepRow
+        icon={Cpu}
+        label="Inference Engine"
+        done={false}
+        active={true}
+        hasError={true}
+        detail="Starting Ollama..."
+      />,
+    );
+
+    // Should indicate stopped and NOT spin forever on the active step
+    expect(errorHtml).toContain('Stopped (see details below)');
+    expect(errorHtml).not.toContain('animate-spin');
+    expect(errorHtml).toContain('lucide-alert-circle');
+
+    const runningHtml = renderToStaticMarkup(
+      <StepRow
+        icon={Cpu}
+        label="Inference Engine"
+        done={false}
+        active={true}
+        hasError={false}
+        detail="Starting Ollama..."
+      />,
+    );
+    expect(runningHtml).toContain('animate-spin');
+  });
 });
+
+

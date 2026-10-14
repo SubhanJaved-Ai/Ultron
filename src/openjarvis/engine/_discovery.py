@@ -203,17 +203,30 @@ def get_engine(
         if not EngineRegistry.contains(engine_key):
             logger.warning("Requested engine %r is not registered", engine_key)
             return None
+        engine = None
         try:
             engine = _make_engine(engine_key, config)
             if _usable(engine):
                 return (engine_key, engine)
         except Exception as exc:
             logger.debug("Engine %r health check failed: %s", engine_key, exc)
-        logger.warning(
-            "Requested engine %r is unavailable%s; no substitute was selected",
-            engine_key,
-            f" for model {model!r}" if model else "",
-        )
+
+        status = getattr(engine, "last_health_status", None) if engine else None
+        err = getattr(engine, "last_health_error", None) if engine else None
+        if status in (401, 403) or (err and "authentication" in err.lower()):
+            logger.error(
+                "Requested engine %r authentication failed (HTTP %s): %s",
+                engine_key,
+                status,
+                err or "API key rejected or missing",
+            )
+        else:
+            logger.warning(
+                "Requested engine %r is unavailable%s; no substitute was selected%s",
+                engine_key,
+                f" for model {model!r}" if model else "",
+                f" ({err})" if err else "",
+            )
         return None
 
     default_key = config.engine.default

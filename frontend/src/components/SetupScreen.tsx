@@ -5,11 +5,18 @@ import {
   fetchModels,
   fetchRecommendedModel,
   resetInferenceSource,
+  startBackend,
+  updateInferenceCredential,
   type SetupStatus,
 } from '../lib/api';
 import { useAppStore } from '../lib/store';
 import { isEmbedOnlyModel } from '../lib/model-capabilities';
-import { InferenceRecoveryButton, InferenceSourceSetup } from './InferenceSourceSetup';
+import {
+  CredentialRecoveryCard,
+  InferenceRecoveryButton,
+  InferenceSourceSetup,
+  ProviderBusyCard,
+} from './InferenceSourceSetup';
 
 const STEPS = [
   { key: 'ollama_ready', label: 'Inference Engine', icon: Cpu, detail: 'Starting Ollama...' },
@@ -133,6 +140,21 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
     }
   }, [poll]);
 
+  const submitReplacementCredential = useCallback(
+    async (keyName: string, keyValue: string) => {
+      await updateInferenceCredential(keyName, keyValue);
+      setSetupInitiated(true);
+      await poll();
+    },
+    [poll],
+  );
+
+  const retryBackendStartup = useCallback(async () => {
+    await startBackend();
+    setSetupInitiated(true);
+    await poll();
+  }, [poll]);
+
   useEffect(() => {
     poll();
     const interval = setInterval(poll, 800);
@@ -150,6 +172,76 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
     );
   }
 
+  if (statusChecked && status?.requires_credential && !setupInitiated) {
+    return (
+      <div
+        className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4 sm:p-6"
+        style={{ background: 'var(--color-bg)' }}
+      >
+        <div className="w-full max-w-md my-auto">
+          <div className="text-center mb-6">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+            >
+              <Cpu size={32} />
+            </div>
+            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text)' }}>
+              OpenJarvis
+            </h1>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              Credential configuration required
+            </p>
+          </div>
+
+          <CredentialRecoveryCard
+            provider={status.credential_provider}
+            keyName={status.credential_key_name}
+            savedModel={status.saved_model}
+            savedHost={status.saved_host}
+            error={status.error}
+            onSubmit={submitReplacementCredential}
+            onResetSource={() => void changeInferenceSource()}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (
+    statusChecked &&
+    (status?.phase === 'provider_busy' || status?.phase === 'network_error') &&
+    !setupInitiated
+  ) {
+    return (
+      <div
+        className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4 sm:p-6"
+        style={{ background: 'var(--color-bg)' }}
+      >
+        <div className="w-full max-w-md my-auto">
+          <div className="text-center mb-6">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+            >
+              <Cpu size={32} />
+            </div>
+            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text)' }}>
+              OpenJarvis
+            </h1>
+          </div>
+
+          <ProviderBusyCard
+            provider={status.credential_provider}
+            error={status.error}
+            onRetry={retryBackendStartup}
+            onResetSource={() => void changeInferenceSource()}
+          />
+        </div>
+      </div>
+    );
+  }
+
   const activeStep: StepKey | null =
     status && !status.ollama_ready
       ? 'ollama_ready'
@@ -161,10 +253,10 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center"
+      className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4 sm:p-6"
       style={{ background: 'var(--color-bg)' }}
     >
-      <div className="w-full max-w-md px-6">
+      <div className="w-full max-w-md my-auto px-2 sm:px-0">
         {/* Logo */}
         <div className="text-center mb-10">
           <div

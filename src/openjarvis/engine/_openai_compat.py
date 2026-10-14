@@ -114,6 +114,8 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         self._client = httpx.Client(
             base_url=self._host, timeout=timeout, headers=headers
         )
+        self.last_health_status: int | None = None
+        self.last_health_error: str | None = None
 
     # -- InferenceEngine interface ------------------------------------------
 
@@ -469,9 +471,42 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
 
     def health(self) -> bool:
         try:
-            resp = self._client.get(f"{self._api_prefix}/models", timeout=2.0)
-            return resp.status_code == 200
+            resp = self._client.get(f"{self._api_prefix}/models", timeout=3.0)
+            self.last_health_status = resp.status_code
+            if resp.status_code == 200:
+                self.last_health_error = None
+                return True
+            if resp.status_code in (401, 403) or (
+                resp.status_code == 400
+                and any(w in resp.text.lower() for w in ("api_key", "api key", "invalid key"))
+            ):
+                self.last_health_error = f"Authentication failed: API key rejected or revoked (HTTP {resp.status_code})"
+                logger.error(
+                    "%s health check failed (HTTP %d): %s",
+                    self.engine_id,
+                    resp.status_code,
+                    self.last_health_error,
+                )
+            elif resp.status_code in (429, 502, 503, 504):
+                self.last_health_error = f"Provider temporarily unavailable (HTTP {resp.status_code})"
+                logger.warning(
+                    "%s health check failed (HTTP %d): %s",
+                    self.engine_id,
+                    resp.status_code,
+                    self.last_health_error,
+                )
+            else:
+                self.last_health_error = f"Health check returned HTTP {resp.status_code}"
+                logger.debug(
+                    "%s health check failed (HTTP %d): %s",
+                    self.engine_id,
+                    resp.status_code,
+                    resp.text,
+                )
+            return False
         except Exception as exc:
+            self.last_health_status = None
+            self.last_health_error = str(exc)
             logger.debug(
                 "%s health check failed at %s: %s",
                 self.engine_id,

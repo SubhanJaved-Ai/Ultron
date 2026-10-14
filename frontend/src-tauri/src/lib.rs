@@ -718,6 +718,16 @@ struct SetupStatus {
     /// A fresh desktop install must collect an explicit source choice before
     /// any inference process is allowed to start.
     requires_source: bool,
+    /// True when startup requires the user to configure or re-enter an API key.
+    requires_credential: bool,
+    /// The engine/provider key whose credential is required (e.g. "gemini").
+    credential_provider: Option<String>,
+    /// The secure storage key name for this credential (e.g. "GEMINI_API_KEY").
+    credential_key_name: Option<String>,
+    /// Persisted model name preserved during credential recovery.
+    saved_model: Option<String>,
+    /// Persisted host URL preserved during credential recovery.
+    saved_host: Option<String>,
 }
 
 impl Default for SetupStatus {
@@ -731,6 +741,11 @@ impl Default for SetupStatus {
             error: None,
             source: "unconfigured".into(),
             requires_source: true,
+            requires_credential: false,
+            credential_provider: None,
+            credential_key_name: None,
+            saved_model: None,
+            saved_host: None,
         }
     }
 }
@@ -746,6 +761,11 @@ impl SetupStatus {
             }
             .into(),
             requires_source: false,
+            requires_credential: false,
+            credential_provider: None,
+            credential_key_name: None,
+            saved_model: cfg.model.clone(),
+            saved_host: cfg.host.clone(),
             ..Self::default()
         }
     }
@@ -794,6 +814,105 @@ async fn endpoint_reachable(host: &str, timeout: Duration) -> bool {
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
     false
+}
+
+/// Determine whether a custom inference provider requires an API key.
+fn provider_requires_api_key(cfg: &InferenceConfig) -> bool {
+    if !matches!(cfg.kind, SourceKind::Custom) {
+        return false;
+    }
+    let engine = cfg.engine.as_deref().unwrap_or("").to_ascii_lowercase();
+    if matches!(
+        engine.as_str(),
+        "gemini"
+            | "openai"
+            | "anthropic"
+            | "openrouter"
+            | "cloud"
+            | "groq"
+            | "mistral"
+            | "deepseek"
+            | "atlascloud"
+            | "minimax"
+    ) {
+        return true;
+    }
+    if let Some(host) = &cfg.host {
+        let h = host.to_ascii_lowercase();
+        if h.contains("googleapis.com")
+            || h.contains("openai.com")
+            || h.contains("anthropic.com")
+            || h.contains("openrouter.ai")
+            || h.contains("groq.com")
+        {
+            return true;
+        }
+    }
+    false
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ProbeResult {
+    Ok,
+    AuthFailed(String),
+    RateLimited(String),
+    ServiceUnavailable(String),
+    NetworkError(String),
+}
+
+/// Probe a remote endpoint with an API key to diagnose auth, rate limit, or service status.
+async fn probe_endpoint_with_credential(
+    host: &str,
+    api_key: &str,
+    timeout: Duration,
+) -> ProbeResult {
+    let client = match reqwest::Client::builder().timeout(timeout).build() {
+        Ok(c) => c,
+        Err(e) => return ProbeResult::NetworkError(e.to_string()),
+    };
+
+    let trimmed = host.trim_end_matches('/');
+    let url = if trimmed.ends_with("/models") {
+        trimmed.to_string()
+    } else {
+        format!("{}/models", trimmed)
+    };
+
+    let req = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", api_key.trim()));
+
+    let resp = match req.send().await {
+        Ok(r) => r,
+        Err(e) => return ProbeResult::NetworkError(e.to_string()),
+    };
+
+    let status = resp.status();
+    if status.is_success() {
+        return ProbeResult::Ok;
+    }
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        return ProbeResult::AuthFailed(format!("HTTP {}", status.as_u16()));
+    }
+    if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        return ProbeResult::RateLimited(format!("HTTP {}", status.as_u16()));
+    }
+    if status == reqwest::StatusCode::SERVICE_UNAVAILABLE
+        || status == reqwest::StatusCode::BAD_GATEWAY
+        || status == reqwest::StatusCode::GATEWAY_TIMEOUT
+    {
+        return ProbeResult::ServiceUnavailable(format!("HTTP {}", status.as_u16()));
+    }
+    if status == reqwest::StatusCode::BAD_REQUEST {
+        let body = resp.text().await.unwrap_or_default();
+        if body.contains("API_KEY_INVALID")
+            || body.contains("API key not valid")
+            || body.contains("api_key")
+        {
+            return ProbeResult::AuthFailed("API key rejected by provider (HTTP 400)".into());
+        }
+    }
+    ProbeResult::NetworkError(format!("HTTP {}", status.as_u16()))
 }
 
 /// Outcome of waiting for `jarvis serve` to become healthy.
@@ -1396,12 +1515,145 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             .as_ref()
             .map(|(_, v)| v.clone())
             .unwrap_or_default();
+        let engine = cfg
+            .engine
+            .clone()
+            .unwrap_or_else(|| CUSTOM_FALLBACK_ENGINE.to_string());
+        let key_name = engine_api_key_name(&engine);
+        let requires_key = provider_requires_api_key(&cfg);
+
         {
             let mut s = status.lock().await;
             s.phase = "model".into();
             s.detail = format!("Connecting to {}...", host);
         }
-        if host.is_empty() || !endpoint_reachable(&host, Duration::from_secs(15)).await {
+
+        let resolved_key = secure_store_get(&key_name)
+            .ok()
+            .flatten()
+            .or_else(|| {
+                if engine == "gemini" {
+                    secure_store_get("GOOGLE_API_KEY").ok().flatten()
+                } else {
+                    None
+                }
+            })
+            .or_else(|| secure_store_get(PENDING_INFERENCE_API_KEY).ok().flatten())
+            .filter(|k| !k.trim().is_empty());
+
+        if requires_key && resolved_key.is_none() {
+            let mut s = status.lock().await;
+            s.phase = "credential_required".into();
+            s.detail = format!(
+                "API key required for {}.",
+                if engine == "gemini" {
+                    "Google Gemini"
+                } else {
+                    &engine
+                }
+            );
+            s.error = Some(format!(
+                "An API key is required to connect to {}. Please enter your API key to continue.",
+                if engine == "gemini" {
+                    "Google Gemini"
+                } else {
+                    &engine
+                }
+            ));
+            s.requires_credential = true;
+            s.credential_provider = Some(engine);
+            s.credential_key_name = Some(key_name);
+            s.saved_model = cfg.model.clone();
+            s.saved_host = cfg.host.clone();
+            return;
+        }
+
+        if let (Some(key), true) = (&resolved_key, requires_key) {
+            let mut probe_result = probe_endpoint_with_credential(
+                &host,
+                key,
+                Duration::from_secs(4),
+            )
+            .await;
+
+            // Retry once on transient rate-limit or temporary service outage
+            if matches!(
+                probe_result,
+                ProbeResult::RateLimited(_) | ProbeResult::ServiceUnavailable(_)
+            ) {
+                tokio::time::sleep(Duration::from_millis(1500)).await;
+                probe_result = probe_endpoint_with_credential(
+                    &host,
+                    key,
+                    Duration::from_secs(4),
+                )
+                .await;
+            }
+
+            match probe_result {
+                ProbeResult::Ok => {}
+                ProbeResult::AuthFailed(reason) => {
+                    let mut s = status.lock().await;
+                    s.phase = "credential_invalid".into();
+                    s.detail = "API key was rejected or revoked by provider.".into();
+                    s.error = Some(format!(
+                        "Authentication failed ({}): your API key is invalid or has been revoked. Please update your API key to continue.",
+                        reason
+                    ));
+                    s.requires_credential = true;
+                    s.credential_provider = Some(engine);
+                    s.credential_key_name = Some(key_name);
+                    s.saved_model = cfg.model.clone();
+                    s.saved_host = cfg.host.clone();
+                    return;
+                }
+                ProbeResult::RateLimited(reason) => {
+                    let mut s = status.lock().await;
+                    s.phase = "provider_busy".into();
+                    s.detail = "Provider rate limit reached (HTTP 429).".into();
+                    s.error = Some(format!(
+                        "The inference provider is temporarily rate-limiting requests ({}). Your configuration is saved. Please wait a moment and retry.",
+                        reason
+                    ));
+                    s.requires_credential = false;
+                    s.credential_provider = Some(engine);
+                    s.credential_key_name = Some(key_name);
+                    s.saved_model = cfg.model.clone();
+                    s.saved_host = cfg.host.clone();
+                    return;
+                }
+                ProbeResult::ServiceUnavailable(reason) => {
+                    let mut s = status.lock().await;
+                    s.phase = "provider_busy".into();
+                    s.detail = "Provider service unavailable (HTTP 503).".into();
+                    s.error = Some(format!(
+                        "The inference provider is temporarily unavailable ({}). Your configuration is saved. Please wait a moment and retry.",
+                        reason
+                    ));
+                    s.requires_credential = false;
+                    s.credential_provider = Some(engine);
+                    s.credential_key_name = Some(key_name);
+                    s.saved_model = cfg.model.clone();
+                    s.saved_host = cfg.host.clone();
+                    return;
+                }
+                ProbeResult::NetworkError(err) => {
+                    let mut s = status.lock().await;
+                    s.phase = "network_error".into();
+                    s.detail = "Could not reach inference endpoint.".into();
+                    s.error = Some(format!(
+                        "Could not reach {} ({}). Please check your internet connection and retry.",
+                        host, err
+                    ));
+                    s.requires_credential = false;
+                    s.credential_provider = Some(engine);
+                    s.credential_key_name = Some(key_name);
+                    s.saved_model = cfg.model.clone();
+                    s.saved_host = cfg.host.clone();
+                    return;
+                }
+            }
+        } else if host.is_empty() || !endpoint_reachable(&host, Duration::from_secs(15)).await {
             let mut s = status.lock().await;
             s.error = Some(format!(
                 "Could not reach your custom inference server at {}. \
@@ -1414,6 +1666,7 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             ));
             return;
         }
+
         // Point `jarvis serve` at the user's endpoint by writing the engine
         // host into ~/.openjarvis/config.toml (the env var alone is shadowed by
         // the engine's non-empty default host in the Python layer).
@@ -1834,6 +2087,34 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
             return;
         }
         JarvisStartResult::EarlyExit { code, stderr } => {
+            let is_auth_failure = stderr.contains("authentication failed")
+                || stderr.contains("API key")
+                || stderr.contains("API_KEY_INVALID")
+                || stderr.contains("HTTP 401")
+                || stderr.contains("HTTP 403");
+
+            let is_engine_unavailable = stderr.contains("is unavailable for model")
+                || stderr.contains("No inference engine available");
+
+            let engine_opt = cfg.engine.clone();
+            let key_name = engine_opt.as_deref().map(engine_api_key_name);
+
+            if is_auth_failure || (is_engine_unavailable && provider_requires_api_key(&cfg)) {
+                let mut s = status.lock().await;
+                s.phase = "credential_invalid".into();
+                s.detail = "Inference API key was rejected or unavailable.".into();
+                s.error = Some(
+                    "Authentication failed: your API key is invalid, revoked, or rejected by the provider. Please update your API key to continue."
+                        .into(),
+                );
+                s.requires_credential = true;
+                s.credential_provider = engine_opt;
+                s.credential_key_name = key_name;
+                s.saved_model = cfg.model.clone();
+                s.saved_host = cfg.host.clone();
+                return;
+            }
+
             // `None` here means the OS didn't expose an exit code — on
             // Unix that's a signal kill (SIGKILL/SIGSEGV/...), on Windows
             // it means the process was terminated externally (Task
@@ -1862,6 +2143,34 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
         }
         JarvisStartResult::Timeout => {
             let stderr = read_jarvis_stderr_tail(&backend).await;
+            let is_auth_failure = stderr.contains("authentication failed")
+                || stderr.contains("API key")
+                || stderr.contains("API_KEY_INVALID")
+                || stderr.contains("HTTP 401")
+                || stderr.contains("HTTP 403");
+
+            let is_engine_unavailable = stderr.contains("is unavailable for model")
+                || stderr.contains("No inference engine available");
+
+            let engine_opt = cfg.engine.clone();
+            let key_name = engine_opt.as_deref().map(engine_api_key_name);
+
+            if is_auth_failure || (is_engine_unavailable && provider_requires_api_key(&cfg)) {
+                let mut s = status.lock().await;
+                s.phase = "credential_invalid".into();
+                s.detail = "Inference API key was rejected or unavailable.".into();
+                s.error = Some(
+                    "Authentication failed: your API key is invalid, revoked, or rejected by the provider. Please update your API key to continue."
+                        .into(),
+                );
+                s.requires_credential = true;
+                s.credential_provider = engine_opt;
+                s.credential_key_name = key_name;
+                s.saved_model = cfg.model.clone();
+                s.saved_host = cfg.host.clone();
+                return;
+            }
+
             let mut s = status.lock().await;
             s.error = Some(if stderr.is_empty() {
                 format!(
@@ -2598,6 +2907,31 @@ async fn save_cloud_key(
     )
     .await;
 
+    Ok(())
+}
+
+/// Update an inference credential in secure storage and restart the startup boot sequence.
+#[tauri::command]
+async fn update_inference_credential(
+    key_name: String,
+    key_value: String,
+    backend: tauri::State<'_, SharedBackend>,
+    status: tauri::State<'_, SharedStatus>,
+) -> Result<(), String> {
+    let key_value = key_value.trim().to_string();
+    if key_value.is_empty() {
+        return Err("API key cannot be empty.".into());
+    }
+    validate_cloud_key_name(&key_name)?;
+    secure_store_set(&key_name, &key_value)?;
+    if key_name == "GEMINI_API_KEY" {
+        let _ = secure_store_set("GOOGLE_API_KEY", &key_value);
+    }
+    let _ = secure_store_set(PENDING_INFERENCE_API_KEY, "");
+
+    let b = backend.inner().clone();
+    let s = status.inner().clone();
+    start_managed_boot(b, s).await;
     Ok(())
 }
 
@@ -3761,6 +4095,7 @@ pub fn run() {
             get_cloud_key_status,
             get_inference_source,
             set_inference_source,
+            update_inference_credential,
             toggle_overlay,
             hide_overlay,
             get_overlay_conversation,
@@ -3796,6 +4131,7 @@ mod tests {
         startup_installed_model, upsert_engine_host, uv_sync_stderr_tail, BackendManager,
         InferenceConfig, InferenceCredentialStore, PendingInferenceRollback, SetupStatus,
         SourceKind, DESKTOP_UV_SYNC_COMMAND, PENDING_INFERENCE_API_KEY,
+        engine_api_key_name, provider_requires_api_key, ProbeResult,
     };
     use std::collections::HashMap;
     use std::path::Path;
@@ -5046,5 +5382,95 @@ api_key = "   "
         );
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn test_provider_requires_api_key_detects_cloud_engines_and_domains() {
+        let gemini_cfg = InferenceConfig {
+            kind: SourceKind::Custom,
+            model: Some("gemini-3.8-flash".into()),
+            host: Some("https://generativelanguage.googleapis.com/v1beta/openai".into()),
+            engine: Some("gemini".into()),
+            confirmed: true,
+        };
+        assert!(provider_requires_api_key(&gemini_cfg));
+        assert_eq!(engine_api_key_name("gemini"), "GEMINI_API_KEY");
+
+        let openai_cfg = InferenceConfig {
+            kind: SourceKind::Custom,
+            model: Some("gpt-4o".into()),
+            host: Some("https://api.openai.com/v1".into()),
+            engine: Some("openai".into()),
+            confirmed: true,
+        };
+        assert!(provider_requires_api_key(&openai_cfg));
+        assert_eq!(engine_api_key_name("openai"), "OPENAI_API_KEY");
+
+        let anthropic_cfg = InferenceConfig {
+            kind: SourceKind::Custom,
+            model: Some("claude-3-7-sonnet".into()),
+            host: Some("https://api.anthropic.com/v1".into()),
+            engine: Some("anthropic".into()),
+            confirmed: true,
+        };
+        assert!(provider_requires_api_key(&anthropic_cfg));
+
+        let local_lmstudio = InferenceConfig {
+            kind: SourceKind::Custom,
+            model: Some("local-model".into()),
+            host: Some("http://localhost:1234/v1".into()),
+            engine: Some("lmstudio".into()),
+            confirmed: true,
+        };
+        assert!(!provider_requires_api_key(&local_lmstudio));
+
+        let ollama = InferenceConfig {
+            kind: SourceKind::Ollama,
+            model: Some("qwen3.5:4b".into()),
+            host: None,
+            engine: None,
+            confirmed: true,
+        };
+        assert!(!provider_requires_api_key(&ollama));
+    }
+
+    #[test]
+    fn test_setup_status_defaults_and_credential_recovery_fields() {
+        let status = SetupStatus::default();
+        assert!(status.requires_source);
+        assert!(!status.requires_credential);
+        assert_eq!(status.credential_provider, None);
+        assert_eq!(status.credential_key_name, None);
+        assert_eq!(status.saved_model, None);
+        assert_eq!(status.saved_host, None);
+
+        let cfg = InferenceConfig {
+            kind: SourceKind::Custom,
+            model: Some("gemini-3.8-flash".into()),
+            host: Some("https://generativelanguage.googleapis.com/v1beta/openai".into()),
+            engine: Some("gemini".into()),
+            confirmed: true,
+        };
+        let starting = SetupStatus::starting(&cfg);
+        assert!(!starting.requires_source);
+        assert!(!starting.requires_credential);
+        assert_eq!(starting.saved_model.as_deref(), Some("gemini-3.8-flash"));
+        assert_eq!(
+            starting.saved_host.as_deref(),
+            Some("https://generativelanguage.googleapis.com/v1beta/openai")
+        );
+    }
+
+    #[test]
+    fn test_probe_result_enum_variants() {
+        assert_eq!(ProbeResult::Ok, ProbeResult::Ok);
+        assert_ne!(
+            ProbeResult::AuthFailed("401".into()),
+            ProbeResult::RateLimited("429".into())
+        );
+        assert_ne!(
+            ProbeResult::ServiceUnavailable("503".into()),
+            ProbeResult::NetworkError("timeout".into())
+        );
     }
 }

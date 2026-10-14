@@ -212,10 +212,16 @@ def serve(
     )
     resolved = get_engine(config, engine_key, model=selection_model)
     if resolved is None:
-        console.print(
-            "[red bold]No inference engine available.[/red bold]\n\n"
-            "Make sure an engine is running."
-        )
+        if engine_key:
+            console.print(
+                f"[red bold]Engine '{engine_key}' is unavailable or authentication failed.[/red bold]\n\n"
+                f"Check your API key in OpenJarvis settings or verify the endpoint is reachable."
+            )
+        else:
+            console.print(
+                "[red bold]No inference engine available.[/red bold]\n\n"
+                "Make sure an engine is running."
+            )
         sys.exit(1)
 
     engine_name, engine = resolved

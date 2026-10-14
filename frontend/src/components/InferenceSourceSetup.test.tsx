@@ -1,11 +1,13 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  CredentialRecoveryCard,
   CustomEndpointSetup,
   GeminiSetup,
   InferenceRecoveryButton,
   InferenceSourceChooser,
   OllamaConsent,
+  ProviderBusyCard,
   inferenceSetupReducer,
   persistAndStartInferenceSource,
   type InferenceSourceSubmission,
@@ -180,5 +182,67 @@ describe('first-run inference source persistence', () => {
       ),
     ).rejects.toThrow('endpoint unavailable');
     expect(calls).toEqual(['persist', 'start', 'rollback']);
+  });
+});
+
+describe('credential recovery card', () => {
+  it('renders Google Gemini recovery details with masked input and error alert', () => {
+    const html = renderToStaticMarkup(
+      <CredentialRecoveryCard
+        provider="gemini"
+        keyName="GEMINI_API_KEY"
+        savedModel="gemini-3.8-flash"
+        savedHost="https://generativelanguage.googleapis.com/v1beta/openai"
+        error="Authentication failed: your API key is invalid or has been revoked."
+        onSubmit={vi.fn()}
+        onResetSource={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('Update Google Gemini API Key');
+    expect(html).toContain('Configured model:');
+    expect(html).toContain('gemini-3.8-flash');
+    expect(html).toContain('Authentication failed: your API key is invalid or has been revoked.');
+    expect(html).toMatch(/aria-label="Replacement API key"[^>]*type="password"/);
+    expect(html).toMatch(/aria-label="Replacement API key"[^>]*placeholder="AIzaSy\.\.\."/);
+    expect(html).toContain('Update Key &amp; Connect');
+    expect(html).toContain('Change inference source');
+  });
+
+  it('renders general provider recovery details when non-gemini provider requires key', () => {
+    const html = renderToStaticMarkup(
+      <CredentialRecoveryCard
+        provider="openai"
+        keyName="OPENAI_API_KEY"
+        savedModel="gpt-4o"
+        error="An API key is required to connect to openai."
+        onSubmit={vi.fn()}
+        onResetSource={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('Update Openai API Key');
+    expect(html).toContain('gpt-4o');
+    expect(html).toContain('An API key is required to connect to openai.');
+    expect(html).toMatch(/aria-label="Replacement API key"[^>]*placeholder="sk-\.\.\."/);
+  });
+});
+
+describe('provider busy card', () => {
+  it('renders temporary provider failure card and preserves retry path without reset', () => {
+    const html = renderToStaticMarkup(
+      <ProviderBusyCard
+        provider="gemini"
+        error="The inference provider is temporarily unavailable (HTTP 503)."
+        onRetry={vi.fn()}
+        onResetSource={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('Google Gemini Temporarily Unavailable');
+    expect(html).toContain('Your configuration has been safely preserved.');
+    expect(html).toContain('HTTP 503');
+    expect(html).toContain('Retry Connection');
+    expect(html).toContain('Change inference source');
   });
 });

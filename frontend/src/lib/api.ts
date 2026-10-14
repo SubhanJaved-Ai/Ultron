@@ -148,6 +148,11 @@ export interface SetupStatus {
   error: string | null;
   source: 'unconfigured' | 'ollama' | 'custom';
   requires_source: boolean;
+  requires_credential?: boolean;
+  credential_provider?: string | null;
+  credential_key_name?: string | null;
+  saved_model?: string | null;
+  saved_host?: string | null;
 }
 
 export async function getSetupStatus(): Promise<SetupStatus | null> {
@@ -168,6 +173,17 @@ export async function startBackend(): Promise<void> {
     await invoke<void>('start_backend');
   } catch (e: any) {
     throw new Error(e?.message ?? e ?? 'Failed to start the desktop backend');
+  }
+}
+
+/** Update an inference credential in secure storage and restart desktop backend startup. */
+export async function updateInferenceCredential(keyName: string, keyValue: string): Promise<void> {
+  if (!isTauri()) throw new Error('Credential update is available in the desktop app only.');
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke<void>('update_inference_credential', { keyName, keyValue });
+  } catch (e: any) {
+    throw new Error(e?.message ?? e ?? 'Failed to update inference credential');
   }
 }
 

@@ -417,3 +417,39 @@ class TestStreamIsAsyncAndBounded:
         # close() tears the shared client down with the sync one.
         engine.close()
         assert engine._async_client is None
+
+    def test_health_records_authentication_failure_on_401(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                401, json={"error": {"code": 401, "message": "API key invalid"}}
+            )
+
+        engine = VLLMEngine(host="http://localhost:8000")
+        engine._client = httpx.Client(
+            base_url="http://localhost:8000", transport=httpx.MockTransport(handler)
+        )
+        try:
+            assert engine.health() is False
+            assert engine.last_health_status == 401
+            assert engine.last_health_error is not None
+            assert "Authentication failed" in engine.last_health_error
+        finally:
+            engine.close()
+
+    def test_health_records_provider_busy_on_503(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                503, json={"error": {"code": 503, "message": "High demand"}}
+            )
+
+        engine = VLLMEngine(host="http://localhost:8000")
+        engine._client = httpx.Client(
+            base_url="http://localhost:8000", transport=httpx.MockTransport(handler)
+        )
+        try:
+            assert engine.health() is False
+            assert engine.last_health_status == 503
+            assert engine.last_health_error is not None
+            assert "temporarily unavailable" in engine.last_health_error
+        finally:
+            engine.close()

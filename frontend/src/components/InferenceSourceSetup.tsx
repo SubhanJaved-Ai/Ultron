@@ -541,3 +541,249 @@ export function InferenceSourceSetup({ onStarted }: { onStarted: () => void }) {
     />
   );
 }
+
+export function CredentialRecoveryCard({
+  provider,
+  keyName,
+  savedModel,
+  savedHost,
+  error,
+  onSubmit,
+  onResetSource,
+  busy = false,
+}: {
+  provider?: string | null;
+  keyName?: string | null;
+  savedModel?: string | null;
+  savedHost?: string | null;
+  error?: string | null;
+  onSubmit: (keyName: string, keyValue: string) => Promise<void>;
+  onResetSource: () => void;
+  busy?: boolean;
+}) {
+  const [apiKey, setApiKey] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const displayProvider =
+    provider === 'gemini'
+      ? 'Google Gemini'
+      : provider
+        ? provider.charAt(0).toUpperCase() + provider.slice(1)
+        : 'Inference Provider';
+
+  const resolvedKeyName =
+    keyName ||
+    (provider === 'gemini' ? 'GEMINI_API_KEY' : `${(provider || 'CUSTOM').toUpperCase()}_API_KEY`);
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!apiKey.trim()) return;
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await onSubmit(resolvedKeyName, apiKey.trim());
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const fieldStyle = {
+    background: 'var(--color-surface)',
+    color: 'var(--color-text)',
+    border: '1px solid var(--color-border)',
+  };
+
+  return (
+    <div
+      className="p-6 rounded-2xl w-full"
+      style={{
+        background: 'var(--color-bg-secondary)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+        >
+          <Sparkles size={20} />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
+            Update {displayProvider} API Key
+          </h2>
+          {savedModel && (
+            <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              Configured model: <span className="font-mono">{savedModel}</span>
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div
+        role="alert"
+        className="px-3.5 py-3 rounded-xl text-xs mb-4 leading-relaxed"
+        style={{
+          background: 'color-mix(in srgb, var(--color-error) 10%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--color-error) 20%, transparent)',
+          color: 'var(--color-error)',
+        }}
+      >
+        {error ||
+          'An API key is required or your existing key was rejected. Please enter a valid API key to reconnect.'}
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          Replacement API key
+          <input
+            aria-label="Replacement API key"
+            type="password"
+            required
+            autoComplete="off"
+            placeholder={provider === 'gemini' ? 'AIzaSy...' : 'sk-...'}
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            disabled={submitting || busy}
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none font-mono"
+            style={fieldStyle}
+          />
+        </label>
+
+        {submitError && <SetupError message={submitError} />}
+
+        <div className="flex flex-col gap-2 pt-1">
+          <button
+            type="submit"
+            disabled={submitting || busy || !apiKey.trim()}
+            className="w-full py-2.5 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: 'var(--color-accent)', color: 'white' }}
+          >
+            {(submitting || busy) && <Loader2 size={16} className="animate-spin" />}
+            {submitting || busy ? 'Connecting...' : 'Update Key & Connect'}
+          </button>
+
+          <button
+            type="button"
+            onClick={onResetSource}
+            disabled={submitting || busy}
+            className="w-full py-2 px-4 rounded-xl text-xs font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              color: 'var(--color-text-secondary)',
+              background: 'transparent',
+            }}
+          >
+            Change inference source
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+export function ProviderBusyCard({
+  provider,
+  error,
+  onRetry,
+  onResetSource,
+  busy = false,
+}: {
+  provider?: string | null;
+  error?: string | null;
+  onRetry: () => Promise<void>;
+  onResetSource: () => void;
+  busy?: boolean;
+}) {
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState('');
+
+  const displayProvider =
+    provider === 'gemini'
+      ? 'Google Gemini'
+      : provider
+        ? provider.charAt(0).toUpperCase() + provider.slice(1)
+        : 'Inference Provider';
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    setRetryError('');
+    try {
+      await onRetry();
+    } catch (err) {
+      setRetryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  return (
+    <div
+      className="p-6 rounded-2xl w-full"
+      style={{
+        background: 'var(--color-bg-secondary)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+        >
+          <Server size={20} />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
+            {displayProvider} Temporarily Unavailable
+          </h2>
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            Your configuration has been safely preserved.
+          </p>
+        </div>
+      </div>
+
+      <div
+        role="alert"
+        className="px-3.5 py-3 rounded-xl text-xs mb-4 leading-relaxed"
+        style={{
+          background: 'color-mix(in srgb, var(--color-accent) 10%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--color-accent) 20%, transparent)',
+          color: 'var(--color-text)',
+        }}
+      >
+        {error ||
+          'The provider is experiencing temporary rate limiting or maintenance (HTTP 429/503). You can retry without re-entering your settings.'}
+      </div>
+
+      {retryError && <SetupError message={retryError} />}
+
+      <div className="flex flex-col gap-2 pt-1">
+        <button
+          type="button"
+          onClick={handleRetry}
+          disabled={retrying || busy}
+          className="w-full py-2.5 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ background: 'var(--color-accent)', color: 'white' }}
+        >
+          {(retrying || busy) && <Loader2 size={16} className="animate-spin" />}
+          {retrying || busy ? 'Retrying...' : 'Retry Connection'}
+        </button>
+
+        <button
+          type="button"
+          onClick={onResetSource}
+          disabled={retrying || busy}
+          className="w-full py-2 px-4 rounded-xl text-xs font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+          style={{
+            color: 'var(--color-text-secondary)',
+            background: 'transparent',
+          }}
+        >
+          Change inference source
+        </button>
+      </div>
+    </div>
+  );
+}

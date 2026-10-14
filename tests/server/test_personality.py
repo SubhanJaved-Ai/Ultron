@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import math
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,7 +22,6 @@ fastapi = pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from openjarvis.server.app import create_app  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Helpers

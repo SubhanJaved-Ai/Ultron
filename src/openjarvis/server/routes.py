@@ -168,6 +168,29 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
         and (not request_body.stream or bool(getattr(agent, "_tools", None)))
     )
 
+    # Input Guardrail: Scan for prompt injection / jailbreak patterns
+    try:
+        from openjarvis.security.injection_scanner import PromptInjectionScanner
+        from openjarvis.security.types import ThreatLevel
+
+        inj_scanner = PromptInjectionScanner()
+        for m in reversed(request_body.messages):
+            if m.role == "user" and m.content:
+                scan_res = inj_scanner.scan(m.content)
+                high_threats = [
+                    f
+                    for f in scan_res.findings
+                    if f.threat_level in (ThreatLevel.HIGH, ThreatLevel.CRITICAL)
+                ]
+                if high_threats:
+                    logging.getLogger("openjarvis.security").warning(
+                        "Prompt guardrail alert: detected potential injection [%s]",
+                        ", ".join(f.rule_name for f in high_threats),
+                    )
+                break
+    except Exception:
+        pass
+
     # Inject memory context into messages before dispatching
     config = getattr(request.app.state, "config", None)
     memory_backend = getattr(request.app.state, "memory_backend", None)
@@ -816,13 +839,16 @@ async def _handle_agent_stream(
                 exc,
                 exc_info=True,
             )
+            from openjarvis.server.error_formatter import format_friendly_error
+
+            clean_error = format_friendly_error(exc, default_model=model)
             error_chunk = ChatCompletionChunk(
                 id=chunk_id,
                 model=model,
                 choices=[
                     StreamChoice(
                         delta=DeltaMessage(
-                            content=f"Sorry, an error occurred: {exc}",
+                            content=clean_error,
                         ),
                         finish_reason="stop",
                     )
@@ -956,11 +982,9 @@ async def _handle_stream_tools(
             import json as _json
             import logging
 
-            from openjarvis.security.credential_stripper import (
-                sanitize_error_message,
-            )
+            from openjarvis.server.error_formatter import format_friendly_error
 
-            clean_error = sanitize_error_message(str(exc))
+            clean_error = format_friendly_error(exc, default_model=model)
             logging.getLogger("openjarvis.server").error(
                 "Tool stream error: %s",
                 clean_error,
@@ -971,7 +995,7 @@ async def _handle_stream_tools(
                 choices=[
                     StreamChoice(
                         delta=DeltaMessage(
-                            content=f"\n\nError during generation: {clean_error}",
+                            content=clean_error,
                         ),
                         finish_reason="stop",
                     )
@@ -1137,11 +1161,9 @@ async def _handle_stream(
             import json as _json
             import logging
 
-            from openjarvis.security.credential_stripper import (
-                sanitize_error_message,
-            )
+            from openjarvis.server.error_formatter import format_friendly_error
 
-            clean_error = sanitize_error_message(str(exc))
+            clean_error = format_friendly_error(exc, default_model=model)
             logging.getLogger("openjarvis.server").error(
                 "Stream error: %s",
                 clean_error,
@@ -1152,7 +1174,7 @@ async def _handle_stream(
                 choices=[
                     StreamChoice(
                         delta=DeltaMessage(
-                            content=f"\n\nError during generation: {clean_error}",
+                            content=clean_error,
                         ),
                         finish_reason="stop",
                     )
@@ -1470,6 +1492,14 @@ async def savings(request: Request):
             for m in summary.per_model
             if not any(m.model_id.startswith(p) for p in _cloud_prefixes)
         ]
+        all_models = summary.per_model
+        total_session_prompt = sum(m.prompt_tokens for m in all_models)
+        total_session_completion = sum(m.completion_tokens for m in all_models)
+        total_session_calls = sum(m.call_count for m in all_models)
+        total_session_tokens = sum(m.total_tokens for m in all_models) or (
+            total_session_prompt + total_session_completion
+        )
+
         result = compute_savings(
             prompt_tokens=sum(m.prompt_tokens for m in local_models),
             completion_tokens=sum(m.completion_tokens for m in local_models),
@@ -1479,7 +1509,55 @@ async def savings(request: Request):
                 m.prompt_tokens_evaluated for m in local_models
             ),
         )
-        return savings_to_dict(result)
+        data = savings_to_dict(result)
+        # When cloud models are used, ensure session totals show real activity
+        if total_session_calls > 0:
+            if data.get("total_calls", 0) == 0:
+                data["total_calls"] = total_session_calls
+            if data.get("total_prompt_tokens", 0) == 0:
+                data["total_prompt_tokens"] = total_session_prompt
+            if data.get("total_completion_tokens", 0) == 0:
+                data["total_completion_tokens"] = total_session_completion
+        data["session_all_calls"] = total_session_calls
+        data["session_all_prompt_tokens"] = total_session_prompt
+        data["session_all_completion_tokens"] = total_session_completion
+        data["session_all_tokens"] = total_session_tokens
+        return data
+    finally:
+        agg.close()
+
+
+@router.get("/v1/telemetry/stats")
+async def telemetry_stats(request: Request):
+    """Return live session telemetry statistics for all models."""
+    from openjarvis.core.config import DEFAULT_CONFIG_DIR
+    from openjarvis.telemetry.aggregator import TelemetryAggregator
+
+    active_model = getattr(request.app.state, "model", "")
+    db_path = DEFAULT_CONFIG_DIR / "telemetry.db"
+    if not db_path.exists():
+        return {
+            "total_requests": 0,
+            "total_tokens": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "active_model": active_model,
+        }
+
+    session_start = getattr(request.app.state, "session_start", None)
+    agg = TelemetryAggregator(db_path)
+    try:
+        summary = agg.summary(since=session_start)
+        all_models = summary.per_model
+        p_tokens = sum(m.prompt_tokens for m in all_models)
+        c_tokens = sum(m.completion_tokens for m in all_models)
+        return {
+            "total_requests": sum(m.call_count for m in all_models),
+            "total_tokens": sum(m.total_tokens for m in all_models) or (p_tokens + c_tokens),
+            "prompt_tokens": p_tokens,
+            "completion_tokens": c_tokens,
+            "active_model": active_model,
+        }
     finally:
         agg.close()
 

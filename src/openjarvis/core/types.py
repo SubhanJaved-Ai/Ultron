@@ -56,6 +56,7 @@ class ToolCall:
     id: str
     name: str
     arguments: str  # JSON string
+    extra_content: Optional[Dict[str, Any]] = None
 
 
 @dataclass(slots=True)

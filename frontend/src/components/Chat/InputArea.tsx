@@ -11,6 +11,7 @@ import {
   resolveChatEngine,
 } from '../../lib/chat-telemetry';
 import { MicButton } from './MicButton';
+import { AgentStatusStrip } from './AgentStatusStrip';
 import { useSpeech } from '../../hooks/useSpeech';
 import type {
   ChatMessage,
@@ -220,6 +221,7 @@ export function InputArea() {
     let usage: TokenUsage | undefined;
     let complexity: { score: number; tier: string; suggested_max_tokens: number } | undefined;
     let routedEngine: string | undefined;
+    let currentModel = selectedModel; // tracks the model from inference_start events
     const toolCalls: ToolCallInfo[] = [];
     const researchTraces: ResearchSearchTrace[] = [];
     const researchSourcesByRef = new Map<number, ResearchSource>();
@@ -380,10 +382,15 @@ export function InputArea() {
         if (eventName === 'agent_turn_start') {
           setStreamState({ phase: 'Agent thinking...' });
         } else if (eventName === 'inference_start') {
-          setStreamState({ phase: 'Generating...' });
+          try {
+            const data = JSON.parse(sseEvent.data);
+            // Capture the live model so tool call cards can show it.
+            if (data.model) currentModel = data.model;
+          } catch {}
+          setStreamState({ phase: 'Generating...', activeModel: currentModel });
           useAppStore.getState().addLogEntry({
             timestamp: Date.now(), level: 'info', category: 'chat',
-            message: `Generating with ${selectedModel}...`,
+            message: `Generating with ${currentModel}...`,
           });
         } else if (eventName === 'tool_call_start') {
           try {
@@ -393,16 +400,18 @@ export function InputArea() {
               tool: data.tool,
               arguments: serializeToolCallArguments(data.arguments),
               status: 'running',
+              model: currentModel, // attach the active model to this tool call
             };
             toolCalls.push(tc);
             setStreamState({
               phase: `Calling ${data.tool}...`,
               activeToolCalls: [...toolCalls],
+              activeModel: currentModel,
             });
             updateLastAssistant(convId, accumulatedContent, [...toolCalls]);
             useAppStore.getState().addLogEntry({
               timestamp: Date.now(), level: 'info', category: 'tool',
-              message: `Calling ${data.tool}(${serializeToolCallArguments(data.arguments)})`,
+              message: `[${currentModel}] Calling ${data.tool}(${serializeToolCallArguments(data.arguments)})`,
             });
           } catch {}
         } else if (eventName === 'tool_call_end') {
@@ -421,6 +430,12 @@ export function InputArea() {
               activeToolCalls: [...toolCalls],
             });
             updateLastAssistant(convId, accumulatedContent, [...toolCalls]);
+            useAppStore.getState().addLogEntry({
+              timestamp: Date.now(),
+              level: data.success ? 'info' : 'warn',
+              category: 'tool',
+              message: `Used ${data.tool} (${data.latency ? Math.round(data.latency) + 'ms' : 'completed'}) — Real execution, not memory`,
+            });
           } catch {}
         } else {
           try {
@@ -598,6 +613,9 @@ export function InputArea() {
           </div>
         )}
       </div>
+      {isCurrentChatStreaming && (
+        <AgentStatusStrip streamState={streamState} />
+      )}
       <div
         className="flex items-center gap-2 rounded-2xl px-4 py-3 transition-shadow"
         style={{

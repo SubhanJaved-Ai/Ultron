@@ -44,7 +44,7 @@ export default defineConfig({
   ],
   build: {
     outDir: '../src/openjarvis/server/static',
-    emptyOutDir: true,
+    emptyOutDir: false,
     // Preserve the Vite 6 browser baseline for existing desktop webviews.
     target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
     rolldownOptions: {

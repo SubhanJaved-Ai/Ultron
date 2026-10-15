@@ -35,8 +35,9 @@ class MultiEngine(InferenceEngine):
         for key, engine in self._engines:
             try:
                 for model_id in engine.list_models():
-                    self._model_map[model_id] = engine
-                    self._model_key_map[model_id] = key
+                    if model_id not in self._model_map:
+                        self._model_map[model_id] = engine
+                        self._model_key_map[model_id] = key
             except Exception as exc:
                 logger.debug("Failed to list models for %s: %s", key, exc)
 

@@ -12,6 +12,7 @@ import { ResearchTimeline } from './ResearchTimeline';
 import { rehypeCitations } from '../../lib/rehype-citations';
 import { XRayFooter } from './XRayFooter';
 import { SpeakMessageButton } from './SpeakMessageButton';
+import { ErrorAlertCard, extractUltronError } from './ErrorAlertCard';
 import type { ChatMessage } from '../../types';
 import { stripThinkTags } from '../../lib/message-text';
 
@@ -100,6 +101,15 @@ export const MessageBubble = memo(function MessageBubble({ message, isLive = fal
   const isUser = message.role === 'user';
 
   const cleanContent = useMemo(() => stripThinkTags(message.content), [message.content]);
+  const errorInfo = useMemo(() => extractUltronError(cleanContent), [cleanContent]);
+  const displayContent = useMemo(() => {
+    if (!errorInfo) return cleanContent;
+    // Strip tag and fallback alert from content if ErrorAlertCard is active
+    return cleanContent
+      .replace(/:::ultron-error-card\s*[\s\S]*?\s*:::/i, '')
+      .replace(/>\s*\[!WARNING\][\s\S]*?(?=\n\n|$)/i, '')
+      .trim();
+  }, [cleanContent, errorInfo]);
 
   // Build a ref→source lookup once per render. Memoized so the rehype plugin
   // identity stays stable until the source list actually changes.
@@ -146,7 +156,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isLive = fal
         <ResearchTimeline
           traces={message.researchTraces ?? []}
           isLive={isLive}
-          hasContent={cleanContent.length > 0}
+          hasContent={(displayContent || cleanContent).length > 0}
         />
       )}
 
@@ -162,8 +172,11 @@ export const MessageBubble = memo(function MessageBubble({ message, isLive = fal
       {/* Audio player (e.g. morning digest) */}
       {message.audio?.url && <AudioPlayer src={message.audio.url} />}
 
+      {/* Polished Error Alert Card if present */}
+      {errorInfo && <ErrorAlertCard error={errorInfo} />}
+
       {/* Assistant message */}
-      {cleanContent && (
+      {displayContent && (
         <div className="prose max-w-none">
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
@@ -172,7 +185,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isLive = fal
               pre: CodeBlockPre,
             }}
           >
-            {cleanContent}
+            {displayContent}
           </ReactMarkdown>
         </div>
       )}

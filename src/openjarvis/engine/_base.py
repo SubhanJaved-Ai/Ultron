@@ -77,8 +77,9 @@ def messages_to_dicts(messages: Sequence[Message]) -> List[Dict[str, Any]]:
         if m.name:
             d["name"] = m.name
         if m.tool_calls:
-            d["tool_calls"] = [
-                {
+            serialized_tcs = []
+            for tc in m.tool_calls:
+                tc_dict = {
                     "id": tc.id,
                     "type": "function",
                     "function": {
@@ -86,8 +87,11 @@ def messages_to_dicts(messages: Sequence[Message]) -> List[Dict[str, Any]]:
                         "arguments": tc.arguments,
                     },
                 }
-                for tc in m.tool_calls
-            ]
+                extra_content = getattr(tc, "extra_content", None)
+                if extra_content:
+                    tc_dict["extra_content"] = extra_content
+                serialized_tcs.append(tc_dict)
+            d["tool_calls"] = serialized_tcs
         if m.tool_call_id:
             d["tool_call_id"] = m.tool_call_id
         # Vision: forward base64 images to the engine. Ollama's /api/chat

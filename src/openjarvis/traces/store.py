@@ -151,8 +151,8 @@ class TraceStore:
                 trace.ended_at,
                 trace.total_tokens,
                 trace.total_latency_seconds,
-                json.dumps(trace.metadata),
-                json.dumps(trace.messages),
+                json.dumps(trace.metadata, default=str),
+                json.dumps(trace.messages, default=str),
             ),
         )
         for idx, step in enumerate(trace.steps):
@@ -166,9 +166,9 @@ class TraceStore:
                     else step.step_type,
                     step.timestamp,
                     step.duration_seconds,
-                    json.dumps(step.input),
-                    json.dumps(step.output),
-                    json.dumps(step.metadata),
+                    json.dumps(step.input, default=str),
+                    json.dumps(step.output, default=str),
+                    json.dumps(step.metadata, default=str),
                 ),
             )
         self._conn.commit()

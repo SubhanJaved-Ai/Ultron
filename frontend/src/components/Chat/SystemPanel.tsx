@@ -11,9 +11,16 @@ import {
   X,
   Trophy,
   ExternalLink,
+  Cpu,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 import { getBase } from '../../lib/api';
+import {
+  calculateModelCost,
+  getModelPricing,
+  formatModelName,
+} from '../../lib/model-pricing';
 
 interface EnergyData {
   total_energy_j?: number;
@@ -26,12 +33,14 @@ interface EnergyData {
 interface TelemetryStats {
   total_requests?: number;
   total_tokens?: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  active_model?: string;
 }
 
-const CLOUD_PRICING = [
-  { name: 'GPT-5.6 Sol', input: 5.00, output: 30.00, primary: true },
-  { name: 'Claude Fable 5', input: 10.00, output: 50.00, primary: false },
-  { name: 'Gemini 3.1 Pro', input: 2.00, output: 12.00, primary: false },
+const BENCHMARKS = [
+  { name: 'GPT-4o', input: 2.50, output: 10.00 },
+  { name: 'Claude 3.5 Sonnet', input: 3.00, output: 15.00 },
 ];
 
 export function SystemPanel() {
@@ -72,8 +81,24 @@ export function SystemPanel() {
     if (savings) fetchData();
   }, [savings, fetchData]);
 
-  const promptK = (savings?.total_prompt_tokens ?? 0) / 1000;
-  const completionK = (savings?.total_completion_tokens ?? 0) / 1000;
+  const selectedModel = useAppStore((s) => s.selectedModel);
+  const serverInfo = useAppStore((s) => s.serverInfo);
+  const activeModelId = selectedModel || telemetry?.active_model || serverInfo?.model || 'Local Model';
+
+  const totalRequests = savings?.total_calls ?? telemetry?.total_requests ?? 0;
+  const promptTokens = (savings?.total_prompt_tokens && savings.total_prompt_tokens > 0)
+    ? savings.total_prompt_tokens
+    : (telemetry?.prompt_tokens ?? 0);
+  const completionTokens = (savings?.total_completion_tokens && savings.total_completion_tokens > 0)
+    ? savings.total_completion_tokens
+    : (telemetry?.completion_tokens ?? 0);
+  const totalTokens = promptTokens + completionTokens;
+
+  const activeCostResult = calculateModelCost(activeModelId, promptTokens, completionTokens, savings?.local_cost ?? 0);
+  const activeModelCost = activeCostResult.cost;
+
+  const promptK = promptTokens / 1000;
+  const completionK = completionTokens / 1000;
 
   return (
     <div
@@ -110,8 +135,12 @@ export function SystemPanel() {
             Session
           </h4>
           <div className="grid grid-cols-2 gap-2">
-            <MiniStat icon={Hash} label="Requests" value={String(savings?.total_calls ?? telemetry?.total_requests ?? 0)} />
-            <MiniStat icon={Hash} label="Output Tokens" value={formatNumber(savings?.total_completion_tokens ?? telemetry?.total_tokens ?? 0)} />
+            <MiniStat icon={Hash} label="Requests" value={String(totalRequests)} />
+            <MiniStat
+              icon={Hash}
+              label="Output Tokens"
+              value={formatNumber(completionTokens || totalTokens)}
+            />
           </div>
         </section>
 
@@ -144,61 +173,87 @@ export function SystemPanel() {
           </div>
         </section>
 
-
         {/* Cost Comparison */}
         <section>
           <h4 className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
-            Cost Comparison
+            Real-Time Cost
           </h4>
 
-          {/* Local */}
+          {/* Active Model */}
           <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
+            className="flex items-center gap-2 rounded-lg px-3 py-2.5 mb-2"
             style={{ background: 'var(--color-accent-subtle)', border: '1px solid var(--color-accent)' }}
           >
-            <HardDrive size={14} style={{ color: 'var(--color-accent)' }} />
+            <Cpu size={15} style={{ color: 'var(--color-accent)' }} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>Local</div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text)' }}>
+                  {activeCostResult.pricing.displayName}
+                </span>
+                <span
+                  className="text-[8.5px] uppercase px-1 py-0.2 rounded font-semibold shrink-0"
+                  style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
+                >
+                  Active
+                </span>
+              </div>
+              <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                {promptTokens > 0 || completionTokens > 0
+                  ? `${formatNumber(promptTokens)} in · ${formatNumber(completionTokens)} out`
+                  : '0 tokens'}
+              </div>
             </div>
-            <div className="text-sm font-semibold" style={{ color: 'var(--color-success)' }}>
+            <div className="text-xs font-bold font-mono" style={{ color: 'var(--color-text)' }}>
+              ${activeModelCost.toFixed(4)}
+            </div>
+          </div>
+
+          {/* Local comparison */}
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
+            style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+          >
+            <HardDrive size={14} style={{ color: 'var(--color-success)' }} />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>Local Inference</div>
+              <div className="text-[9.5px]" style={{ color: 'var(--color-text-tertiary)' }}>Ollama / Hardware</div>
+            </div>
+            <div className="text-xs font-mono font-semibold" style={{ color: 'var(--color-success)' }}>
               ${(savings?.local_cost ?? 0).toFixed(4)}
             </div>
           </div>
 
-          {/* Cloud providers */}
+          {/* Commercial Cloud Benchmarks */}
           <div className="flex flex-col gap-1.5">
-            {CLOUD_PRICING.map((provider) => {
+            {BENCHMARKS.map((provider) => {
               const cost = (promptK * provider.input) / 1000 + (completionK * provider.output) / 1000;
-              const saved = cost - (savings?.local_cost ?? 0);
+              const savedVsActive = cost - activeModelCost;
               return (
                 <div
                   key={provider.name}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2"
+                  className="flex items-center gap-2 rounded-lg px-3 py-1.5"
                   style={{
-                    background: provider.primary ? 'var(--color-bg-secondary)' : 'var(--color-bg-secondary)',
-                    border: provider.primary ? '1px solid var(--color-border-accent, var(--color-accent))' : '1px solid transparent',
+                    background: 'var(--color-bg-secondary)',
+                    border: '1px solid transparent',
                   }}
                 >
-                  <Cloud size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+                  <Cloud size={13} style={{ color: 'var(--color-text-tertiary)' }} />
                   <div className="flex-1 min-w-0">
                     <div
-                      className="text-xs truncate"
-                      style={{
-                        color: provider.primary ? 'var(--color-text)' : 'var(--color-text-secondary)',
-                        fontWeight: provider.primary ? 500 : 400,
-                      }}
+                      className="text-[11px] truncate"
+                      style={{ color: 'var(--color-text-secondary)' }}
                     >
-                      {provider.name}
+                      {provider.name} (Tier)
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-mono" style={{ color: 'var(--color-text)' }}>
+                    <div className="text-[11px] font-mono" style={{ color: 'var(--color-text-secondary)' }}>
                       ${cost.toFixed(4)}
                     </div>
-                    {saved > 0.0001 && (
-                      <div className="text-[9px] flex items-center gap-0.5 justify-end" style={{ color: 'var(--color-success)' }}>
+                    {savedVsActive > 0.0001 && (
+                      <div className="text-[8.5px] flex items-center gap-0.5 justify-end" style={{ color: 'var(--color-success)' }}>
                         <TrendingDown size={8} />
-                        ${saved.toFixed(4)}
+                        ${savedVsActive.toFixed(4)} saved
                       </div>
                     )}
                   </div>
@@ -206,8 +261,6 @@ export function SystemPanel() {
               );
             })}
           </div>
-
-
         </section>
 
         {/* Leaderboard / Share */}

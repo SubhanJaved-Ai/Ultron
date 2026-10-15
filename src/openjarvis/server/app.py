@@ -230,6 +230,46 @@ def create_app(
             if audit_logger is None:
                 audit_logger = derived_security.audit_logger
 
+    # Auto-initialize default autonomous tool-bearing agent if not provided
+    if agent is None:
+        try:
+            import openjarvis.agents  # noqa: F401
+            import openjarvis.tools  # noqa: F401
+            from openjarvis.core.registry import AgentRegistry, ToolRegistry
+            from openjarvis.tools._stubs import BaseTool
+
+            agent_key = (
+                getattr(getattr(config, "agent", None), "default_agent", "")
+                or "native_react"
+            )
+            if not AgentRegistry.contains(agent_key):
+                for candidate in ("native_react", "react", "simple"):
+                    if AgentRegistry.contains(candidate):
+                        agent_key = candidate
+                        break
+
+            if AgentRegistry.contains(agent_key):
+                agent_cls = AgentRegistry.get(agent_key)
+                tools = []
+                for name in ToolRegistry.keys():
+                    try:
+                        tool_cls = ToolRegistry.get(name)
+                        if isinstance(tool_cls, type) and issubclass(tool_cls, BaseTool):
+                            tools.append(tool_cls())
+                        elif isinstance(tool_cls, BaseTool):
+                            tools.append(tool_cls)
+                    except Exception:
+                        pass
+                agent_kwargs = {"bus": bus}
+                if getattr(agent_cls, "accepts_tools", False) and tools:
+                    agent_kwargs["tools"] = tools
+                agent = agent_cls(engine, model, **agent_kwargs)
+                agent_name = agent_key
+        except Exception as exc:
+            logging.getLogger("openjarvis.server").debug(
+                "Autonomous agent auto-initialization skipped: %s", exc
+            )
+
     # A pre-built tool-using agent is part of the factory's remote execution
     # surface too. Fill only missing executor fields so explicit per-agent
     # wiring remains authoritative.

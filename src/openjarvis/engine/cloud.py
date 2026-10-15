@@ -962,13 +962,37 @@ class CloudEngine(InferenceEngine):
                 if response_format.schema:
                     config.response_schema = response_format.schema
 
-        t0 = time.monotonic()
-        resp = self._google_client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=config,
-        )
-        elapsed = time.monotonic() - t0
+        import base64
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                t0 = time.monotonic()
+                resp = self._google_client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=config,
+                )
+                elapsed = time.monotonic() - t0
+                break
+            except Exception as exc:
+                exc_str = str(exc)
+                is_transient = any(
+                    code in exc_str
+                    for code in ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED")
+                )
+                if is_transient and attempt < max_retries - 1:
+                    delay = 1.0 * (2 ** attempt)
+                    logger.warning(
+                        "Google Gemini transient error (%s); retrying in %.2fs (attempt %d/%d)",
+                        exc_str[:120],
+                        delay,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    time.sleep(delay)
+                    continue
+                raise
 
         # Extract text and function_call parts from response
         text_parts: list[str] = []
@@ -988,7 +1012,12 @@ class CloudEngine(InferenceEngine):
                     # Preserve thought_signature for Gemini reasoning models
                     sig = getattr(part, "thought_signature", None)
                     if sig is not None:
-                        tc_dict["thought_signature"] = sig
+                        sig_str = (
+                            base64.b64encode(sig).decode("ascii")
+                            if isinstance(sig, bytes)
+                            else str(sig)
+                        )
+                        tc_dict["thought_signature"] = sig_str
                         self._thought_sigs[tc_dict["id"]] = sig
                     tool_calls.append(tc_dict)
                 elif hasattr(part, "text") and part.text:
@@ -1624,7 +1653,14 @@ class CloudEngine(InferenceEngine):
                         calls.append(tool_call)
                         signature = getattr(part, "thought_signature", None)
                         if signature is not None:
-                            tool_call["thought_signature"] = signature
+                            import base64
+
+                            sig_str = (
+                                base64.b64encode(signature).decode("ascii")
+                                if isinstance(signature, bytes)
+                                else str(signature)
+                            )
+                            tool_call["thought_signature"] = sig_str
                             self._thought_sigs[tool_id] = signature
                 if calls:
                     yield StreamChunk(tool_calls=calls)

@@ -121,11 +121,15 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         )
         self.last_health_status: int | None = None
         self.last_health_error: str | None = None
+        self._extra_contents: Dict[str, Any] = {}
 
     # -- InferenceEngine interface ------------------------------------------
 
     def _resolve_model_id(self, model: str) -> str:
-        return resolve_model_id_for_engine(model, self.engine_id)
+        resolved = resolve_model_id_for_engine(model, self.engine_id)
+        if self.engine_id == "gemini" and not resolved.startswith("models/"):
+            return f"models/{resolved}"
+        return resolved
 
     def generate(
         self,
@@ -136,9 +140,19 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         max_tokens: int = 1024,
         **kwargs: Any,
     ) -> Dict[str, Any]:
+        payload_messages = messages_to_dicts(messages)
+        # Ensure engine-tracked extra_content (such as Google Gemini thought_signatures)
+        # is preserved on tool calls in conversation history
+        for msg in payload_messages:
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                for tc in msg["tool_calls"]:
+                    call_id = tc.get("id")
+                    if not tc.get("extra_content") and call_id in self._extra_contents:
+                        tc["extra_content"] = self._extra_contents[call_id]
+
         payload: Dict[str, Any] = {
             "model": self._resolve_model_id(model),
-            "messages": messages_to_dicts(messages),
+            "messages": payload_messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": False,
@@ -243,14 +257,21 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         # Extract tool calls if present
         raw_tool_calls = choice["message"].get("tool_calls", [])
         if raw_tool_calls:
-            result["tool_calls"] = [
-                {
-                    "id": tc.get("id", ""),
+            extracted_tcs = []
+            for tc in raw_tool_calls:
+                call_id = tc.get("id", "")
+                extra_content = tc.get("extra_content")
+                if extra_content and call_id:
+                    self._extra_contents[call_id] = extra_content
+                tc_dict = {
+                    "id": call_id,
                     "name": tc.get("function", {}).get("name", ""),
                     "arguments": tc.get("function", {}).get("arguments", "{}"),
                 }
-                for tc in raw_tool_calls
-            ]
+                if extra_content:
+                    tc_dict["extra_content"] = extra_content
+                extracted_tcs.append(tc_dict)
+            result["tool_calls"] = extracted_tcs
         return result
 
     async def stream(
@@ -472,7 +493,15 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
             )
             return []
         data = resp.json()
-        return [m["id"] for m in data.get("data", [])]
+        models = [m["id"] for m in data.get("data", [])]
+        normalized: list[str] = []
+        for m in models:
+            normalized.append(m)
+            if m.startswith("models/"):
+                short = m[len("models/") :]
+                if short not in normalized:
+                    normalized.append(short)
+        return normalized
 
     def health(self) -> bool:
         try:

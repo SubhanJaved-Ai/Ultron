@@ -222,6 +222,22 @@ def serve(
         except Exception as exc:
             logger.debug("Telemetry store init failed: %s", exc)
 
+    # Check if ~/.openjarvis/inference.json has a saved engine/model configuration
+    if not engine_key or not model_name:
+        try:
+            inf_path = get_config_dir() / "inference.json"
+            if inf_path.exists():
+                import json
+
+                with open(inf_path, "r", encoding="utf-8") as f:
+                    saved_inf = json.load(f)
+                if not engine_key and saved_inf.get("engine"):
+                    engine_key = saved_inf["engine"]
+                if not model_name and saved_inf.get("model"):
+                    model_name = saved_inf["model"]
+        except Exception as exc:
+            logger.debug("Failed to read inference.json: %s", exc)
+
     # Select with the model we'll actually serve so an engine that can't
     # serve it (e.g. the cloud fallback without the matching provider key) is
     # skipped rather than chosen and failing per-request later (see #532).

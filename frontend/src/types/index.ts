@@ -42,6 +42,8 @@ export interface ToolCallInfo {
   status: 'running' | 'success' | 'error';
   result?: string;
   latency?: number;
+  /** The model that dispatched this tool call (e.g. "gemini-2.5-flash") */
+  model?: string;
 }
 
 export interface TokenUsage {
@@ -153,6 +155,8 @@ export interface StreamState {
   elapsedMs: number;
   activeToolCalls: ToolCallInfo[];
   content: string;
+  /** The model currently being used for inference */
+  activeModel?: string;
 }
 
 // --- API Types ---

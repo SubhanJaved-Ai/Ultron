@@ -2115,6 +2115,18 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
     // do this BEFORE cmd.env() calls below so our explicit cloud-key env
     // additions aren't accidentally stripped.
     prepare_subprocess_for_appimage(&mut cmd);
+    // Phase 1A: Run the Python backend at BELOW_NORMAL priority on Windows.
+    // Without this, Python's startup (model import, asyncio init, uv overhead)
+    // pegs all CPU cores and starves the WebView2 compositor thread, causing
+    // the entire OS shell to freeze until Python is fully initialized.
+    // BELOW_NORMAL_PRIORITY_CLASS (0x00004000) lets the OS scheduler still give
+    // the backend plenty of time once the UI compositor has its frames.
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x00004000;
+        cmd.creation_flags(BELOW_NORMAL_PRIORITY_CLASS);
+    }
 
     // Inject cloud API keys from secure desktop storage.
     for (key, value) in cloud_keys_for_inference(&cfg) {

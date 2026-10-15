@@ -17,9 +17,37 @@ import {
   Loader2,
   ScrollText,
   Database,
+  DollarSign,
 } from 'lucide-react';
 import { ConversationList } from './ConversationList';
 import { useAppStore } from '../../lib/store';
+import { calculateModelCost } from '../../lib/model-pricing';
+
+function fmtCost(n: number): string {
+  if (n >= 1000) return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (n >= 1) return '$' + n.toFixed(2);
+  if (n >= 0.01) return '$' + n.toFixed(3);
+  if (n > 0) return '$' + n.toFixed(4);
+  return '$0.00';
+}
+
+function getAllTimeCost(currentSessionCost: number): number {
+  try {
+    const key = 'openjarvis-alltime-cost';
+    const stored = parseFloat(localStorage.getItem(key) || '0');
+    const lastSessionKey = 'openjarvis-last-session-cost';
+    const lastSession = parseFloat(sessionStorage.getItem(lastSessionKey) || '0');
+    const delta = Math.max(0, currentSessionCost - lastSession);
+    const updated = stored + delta;
+    if (delta > 0) {
+      localStorage.setItem(key, updated.toFixed(6));
+      sessionStorage.setItem(lastSessionKey, currentSessionCost.toString());
+    }
+    return updated;
+  } catch {
+    return currentSessionCost;
+  }
+}
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -31,9 +59,26 @@ export function Sidebar() {
   const createConversation = useAppStore((s) => s.createConversation);
   const selectedModel = useAppStore((s) => s.selectedModel);
   const serverInfo = useAppStore((s) => s.serverInfo);
+  const savings = useAppStore((s) => s.savings);
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const modelLoading = useAppStore((s) => s.modelLoading);
   const deepResearch = useAppStore((s) => s.deepResearch);
+
+  const isConfirmed =
+    !!serverInfo?.model &&
+    (selectedModel === serverInfo.model || !selectedModel);
+  const isPending =
+    !!serverInfo?.model &&
+    !!selectedModel &&
+    selectedModel !== serverInfo.model;
+
+  const activeModelId = selectedModel || serverInfo?.model || 'Local Model';
+  const promptTokens = savings?.total_prompt_tokens ?? 0;
+  const completionTokens = savings?.total_completion_tokens ?? 0;
+  const costResult = calculateModelCost(activeModelId, promptTokens, completionTokens, savings?.local_cost ?? 0);
+  const sessionCost = costResult.cost;
+
+  const allTimeCost = getAllTimeCost(sessionCost);
 
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
@@ -126,10 +171,10 @@ export function Sidebar() {
             </div>
           </div>
 
-          {/* Model badge */}
+          {/* Model badge (Phase 3A: with live connection status dot) */}
           <button
             onClick={() => setCommandPaletteOpen(true)}
-            className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer"
+            className="mx-3 mb-1.5 flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer"
             style={{
               background: 'var(--color-bg-secondary)',
               color: 'var(--color-text-secondary)',
@@ -143,7 +188,7 @@ export function Sidebar() {
             ) : (
               <Cpu size={14} />
             )}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex items-center gap-1.5">
               <span
                 className="truncate block text-left"
                 style={{ color: deepResearch ? 'var(--color-accent)' : 'var(--color-text)' }}
@@ -152,9 +197,29 @@ export function Sidebar() {
                   ? 'Deep Research'
                   : selectedModel || serverInfo?.model || 'Select model'}
               </span>
+              {!modelLoading && (
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{
+                    background: isConfirmed ? '#10b981' : isPending ? '#f59e0b' : 'var(--color-text-tertiary)',
+                    boxShadow: isConfirmed
+                      ? '0 0 5px rgba(16, 185, 129, 0.6)'
+                      : isPending
+                      ? '0 0 5px rgba(245, 158, 11, 0.6)'
+                      : 'none',
+                  }}
+                  title={
+                    isConfirmed
+                      ? `Active & Confirmed (${serverInfo?.model})`
+                      : isPending
+                      ? `Selected: ${selectedModel} (Server: ${serverInfo?.model || 'unknown'})`
+                      : 'Connecting to server...'
+                  }
+                />
+              )}
               {modelLoading && (
                 <span className="text-[10px] block text-left" style={{ color: 'var(--color-accent)' }}>
-                  Loading model...
+                  Loading...
                 </span>
               )}
             </div>
@@ -167,6 +232,33 @@ export function Sidebar() {
               </kbd>
             )}
           </button>
+
+          {/* Cost summary badge (Phase 3B) */}
+          <div
+            onClick={() => navigate('/dashboard')}
+            className="mx-3 mb-2 px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors cursor-pointer"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
+            title="Click to view full telemetry & savings dashboard"
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
+          >
+            <div className="flex items-center gap-1.5" style={{ color: 'var(--color-text-tertiary)' }}>
+              <DollarSign size={12} style={{ color: 'var(--color-success)' }} />
+              <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>Cost</span>
+            </div>
+            <div className="flex items-center gap-2 font-mono text-[10.5px]">
+              <span title="Session cost" style={{ color: 'var(--color-text-secondary)' }}>
+                Sess: <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{fmtCost(sessionCost)}</span>
+              </span>
+              <span style={{ color: 'var(--color-border)' }}>|</span>
+              <span title="All-time cumulative cost" style={{ color: 'var(--color-text-secondary)' }}>
+                All: <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{fmtCost(allTimeCost)}</span>
+              </span>
+            </div>
+          </div>
 
           {/* Search */}
           <div className="px-3 mb-2">

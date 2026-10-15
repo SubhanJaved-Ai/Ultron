@@ -187,13 +187,88 @@ def get_credential_status(tool_name: str) -> dict[str, bool]:
     return {k: bool(os.environ.get(k)) for k in keys}
 
 
+def _read_windows_credential(target_name: str) -> str | None:
+    """Read a credential from Windows Credential Manager using advapi32.CredReadW."""
+    import sys
+
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class CREDENTIAL(ctypes.Structure):
+            _fields_ = [
+                ("Flags", wintypes.DWORD),
+                ("Type", wintypes.DWORD),
+                ("TargetName", wintypes.LPWSTR),
+                ("Comment", wintypes.LPWSTR),
+                ("LastWritten", wintypes.FILETIME),
+                ("CredentialBlobSize", wintypes.DWORD),
+                ("CredentialBlob", ctypes.POINTER(ctypes.c_char)),
+                ("Persist", wintypes.DWORD),
+                ("AttributeCount", wintypes.DWORD),
+                ("Attributes", ctypes.c_void_p),
+                ("TargetAlias", wintypes.LPWSTR),
+                ("UserName", wintypes.LPWSTR),
+            ]
+
+        advapi32 = ctypes.WinDLL("advapi32.dll")
+        CredReadW = advapi32.CredReadW
+        CredReadW.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            ctypes.POINTER(ctypes.POINTER(CREDENTIAL)),
+        ]
+        CredReadW.restype = wintypes.BOOL
+
+        p_cred = ctypes.POINTER(CREDENTIAL)()
+        if CredReadW(target_name, 1, 0, ctypes.byref(p_cred)):
+            raw = ctypes.string_at(p_cred.contents.CredentialBlob, p_cred.contents.CredentialBlobSize)
+            try:
+                val = raw.decode("utf-16le")
+            except Exception:
+                val = raw.decode("utf-8", errors="ignore")
+            return val.strip("\x00").strip()
+    except Exception:
+        pass
+    return None
+
+
 def inject_credentials(path: Path | None = None) -> None:
-    """Load credentials.toml and inject into os.environ. Call at server startup."""
+    """Load credentials.toml and native Windows Credential Manager keys into os.environ."""
     creds = load_credentials(path=path)
     for _tool, kvs in creds.items():
         for k, v in kvs.items():
             if k not in os.environ:
                 os.environ[k] = v
+
+    # On Windows, read desktop-saved cloud keys from Windows Credential Manager
+    import sys
+
+    if sys.platform == "win32":
+        cloud_keys = [
+            "GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "MISTRAL_API_KEY",
+            "GROQ_API_KEY",
+            "OPENROUTER_API_KEY",
+        ]
+        for key_name in cloud_keys:
+            if key_name not in os.environ:
+                # Desktop app saves credentials with service 'OpenJarvis Cloud Keys'
+                val = _read_windows_credential(f"{key_name}.OpenJarvis Cloud Keys")
+                if val:
+                    os.environ[key_name] = val
+
+        # Synchronize GOOGLE_API_KEY and GEMINI_API_KEY
+        if "GEMINI_API_KEY" in os.environ and "GOOGLE_API_KEY" not in os.environ:
+            os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
+        elif "GOOGLE_API_KEY" in os.environ and "GEMINI_API_KEY" not in os.environ:
+            os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_API_KEY"]
 
 
 def get_tool_credential(

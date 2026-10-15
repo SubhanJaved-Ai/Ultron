@@ -26,7 +26,18 @@ from openjarvis.intelligence import (
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_TOOLS = frozenset({"think", "calculator", "web_search"})
+_DEFAULT_TOOLS = frozenset(
+    {
+        "think",
+        "calculator",
+        "web_search",
+        "browser_navigate",
+        "browser_click",
+        "browser_type",
+        "browser_screenshot",
+        "browser_extract",
+    }
+)
 
 
 def _resolve_server_cors_origins(configured: object) -> list[str]:
@@ -58,6 +69,13 @@ def _resolve_allowed_tools(config: object) -> tuple[set[str], bool]:
         }
     else:
         allowed = {tool.strip() for tool in configured.split(",") if tool.strip()}
+
+    if "browser" in allowed:
+        from openjarvis.agents.tool_resolver import BROWSER_SUB_TOOLS
+
+        allowed.remove("browser")
+        allowed.update(BROWSER_SUB_TOOLS)
+
     return allowed, True
 
 

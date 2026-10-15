@@ -293,14 +293,8 @@ class TestBrowserClickTool:
         tool = BrowserClickTool()
         properties = tool.spec.parameters["properties"]
         assert {"selector", "target", "text", "element", "query"} <= set(properties)
-        assert "required" not in tool.spec.parameters
-        assert tool.spec.parameters["anyOf"] == [
-            {"required": ["selector"]},
-            {"required": ["target"]},
-            {"required": ["text"]},
-            {"required": ["element"]},
-            {"required": ["query"]},
-        ]
+        assert tool.spec.parameters.get("required") == ["selector"]
+        assert "anyOf" not in tool.spec.parameters
 
     def test_spec_has_by_text_parameter(self):
         from openjarvis.tools.browser import BrowserClickTool

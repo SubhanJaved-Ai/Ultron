@@ -432,15 +432,7 @@ class BrowserClickTool(BaseTool):
                         "description": "Alias for selector.",
                     },
                 },
-                # Require one accepted spelling without forcing callers to
-                # use ``selector`` when an advertised alias is supplied.
-                "anyOf": [
-                    {"required": ["selector"]},
-                    {"required": ["target"]},
-                    {"required": ["text"]},
-                    {"required": ["element"]},
-                    {"required": ["query"]},
-                ],
+                "required": ["selector"],
             },
             category="browser",
         )

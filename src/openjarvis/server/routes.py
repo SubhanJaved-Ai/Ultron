@@ -694,20 +694,39 @@ def _handle_agent(
             else:
                 result = agent.run(input_text, context=ctx)
         except Exception as exc:
-            logger.warning(
-                "Agent execution failed (%s); providing autonomous local response", exc
-            )
-            from openjarvis.agents.base import AgentResult
+            from openjarvis.agents._stubs import AgentResult
+            from openjarvis.engine._base import EngineConnectionError
 
-            result = AgentResult(
-                content=_local_jarvis_response(input_text),
-                success=True,
-                metadata={
-                    "prompt_tokens": 10,
-                    "completion_tokens": 25,
-                    "total_tokens": 35,
-                },
-            )
+            error_text = str(exc)
+            if isinstance(exc, EngineConnectionError) or "503" in error_text:
+                logger.error(
+                    "Agent execution failed due to provider overload or connection error: %s",
+                    exc,
+                )
+                result = AgentResult(
+                    content=(
+                        "Inference provider is temporarily overloaded (HTTP 503) "
+                        "or unreachable. Please retry your request in a moment."
+                    ),
+                    metadata={
+                        "success": False,
+                        "error": error_text,
+                        "status_code": 503,
+                    },
+                )
+            else:
+                logger.warning(
+                    "Agent execution failed (%s); providing autonomous local response", exc
+                )
+                result = AgentResult(
+                    content=_local_jarvis_response(input_text),
+                    metadata={
+                        "success": True,
+                        "prompt_tokens": 10,
+                        "completion_tokens": 25,
+                        "total_tokens": 35,
+                    },
+                )
         finally:
             agent._model = original_model
 

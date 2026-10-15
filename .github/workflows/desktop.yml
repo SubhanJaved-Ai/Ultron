@@ -175,10 +175,10 @@ jobs:
           )
           Set-Content -Path $pthFile -Value $pthContent -Encoding ascii
 
-          # 3. Install OpenJarvis and server + cloud inference dependencies into Lib\site-packages
+          # 3. Install OpenJarvis and server + cloud inference + browser dependencies into Lib\site-packages
           $siteDir = Join-Path $runtimeDir "Lib\site-packages"
           New-Item -ItemType Directory -Path $siteDir -Force | Out-Null
-          python -m pip install --target $siteDir --no-warn-script-location ".[server,inference-cloud,inference-google]"
+          python -m pip install --target $siteDir --no-warn-script-location ".[server,inference-cloud,inference-google,browser]"
 
           # 4. In-CI verification: execute openjarvis.cli serve --help using the packaged runtime
           $runtimePython = Join-Path $runtimeDir "python.exe"

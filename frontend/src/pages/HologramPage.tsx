@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router';
-import { MessageSquare, Orbit, ArrowLeft, Radio, Sparkles } from 'lucide-react';
+import { MessageSquare, Orbit, ArrowLeft, Radio, Sparkles, ExternalLink } from 'lucide-react';
 import { getBase } from '../lib/api';
 
 export function HologramPage() {
   const navigate = useNavigate();
   const apiBase = getBase();
-  const hologramUrl = `${apiBase}/hologram`;
+  const hologramUrl = `${apiBase}/hologram.html`;
 
   return (
     <div className="flex flex-col h-full w-full bg-[#02050c] text-slate-100 overflow-hidden relative">
@@ -68,6 +68,30 @@ export function HologramPage() {
             <Radio size={11} className="animate-pulse" />
             <span>Voice & Audio Reactive</span>
           </div>
+
+          <a
+            href={hologramUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#e2e8f0',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.16)';
+              e.currentTarget.style.color = '#fff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+              e.currentTarget.style.color = '#e2e8f0';
+            }}
+            title="Open 3D Hologram in full browser window"
+          >
+            <ExternalLink size={13} />
+            <span>Open Fullscreen</span>
+          </a>
 
           <button
             onClick={() => navigate('/')}

@@ -39,7 +39,7 @@ def create_security_middleware() -> Any:
 
             response = await call_next(request)
             response.headers["X-Content-Type-Options"] = "nosniff"
-            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
             response.headers["X-XSS-Protection"] = "1; mode=block"
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
@@ -52,9 +52,11 @@ def create_security_middleware() -> Any:
             )
             # media-src blob: lets the UI play synthesized speech, which arrives
             # as a blob URL; default-src alone refused it.
+            # frame-src and frame-ancestors allow same-origin iframing of the 3D Hologram core.
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: blob: data:; "
-                "media-src 'self' blob: data:; font-src 'self' https: data:; connect-src 'self' ws: wss: http: https:;"
+                "media-src 'self' blob: data:; font-src 'self' https: data:; connect-src 'self' ws: wss: http: https:; "
+                "frame-src 'self' blob: data:; frame-ancestors 'self';"
             )
             return response
 
@@ -64,13 +66,14 @@ def create_security_middleware() -> Any:
 # Also export the header values as constants for testing
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
+    "X-Frame-Options": "SAMEORIGIN",
     "X-XSS-Protection": "1; mode=block",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(self), geolocation=()",
     "Content-Security-Policy": (
         "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: blob: data:; "
-        "media-src 'self' blob: data:; font-src 'self' https: data:; connect-src 'self' ws: wss: http: https:;"
+        "media-src 'self' blob: data:; font-src 'self' https: data:; connect-src 'self' ws: wss: http: https:; "
+        "frame-src 'self' blob: data:; frame-ancestors 'self';"
     ),
 }

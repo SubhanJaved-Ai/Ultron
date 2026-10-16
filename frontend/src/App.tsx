@@ -14,7 +14,6 @@ import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
 import { useAppStore } from './lib/store';
 import { fetchModels, fetchServerInfo, fetchSavings, submitSavings, isTauri } from './lib/api';
-import { OptInModal } from './components/OptInModal';
 import { UpdateChecker } from './components/Desktop/UpdateChecker';
 import { track, hashId } from './lib/analytics';
 
@@ -42,10 +41,6 @@ export default function App() {
   const optInDisplayName = useAppStore((s) => s.optInDisplayName);
   const optInEmail = useAppStore((s) => s.optInEmail);
   const optInAnonId = useAppStore((s) => s.optInAnonId);
-  const optInModalSeen = useAppStore((s) => s.optInModalSeen);
-  const optInModalOpen = useAppStore((s) => s.optInModalOpen);
-  const setOptInModalOpen = useAppStore((s) => s.setOptInModalOpen);
-  const markOptInModalSeen = useAppStore((s) => s.markOptInModalSeen);
   const savings = useAppStore((s) => s.savings);
 
   // Apply theme class to <html>
@@ -129,13 +124,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [optInEnabled, optInDisplayName, optInAnonId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Show opt-in modal on first visit
-  useEffect(() => {
-    if (!optInModalSeen) {
-      setOptInModalOpen(true);
-      markOptInModalSeen();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fire model_changed when the user switches models. First mount is
   // not a "change" — only emit when both prev and current are real and
@@ -207,9 +195,6 @@ export default function App() {
       </Routes>
       <Toaster position="bottom-right" />
       {commandPaletteOpen && <CommandPalette />}
-      {optInModalOpen && (
-        <OptInModal onClose={() => setOptInModalOpen(false)} />
-      )}
     </>
   );
 }

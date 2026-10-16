@@ -168,6 +168,51 @@
       margin: 0 auto;
       width: 100%;
     }
+    .hud-brand-container {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .nav-back-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--theme-border, rgba(0, 243, 255, 0.35));
+      color: var(--theme-color, #00f3ff);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-decoration: none;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 0 12px var(--theme-glow, rgba(0, 243, 255, 0.2));
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+    .nav-back-pill:hover {
+      background: var(--theme-color, #00f3ff);
+      color: #030712;
+      border-color: var(--theme-color, #00f3ff);
+      box-shadow: 0 0 20px var(--theme-glow, rgba(0, 243, 255, 0.5));
+      transform: translateX(-2px);
+    }
+    .nav-back-pill .nav-back-arrow {
+      font-size: 14px;
+      line-height: 1;
+      transition: transform 0.2s ease;
+    }
+    .nav-back-pill:hover .nav-back-arrow {
+      transform: translateX(-3px);
+    }
+    .hud-brand-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      cursor: pointer;
+    }
     .hud-brand {
       display: flex;
       align-items: center;
@@ -1314,16 +1359,18 @@
   <div class="minimal-hud">
     <!-- Top Header -->
     <header class="hud-header">
-      <div class="hud-brand">
-        <div class="hud-logo">ULTRON</div>
-        <div class="hud-sublogo">AUTONOMOUS INTELLIGENCE MATRIX (JARVIS CORE)</div>
+      <div class="hud-brand-container">
+        <a href="/" id="back-dashboard-btn" class="nav-back-pill" title="Return to Main Dashboard" onclick="if(window.top && window.top !== window){ window.top.location.href='/'; return false; }">
+          <span class="nav-back-arrow">←</span>
+          <span>DASHBOARD</span>
+        </a>
+        <a href="/" class="hud-brand-link" title="Return to Main Dashboard" onclick="if(window.top && window.top !== window){ window.top.location.href='/'; return false; }">
+          <div class="hud-logo">ULTRON</div>
+          <div class="hud-sublogo">AUTONOMOUS INTELLIGENCE MATRIX (JARVIS CORE)</div>
+        </a>
       </div>
 
       <div class="hud-header-right">
-        <button id="auth-btn" class="auth-toggle-pill" onclick="openAuthModal()" title="Authentication & Profile">
-          <span>👤</span>
-          <span id="auth-user-label">SIGN IN</span>
-        </button>
         <button id="chat-toggle-btn" class="chat-toggle-pill" onclick="toggleChatDrawer()" title="Open 48-Hour Chat History Log">
           <span>💬</span>
           <span>CHAT LOG (<span id="chat-pill-count">0</span>)</span>
@@ -1399,55 +1446,6 @@
         <!-- Status + Save -->
         <div id="personality-status" class="personality-status"></div>
         <button id="personality-save-btn" class="personality-save-btn" onclick="savePersonality()">APPLY CALIBRATION</button>
-      </div>
-    </div>
-
-    <!-- Authentication Modal -->
-    <div id="auth-modal" class="auth-modal-backdrop hidden" onclick="if(event.target===this)closeAuthModal()">
-      <div class="auth-modal-card">
-        <div class="auth-modal-header">
-          <div class="auth-modal-title">
-            <span>🔐</span>
-            <span id="auth-modal-heading">USER AUTHENTICATION</span>
-          </div>
-          <button type="button" class="chat-action-btn close-btn" onclick="closeAuthModal()">✕</button>
-        </div>
-
-        <!-- Guest View: Login / Register Form -->
-        <div id="auth-view-guest" class="auth-view">
-          <div class="auth-tabs">
-            <button id="tab-login" type="button" class="auth-tab active" onclick="switchAuthTab('login')">LOGIN</button>
-            <button id="tab-register" type="button" class="auth-tab" onclick="switchAuthTab('register')">REGISTER</button>
-          </div>
-
-          <form id="auth-form" onsubmit="handleAuthSubmit(event)" style="margin-top: 14px;">
-            <div class="auth-field">
-              <label for="auth-username">USERNAME</label>
-              <input id="auth-username" type="text" autocomplete="username" required placeholder="Enter username (min 3 chars)" />
-            </div>
-            <div class="auth-field">
-              <label for="auth-password">PASSWORD</label>
-              <input id="auth-password" type="password" autocomplete="current-password" required placeholder="Enter password (min 8 chars)" />
-            </div>
-            <div id="auth-error-msg" class="auth-error hidden"></div>
-            <button id="auth-submit-btn" type="submit" class="auth-submit-btn">SIGN IN</button>
-          </form>
-        </div>
-
-        <!-- Authenticated View: Active Profile -->
-        <div id="auth-view-authenticated" class="auth-view hidden">
-          <div class="auth-user-info">
-            <div class="auth-avatar">👤</div>
-            <div class="auth-user-meta">
-              <div id="auth-profile-username" class="auth-profile-name">User</div>
-              <div id="auth-profile-role" class="auth-profile-role">ROLE: USER</div>
-            </div>
-          </div>
-          <div class="auth-session-actions" style="margin-top: 18px;">
-            <button type="button" class="auth-logout-btn" onclick="handleLogout()">LOGOUT</button>
-            <button type="button" class="auth-delete-btn" onclick="handleDeleteAccount()">DELETE ACCOUNT & DATA</button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -1621,6 +1619,9 @@
     let nucleusMesh, nucleusGlowMesh;
     let electronParticles, electronGeometry, electronMaterial;
     let orbitalRings = [];
+    let rotaryGroup;
+    let gyroRings = [];
+    let beaconNodes = [];
 
     // State Colors & Centralized Theme Palettes (TSK-P5-03 — Tri-Theme Hologram HUD)
     const THEME_PALETTES = {
@@ -1736,10 +1737,10 @@
         particleAngles[i * 2]     = theta;
         particleAngles[i * 2 + 1] = phi;
 
-        // Fluid, alive speed (not too high, not too low): 0.0034 to 0.0070 rad/frame
+        // Fluid, alive rotary speed (smooth circular orbital streams)
         const dir = Math.random() < 0.5 ? 1 : -1;
-        const thetaSpeed = dir * (0.0034 + Math.random() * 0.0036);
-        const phiSpeed   = (Math.random() - 0.5) * 0.0012;
+        const thetaSpeed = dir * (0.012 + Math.random() * 0.016);
+        const phiSpeed   = (Math.random() - 0.5) * 0.0025;
         const radialFreq = Math.random() * Math.PI * 2;
 
         particleVelocities[i * 3]     = thetaSpeed;
@@ -1761,8 +1762,19 @@
       electronParticles = new THREE.Points(electronGeometry, electronMaterial);
       electronGroup.add(electronParticles);
 
-      // --- Helper Functions for Thread-Thin Geometric Lines ---
-      function createFrontalCircle(radius, opacity, rotSpeedZ = 0) {
+      // --- Master Rotary Gyroscope Group (Dynamic 3D Multi-Axis Circular Rotary Motion) ---
+      rotaryGroup = new THREE.Group();
+      electronGroup.add(rotaryGroup);
+
+      // Helper function to create continuous rotary gyroscope rings with travelling orbital beacon nodes
+      function createRotaryRing(radius, tiltX, tiltY, tiltZ, rotSpeedZ, tubeRadius = 0.18, nodeCount = 2, opacity = 0.55) {
+        const ringGroup = new THREE.Group();
+        ringGroup.rotation.x = tiltX;
+        ringGroup.rotation.y = tiltY;
+        ringGroup.rotation.z = tiltZ;
+        ringGroup.userData = { rotSpeedZ: rotSpeedZ, radius: radius };
+
+        // 1. Thread-thin 3D orbital circle
         const pts = [];
         const segs = 128;
         for (let j = 0; j <= segs; j++) {
@@ -1773,15 +1785,65 @@
         const mat = new THREE.LineBasicMaterial({
           color: 0x00f3ff,
           transparent: true,
-          opacity: opacity || 0.45,
+          opacity: opacity,
           blending: THREE.AdditiveBlending,
           linewidth: 1
         });
         const line = new THREE.LineLoop(geo, mat);
-        line.userData = { rotSpeedZ: rotSpeedZ };
-        return line;
+        ringGroup.add(line);
+        orbitalRings.push(line);
+
+        // 2. Subtle glowing Torus rim accent
+        const torusGeo = new THREE.TorusGeometry(radius, tubeRadius, 8, 96);
+        const torusMat = new THREE.MeshBasicMaterial({
+          color: 0x00f3ff,
+          transparent: true,
+          opacity: opacity * 0.75,
+          blending: THREE.AdditiveBlending
+        });
+        const torusMesh = new THREE.Mesh(torusGeo, torusMat);
+        ringGroup.add(torusMesh);
+        orbitalRings.push(torusMesh);
+
+        // 3. Orbiting Quantum Beacon Nodes (Glowing electron dots traveling in circular orbits)
+        for (let k = 0; k < nodeCount; k++) {
+          const nodeGeo = new THREE.SphereGeometry(2.2, 16, 16);
+          const nodeMat = new THREE.MeshBasicMaterial({
+            color: 0x00f3ff,
+            transparent: true,
+            opacity: 0.95,
+            blending: THREE.AdditiveBlending
+          });
+          const nodeMesh = new THREE.Mesh(nodeGeo, nodeMat);
+          const initAngle = (k / nodeCount) * Math.PI * 2;
+          nodeMesh.userData = {
+            radius: radius,
+            angle: initAngle,
+            speed: rotSpeedZ * 1.6
+          };
+          nodeMesh.position.x = radius * Math.cos(initAngle);
+          nodeMesh.position.y = radius * Math.sin(initAngle);
+          ringGroup.add(nodeMesh);
+          beaconNodes.push(nodeMesh);
+          orbitalRings.push(nodeMesh);
+        }
+
+        rotaryGroup.add(ringGroup);
+        gyroRings.push(ringGroup);
+        return ringGroup;
       }
 
+      // 1. Master Outer Boundary Ring & Torus (Defines 100% Circular Silhouette with continuous rotary spin)
+      createRotaryRing(96, 0.0, 0.0, 0.0, 0.012, 0.22, 3, 0.75);
+
+      // 2. Multi-Tier Gyroscopic Orbital Rings with 3D Inclination (Dynamic Circular Rotary Motion)
+      createRotaryRing(84, 1.15, 0.20, 0.40, -0.024, 0.18, 2, 0.60);
+      createRotaryRing(72, -0.90, -0.35, 0.65, 0.028, 0.16, 2, 0.55);
+      createRotaryRing(56, 0.75, 0.85, -0.50, -0.036, 0.15, 2, 0.60);
+      createRotaryRing(38, -1.20, 0.50, 1.10, 0.048, 0.14, 1, 0.65);
+      createRotaryRing(24, 0.45, -0.95, -0.80, -0.060, 0.12, 1, 0.70);
+
+      // 3. Spherical Meridian Thread Rings (Rotating planetary wireframe cage)
       function createThreadRing(radius, yOffset, opacity) {
         const pts = [];
         const segs = 128;
@@ -1800,32 +1862,6 @@
         return new THREE.LineLoop(geo, mat);
       }
 
-      // 1. Master Outer Boundary Circle (Defines 100% Perfect Circular Silhouette)
-      const outerBoundaryThread = createFrontalCircle(96, 0.70, 0.0003);
-      electronGroup.add(outerBoundaryThread);
-      orbitalRings.push(outerBoundaryThread);
-
-      const rimTorusGeo = new THREE.TorusGeometry(96, 0.12, 8, 96);
-      const rimTorusMat = new THREE.MeshBasicMaterial({
-        color: 0x00f3ff,
-        transparent: true,
-        opacity: 0.35,
-        blending: THREE.AdditiveBlending
-      });
-      const rimTorus = new THREE.Mesh(rimTorusGeo, rimTorusMat);
-      electronGroup.add(rimTorus);
-      orbitalRings.push(rimTorus);
-
-      // 2. Frontal Concentric Thread Rings (100% Mathematically Perfect Circles, Thin as Thread)
-      const frontalRadii = [84, 72, 60, 48, 36, 26, 18];
-      frontalRadii.forEach((r, idx) => {
-        const speed = 0.0004 * (idx % 2 === 0 ? 1 : -1);
-        const ring = createFrontalCircle(r, 0.40 + (idx * 0.02), speed);
-        electronGroup.add(ring);
-        orbitalRings.push(ring);
-      });
-
-      // 3. Spherical Meridian Thread Rings (Passing through poles, radius 96, sweeping perfect sphere)
       for (let m = 0; m < 8; m++) {
         const alpha = m * (Math.PI / 8);
         const pts = [];
@@ -1841,21 +1877,21 @@
         const mat = new THREE.LineBasicMaterial({
           color: 0x00f3ff,
           transparent: true,
-          opacity: 0.32,
+          opacity: 0.28,
           blending: THREE.AdditiveBlending,
           linewidth: 1
         });
         const mRing = new THREE.LineLoop(geo, mat);
-        electronGroup.add(mRing);
+        rotaryGroup.add(mRing);
         orbitalRings.push(mRing);
       }
 
-      // 4. Spherical Latitude Thread Rings (Hugging the exact R = 96 sphere from pole to pole)
+      // 4. Spherical Latitude Thread Rings
       const latElevations = [18, -18, 38, -38, 58, -58, 76, -76];
       latElevations.forEach((yElev) => {
         const rLat = Math.sqrt(96 * 96 - yElev * yElev);
-        const latRing = createThreadRing(rLat, yElev, 0.30);
-        electronGroup.add(latRing);
+        const latRing = createThreadRing(rLat, yElev, 0.25);
+        rotaryGroup.add(latRing);
         orbitalRings.push(latRing);
       });
 
@@ -1890,9 +1926,23 @@
       if (nucleusGlowMesh) nucleusGlowMesh.material.color.copy(currentColor);
       if (electronMaterial) electronMaterial.color.copy(currentColor);
       orbitalRings.forEach(r => {
-        r.material.color.copy(currentColor);
+        if (r.material && r.material.color) r.material.color.copy(currentColor);
+      });
+
+      // Multi-Axis Circular Rotary Motion (Gyroscopic Orbital Acceleration)
+      const speedMult = jarvisState === 'LISTENING' ? 1.3 : (jarvisState === 'THINKING' ? 1.8 : (jarvisState === 'SPEAKING' ? 1.5 : 1.0));
+
+      gyroRings.forEach(r => {
         if (r.userData && r.userData.rotSpeedZ) {
-          r.rotation.z += r.userData.rotSpeedZ;
+          r.rotation.z += r.userData.rotSpeedZ * speedMult;
+        }
+      });
+
+      beaconNodes.forEach(node => {
+        if (node.userData) {
+          node.userData.angle += (node.userData.speed || 0.02) * speedMult;
+          node.position.x = node.userData.radius * Math.cos(node.userData.angle);
+          node.position.y = node.userData.radius * Math.sin(node.userData.angle);
         }
       });
 
@@ -1911,28 +1961,39 @@
       targetRotationY += (mouseX - targetRotationY) * 0.04;
       targetRotationX += (mouseY - targetRotationX) * 0.04;
 
-      // Group Serene Orbital Rotation (Rotates around Y, maintaining a 100% perfect circular silhouette)
-      electronGroup.rotation.y = time * 0.008 + targetRotationY;
-      electronGroup.rotation.x = targetRotationX * 0.15; // Kept near-zero so outer perimeter remains a perfect circle
+      // Group Circular Rotary Motion around Y with dynamic precession
+      if (rotaryGroup) {
+        rotaryGroup.rotation.y = time * 0.032 + targetRotationY;
+        rotaryGroup.rotation.x = Math.sin(time * 0.5) * 0.08 + targetRotationX * 0.15;
+      }
+      electronGroup.rotation.y = time * 0.010;
 
-      // Nucleus Breathing Scale (Gentle Breathing)
+      // Nucleus Breathing Scale and Rotary Core Spin
       let baseScale = 1.0 + Math.sin(time * 1.0) * 0.03;
       if (jarvisState === 'LISTENING') {
         baseScale = 1.1 + Math.sin(time * 2.5) * 0.05;
+      } else if (jarvisState === 'THINKING') {
+        baseScale = 1.12 + Math.sin(time * 4.0) * 0.07;
       } else if (jarvisState === 'SPEAKING') {
         baseScale = (1.15 * audioPulseScale) + Math.sin(time * 3.5) * 0.06;
       }
-      if (nucleusMesh) nucleusMesh.scale.setScalar(baseScale);
-      if (nucleusGlowMesh) nucleusGlowMesh.scale.setScalar(baseScale * 1.25);
+      if (nucleusMesh) {
+        nucleusMesh.scale.setScalar(baseScale);
+        nucleusMesh.rotation.y += 0.022 * speedMult;
+      }
+      if (nucleusGlowMesh) {
+        nucleusGlowMesh.scale.setScalar(baseScale * 1.25);
+        nucleusGlowMesh.rotation.y -= 0.030 * speedMult;
+        nucleusGlowMesh.rotation.x += 0.016 * speedMult;
+      }
 
-      // Orbiting Quantum Electron Particles Displacement (Alive, Fluid Speed)
+      // Orbiting Quantum Electron Particles Swirling Vortex (Circular Rotary Streams)
       const positions = electronGeometry.attributes.position.array;
-      const speedMult = jarvisState === 'LISTENING' ? 1.25 : (jarvisState === 'SPEAKING' ? 1.5 : 1.0);
 
       for (let i = 0; i < particleCount; i++) {
-        // Continuous fluid orbital progression
-        particleAngles[i * 2]     += particleVelocities[i * 3]     * speedMult;
-        particleAngles[i * 2 + 1] += particleVelocities[i * 3 + 1] * speedMult;
+        // Continuous fluid orbital progression around the nucleus
+        particleAngles[i * 2]     += (particleVelocities[i * 3] + 0.008) * speedMult;
+        particleAngles[i * 2 + 1] += particleVelocities[i * 3 + 1]       * speedMult;
 
         let theta = particleAngles[i * 2];
         let phi   = particleAngles[i * 2 + 1];
@@ -2716,9 +2777,8 @@
         clearTimeout(timeoutId);
 
         if (response.status === 401) {
-          openAuthModal();
-          setSubtitle('AUTHENTICATION REQUIRED: Please sign in or register.', 'thinking');
-          return;
+          // Authentication is not required for personal local assistant
+          console.warn('Endpoint returned 401, falling back to local reasoning');
         }
 
         if (response.ok) {
@@ -2895,7 +2955,7 @@
       if (q.includes("speed of light")) {
         return formatClientAddress("The speed of light in vacuum is approximately 299,792 kilometers per second");
       }
-      return formatClientAddress(`Directive acknowledged: '${query}'. Standing by to execute your objective`);
+      return formatClientAddress(`Directive received: '${query}'. Cognitive core is analyzing parameters for immediate execution`);
     }
 
     function handleTextDirective(event) {

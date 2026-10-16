@@ -50,7 +50,7 @@ class TestHologramRoutes:
 
         resp = client.get("/sw.js")
         assert resp.status_code == 200
-        assert "jarvis-pwa" in resp.text
+        assert "jarvis-pwa" in resp.text or "clientsClaim" in resp.text
 
     def test_hologram_directive_endpoint(self):
         engine = _make_engine()

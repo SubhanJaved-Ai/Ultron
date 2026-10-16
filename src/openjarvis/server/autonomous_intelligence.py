@@ -286,8 +286,8 @@ def generate_autonomous_response(raw_query: str) -> str:
         )
     ):
         return format_addressed(
-            "I am your digital assistant, not just ChatGPT who can just give you the answer. "
-            "You just give me the task and I will do it"
+            "I am your digital execution assistant. "
+            "At your service and standing by for your directive"
         )
 
     # Question readiness / permission prompts
@@ -313,7 +313,7 @@ def generate_autonomous_response(raw_query: str) -> str:
         re.IGNORECASE,
     )
     if PURE_GREETING_PATTERN.match(clean.strip()):
-        return format_addressed("Ready for your task")
+        return format_addressed("Hello. All systems nominal, standing by for your directive")
 
     # If query opens with a greeting prefix followed by a real question (e.g. "Hello, what is..."),
     # strip the greeting prefix so the underlying question resolves cleanly
@@ -357,8 +357,8 @@ def generate_autonomous_response(raw_query: str) -> str:
 
     if any(k in q for k in ("who are you", "your name", "what are you")):
         return format_addressed(
-            "I am Ultron (evolved from JARVIS), your digital execution assistant. "
-            "Not just ChatGPT who can just give you the answer. Give me the task and I will do it"
+            "I am Ultron (evolved from JARVIS), your executive digital assistant. "
+            "I execute system tasks, automations, and tools at your command"
         )
 
     if any(k in q for k in ("creator", "who made you")):

@@ -526,6 +526,26 @@ async def stream_cloud(
     max_tokens: int = 1024,
 ) -> AsyncIterator[str]:
     """Stream tokens from a cloud provider for the given model."""
+    # Fast-Path Conversational Interceptor: Pure greetings should never burn cloud tokens or quota
+    last_user_text = ""
+    for m in reversed(messages):
+        role_val = getattr(getattr(m, "role", None), "value", None) or getattr(m, "role", None)
+        if role_val in ("user", Role.USER) and getattr(m, "content", None):
+            last_user_text = str(m.content).strip()
+            break
+
+    if last_user_text:
+        import re
+        if re.match(
+            r"^(?:hello|hi|hey|greetings|good\s+(?:morning|afternoon|evening)|are\s+you\s+there)\s*(?:ultron|jarvis|sir|boss)?[\s.!?]*$",
+            last_user_text,
+            re.IGNORECASE,
+        ):
+            from openjarvis.core.user_preferences import get_user_address
+            user_addr = get_user_address() or "boss"
+            yield f"Hello, {user_addr}. All systems operational and standing by for your directive. How may I assist you today?"
+            return
+
     provider = get_provider(model)
 
     if provider == "openai":

@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 
 hologram_router = APIRouter()
 
+_HOLOGRAM_HTML_PATH = pathlib.Path(__file__).parent / "static" / "hologram.html"
 _INDEX_HTML_PATH = pathlib.Path(__file__).parent / "static" / "index.html"
 
 
@@ -20,9 +21,10 @@ async def serve_hologram() -> HTMLResponse:
         "Pragma": "no-cache",
         "Expires": "0",
     }
-    if _INDEX_HTML_PATH.is_file():
+    target_path = _HOLOGRAM_HTML_PATH if _HOLOGRAM_HTML_PATH.is_file() else _INDEX_HTML_PATH
+    if target_path.is_file():
         return HTMLResponse(
-            content=_INDEX_HTML_PATH.read_text(encoding="utf-8"),
+            content=target_path.read_text(encoding="utf-8"),
             headers=headers,
         )
     return HTMLResponse(

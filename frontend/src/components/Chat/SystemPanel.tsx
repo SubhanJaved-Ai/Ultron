@@ -173,10 +173,10 @@ export function SystemPanel() {
           </div>
         </section>
 
-        {/* Cost Comparison */}
+        {/* Real-Time Cost & Usage */}
         <section>
           <h4 className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
-            Real-Time Cost
+            Model Usage & Cost
           </h4>
 
           {/* Active Model */}
@@ -200,7 +200,7 @@ export function SystemPanel() {
               <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
                 {promptTokens > 0 || completionTokens > 0
                   ? `${formatNumber(promptTokens)} in · ${formatNumber(completionTokens)} out`
-                  : '0 tokens'}
+                  : '0 tokens used'}
               </div>
             </div>
             <div className="text-xs font-bold font-mono" style={{ color: 'var(--color-text)' }}>
@@ -208,53 +208,69 @@ export function SystemPanel() {
             </div>
           </div>
 
-          {/* Local comparison */}
-          <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
-            style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
-          >
-            <HardDrive size={14} style={{ color: 'var(--color-success)' }} />
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>Local Inference</div>
-              <div className="text-[9.5px]" style={{ color: 'var(--color-text-tertiary)' }}>Ollama / Hardware</div>
+          {/* Local vs Cloud Context */}
+          {activeModelId.toLowerCase().includes('ollama') || activeModelId.toLowerCase().includes('local') ? (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
+              style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+            >
+              <HardDrive size={14} style={{ color: 'var(--color-success)' }} />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>On-Device Inference</div>
+                <div className="text-[9.5px]" style={{ color: 'var(--color-text-tertiary)' }}>100% Private & Free</div>
+              </div>
+              <div className="text-xs font-mono font-semibold" style={{ color: 'var(--color-success)' }}>
+                $0.0000
+              </div>
             </div>
-            <div className="text-xs font-mono font-semibold" style={{ color: 'var(--color-success)' }}>
-              ${(savings?.local_cost ?? 0).toFixed(4)}
+          ) : (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
+              style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+            >
+              <Cloud size={14} style={{ color: 'var(--color-accent)' }} />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>Cloud Provider</div>
+                <div className="text-[9.5px]" style={{ color: 'var(--color-text-tertiary)' }}>Pay-Per-Token / BYOK</div>
+              </div>
+              <div className="text-xs font-mono font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                ${activeModelCost.toFixed(4)}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Commercial Cloud Benchmarks */}
-          <div className="flex flex-col gap-1.5">
+          {/* Hypothetical Commercial Benchmark (Savings) */}
+          <div
+            className="rounded-lg p-2.5"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>
+                Commercial Benchmark (Hypothetical)
+              </span>
+              <DollarSign size={11} style={{ color: 'var(--color-text-tertiary)' }} />
+            </div>
             {BENCHMARKS.map((provider) => {
-              const cost = (promptK * provider.input) / 1000 + (completionK * provider.output) / 1000;
-              const savedVsActive = cost - activeModelCost;
+              const hypotheticalCost = (promptK * provider.input) / 1000 + (completionK * provider.output) / 1000;
+              const savedVsActive = hypotheticalCost - activeModelCost;
               return (
                 <div
                   key={provider.name}
-                  className="flex items-center gap-2 rounded-lg px-3 py-1.5"
-                  style={{
-                    background: 'var(--color-bg-secondary)',
-                    border: '1px solid transparent',
-                  }}
+                  className="flex items-center justify-between text-[11px] py-1 border-t first:border-t-0"
+                  style={{ borderColor: 'var(--color-border)' }}
                 >
-                  <Cloud size={13} style={{ color: 'var(--color-text-tertiary)' }} />
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className="text-[11px] truncate"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                    >
-                      {provider.name} (Tier)
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-[11px] font-mono" style={{ color: 'var(--color-text-secondary)' }}>
-                      ${cost.toFixed(4)}
-                    </div>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>{provider.name}</span>
+                  <div className="text-right">
+                    <span className="font-mono text-[10.5px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                      ${hypotheticalCost.toFixed(4)}
+                    </span>
                     {savedVsActive > 0.0001 && (
-                      <div className="text-[8.5px] flex items-center gap-0.5 justify-end" style={{ color: 'var(--color-success)' }}>
-                        <TrendingDown size={8} />
-                        ${savedVsActive.toFixed(4)} saved
-                      </div>
+                      <span className="text-[9px] block font-medium" style={{ color: 'var(--color-success)' }}>
+                        Save ${(savedVsActive).toFixed(4)}
+                      </span>
                     )}
                   </div>
                 </div>

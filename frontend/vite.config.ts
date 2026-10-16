@@ -25,7 +25,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'OpenJarvis',
+        name: 'Ultron (OpenJarvis)',
         short_name: 'Jarvis',
         description: 'On-device AI assistant',
         theme_color: '#161618',

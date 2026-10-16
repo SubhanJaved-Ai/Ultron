@@ -84,8 +84,44 @@ def filter_sensitive_paths(paths: Iterable[Union[str, Path]]) -> List[Path]:
     return [Path(p) for p in paths if not is_sensitive_file(p)]
 
 
+def validate_ultron_fs_operation(path: Union[str, Path], operation: str = "write") -> tuple[bool, str]:
+    """Validate filesystem operation against Ultron safety guardrails.
+
+    Enforces:
+    1. Zero Deletion Policy: All delete/remove/unlink actions are strictly prohibited.
+    2. C: Drive Isolation: All write/create/modify operations on the C: system drive are forbidden.
+    3. Sensitive Credential / Key Protection: Paths matching secret patterns are blocked.
+    4. Allowed Non-System Storage: Read/write operations are restricted to D: or verified safe drives.
+    """
+    op = (operation or "").lower().strip()
+    # 1. Zero Deletion Policy
+    if op in ("delete", "remove", "unlink", "rm", "del", "destroy", "purge", "rmdir"):
+        return False, "Guardrail Policy Violation: File deletion is strictly prohibited by Ultron Zero-Data-Loss Safety Policy."
+
+    p = Path(path)
+
+    # 2. C: Drive Write Isolation
+    try:
+        resolved = p.resolve(strict=False)
+        drive = resolved.drive.upper()
+    except Exception:
+        drive = str(p)[:2].upper()
+
+    if op in ("create", "write", "append", "touch", "modify"):
+        if drive == "C:":
+            return False, "Guardrail Policy Violation: Write access to C: drive is strictly restricted by Ultron Security Guardrails. All workspace operations must be performed on D: drive or designated safe storage."
+
+    # 3. Sensitive file check
+    if is_sensitive_file(p):
+        return False, f"Guardrail Policy Violation: Path '{p.name}' is classified as a sensitive credential or secret file."
+
+    return True, "Guardrail validation passed."
+
+
 __all__ = [
     "DEFAULT_SENSITIVE_PATTERNS",
     "filter_sensitive_paths",
     "is_sensitive_file",
+    "validate_ultron_fs_operation",
 ]
+

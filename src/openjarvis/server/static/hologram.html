@@ -843,6 +843,42 @@
       color: #f87171;
       border-color: rgba(239, 68, 68, 0.4);
     }
+    .action-tag.blocked {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .chat-action-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-top: 4px;
+      margin-bottom: 2px;
+    }
+    .chat-telemetry-badge {
+      font-size: 8.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .badge-latency {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+    .badge-guardrails-passed {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .badge-guardrails-blocked {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+    }
     .chat-action-item {
       display: flex;
       flex-direction: column;
@@ -2658,17 +2694,32 @@
                 <span class="action-tag">SYSTEM EXECUTED</span>
               </div>
               ${item.actions.map(act => {
-                const actName = act.name || 'action';
-                const isSuccess = act.success !== false && act.status !== 'failed' && act.status !== 'error';
-                const statusTag = isSuccess ? 'EXECUTED' : 'FAILED';
-                const tagClass = isSuccess ? 'action-tag' : 'action-tag failed';
+                const actName = act.tool || act.name || 'action';
+                const agentName = act.agent || 'Ultron Autonomous Desktop & Filesystem Controller';
+                const isBlocked = act.status === 'guardrail_blocked' || (act.guardrails && act.guardrails.includes('BLOCKED'));
+                const isSuccess = !isBlocked && act.success !== false && act.status !== 'failed' && act.status !== 'error';
+
+                let statusTag = 'EXECUTED';
+                let tagClass = 'action-tag';
+                if (isBlocked) {
+                  statusTag = 'GUARDRAIL BLOCKED';
+                  tagClass = 'action-tag blocked';
+                } else if (!isSuccess) {
+                  statusTag = 'FAILED';
+                  tagClass = 'action-tag failed';
+                }
+
+                const latencyStr = act.duration_ms !== undefined ? `${act.duration_ms} ms` : '< 1 ms';
+                const guardrailStr = act.guardrails || (isBlocked ? 'BLOCKED' : 'PASSED [Zero Deletion]');
+                const guardrailBadgeClass = isBlocked ? 'chat-telemetry-badge badge-guardrails-blocked' : 'chat-telemetry-badge badge-guardrails-passed';
+
                 let actArgs = '';
                 try {
                   actArgs = typeof act.arguments === 'string' ? act.arguments : JSON.stringify(act.arguments || act.args || {});
                 } catch(e) { actArgs = String(act.arguments || ''); }
                 let actOutput = '';
                 if (act.output && String(act.output).trim()) {
-                  actOutput = `<div class="chat-action-args" style="color:#94a3b8; margin-top:2px;"><span>RESULT:</span> <code>${escapeHtml(String(act.output))}</code></div>`;
+                  actOutput = `<div class="chat-action-args" style="color:#94a3b8; margin-top:4px;"><span>RESULT:</span> <code>${escapeHtml(String(act.output))}</code></div>`;
                 }
                 return `
                   <div class="chat-action-item">
@@ -2676,6 +2727,11 @@
                       <div class="chat-action-tool"><span>TOOL:</span> <code>${escapeHtml(actName)}</code></div>
                       <span class="${tagClass}">${statusTag}</span>
                     </div>
+                    <div class="chat-action-meta-row">
+                      <span class="chat-telemetry-badge badge-latency">⚡ ${escapeHtml(latencyStr)}</span>
+                      <span class="${guardrailBadgeClass}">🛡️ ${escapeHtml(guardrailStr)}</span>
+                    </div>
+                    <div class="chat-action-args" style="font-size:9.5px; color:#64748b; margin-top:2px;"><span>AGENT:</span> <code style="color:#a5b4fc;">${escapeHtml(agentName)}</code></div>
                     ${actArgs && actArgs !== '{}' ? `<div class="chat-action-args"><span>INPUT:</span> <code>${escapeHtml(actArgs)}</code></div>` : ''}
                     ${actOutput}
                   </div>

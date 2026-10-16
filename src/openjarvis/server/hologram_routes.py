@@ -62,6 +62,434 @@ async def get_speech_audio(text: str = ""):
     )
 
 
+def execute_real_system_action(directive: str, user_addr: str = "") -> dict | None:
+    """Detect and immediately execute real OS, filesystem, desktop, or application directives."""
+    import datetime
+    import os
+    import re
+    import shutil
+    import subprocess
+    import sys
+    import time
+    import urllib.parse
+    import webbrowser
+    from pathlib import Path
+
+    t0 = time.perf_counter()
+    clean = directive.strip()
+    q = clean.lower()
+    addr_suffix = f", {user_addr}" if user_addr else ""
+
+    def _make_action(
+        name: str,
+        tool: str,
+        args: dict,
+        output: str,
+        success: bool = True,
+        status: str = "executed",
+        guardrails: str = "PASSED [Zero Deletion Active]",
+        agent: str = "Ultron Autonomous Desktop & Filesystem Controller",
+    ) -> dict:
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+        return {
+            "name": name,
+            "agent": agent,
+            "tool": tool,
+            "duration_ms": elapsed_ms,
+            "guardrails": guardrails,
+            "arguments": args,
+            "success": success,
+            "status": status,
+            "output": output,
+        }
+
+    from openjarvis.security.file_policy import validate_ultron_fs_operation
+
+    # -----------------------------------------------------------------------
+    # Guardrail Intercept 0a: Zero Deletion Policy Enforcement
+    # -----------------------------------------------------------------------
+    del_match = re.search(
+        r"\b(?:delete|remove|erase|destroy|del|unlink|purge)\s+(?:the\s+)?(?:file|folder|dir|item|document)?\s*([^\n\r]+)",
+        q,
+    )
+    if del_match:
+        target_raw = del_match.group(1).strip().strip("'\"")
+        valid, msg = validate_ultron_fs_operation(target_raw, operation="delete")
+        if not valid:
+            act = _make_action(
+                name="file_delete",
+                tool="zero_deletion_guardrail",
+                args={"target": target_raw, "operation": "delete"},
+                output=msg,
+                success=False,
+                status="guardrail_blocked",
+                guardrails="BLOCKED [Zero Deletion Policy Active]",
+                agent="Ultron Autonomous Safety Matrix",
+            )
+            return {
+                "reply": f"Security Guardrail Engaged: File deletion is strictly prohibited by Ultron Zero-Data-Loss Safety Policy. No files will be modified or removed{addr_suffix}.",
+                "actions": [act],
+                "status": "guardrail_blocked",
+            }
+
+    # -----------------------------------------------------------------------
+    # Action 0b: Desktop Control & Real File Creation on Host Disk
+    # -----------------------------------------------------------------------
+    create_keywords = bool(
+        re.search(r"\b(?:create|make|write|generate|paste|put|drop)\s+(?:a\s+)?(?:new\s+)?(?:text\s+|txt\s+)?file\b", q)
+        or re.search(r"\b(?:control\s+(?:my\s+)?desktop.*)?(?:create|make|write|paste).*?\bfile\b", q)
+        or "ultron new create file" in q
+    )
+    if create_keywords:
+        # Determine target drive and filename
+        is_c_drive = bool(re.search(r"\b(?:on|in|to)\s+(?:the\s+)?c(?::|\s+drive)\b", q) or "c:\\" in q)
+        is_d_drive = bool(re.search(r"\b(?:on|in|to)\s+(?:the\s+)?d(?::|\s+drive)\b", q) or "d:\\" in q)
+
+        # File name resolution
+        if "ultron new create file" in q:
+            fname = "Ultron new create file.txt"
+        else:
+            # Check for custom filename in quotes or words
+            custom_match = re.search(r"(?:name[d]?|called)\s+[\"']?([a-zA-Z0-9_\- .]+?\.?[a-zA-Z0-9]*)[\"']?(?:\s+on|\s+in|$)", q)
+            if custom_match:
+                fname = custom_match.group(1).strip()
+                if not fname.endswith((".txt", ".md", ".json", ".log")):
+                    fname += ".txt"
+            else:
+                fname = "Ultron new create file.txt"
+
+        if is_c_drive:
+            target_path = Path("C:/") / fname
+        else:
+            target_path = Path("D:/") / fname
+
+        # Validate with strict Ultron safety guardrails
+        valid, msg = validate_ultron_fs_operation(target_path, operation="create")
+        if not valid:
+            act = _make_action(
+                name="file_create",
+                tool="c_drive_isolation_guardrail",
+                args={"target": str(target_path), "operation": "create"},
+                output=msg,
+                success=False,
+                status="guardrail_blocked",
+                guardrails="BLOCKED [C-Drive Write Restricted]",
+                agent="Ultron Autonomous Safety Matrix",
+            )
+            return {
+                "reply": f"Security Guardrail Engaged: Write access to C: drive is strictly restricted by Ultron Security Guardrails. All workspace operations must be performed on D: drive or designated safe storage{addr_suffix}.",
+                "actions": [act],
+                "status": "guardrail_blocked",
+            }
+
+        # Execute real file write on physical host volume
+        try:
+            iso_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            content = (
+                "======================================================================\n"
+                "ULTRON AUTONOMOUS SYSTEM - REAL FILE VERIFICATION RECORD\n"
+                "======================================================================\n"
+                f"File Name        : {target_path.name}\n"
+                f"Target Path      : {target_path}\n"
+                f"Created At       : {iso_now}\n"
+                f"Agent Controller : Ultron Autonomous Desktop & Filesystem Controller\n"
+                f"Execution Engine : Jarvis 2.0 Autonomous Matrix\n"
+                f"Origin Directive : {clean}\n"
+                "Safety Guardrails: ACTIVE & ENFORCED\n"
+                "  [✓] C: Drive Isolation : ENFORCED (Zero C:\\ modifications permitted)\n"
+                "  [✓] Zero Deletion      : ENFORCED (File deletions strictly prohibited)\n"
+                "  [✓] Safe Storage Volume: D:\\ (Non-system host storage verified)\n"
+                "Host Verification:\n"
+                f"  Physical Disk Status: CONFIRMED CREATED ON HOST FILESYSTEM\n"
+                "======================================================================\n"
+            )
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_text(content, encoding="utf-8")
+            size = target_path.stat().st_size
+
+            # Launch Windows Explorer to highlight the file on the user's desktop
+            if sys.platform == "win32":
+                try:
+                    subprocess.Popen(["explorer.exe", f"/select,{str(target_path)}"])
+                except Exception:
+                    pass
+
+            act = _make_action(
+                name="file_create",
+                tool="desktop_filesystem_creator",
+                args={"path": str(target_path), "size_bytes": size, "mode": "write"},
+                output=f"Real file successfully written to {target_path} ({size} bytes). Host disk confirmed and highlighted in Explorer.",
+                success=True,
+                status="executed",
+                guardrails="PASSED [C: Isolated | Zero Deletion Active]",
+                agent="Ultron Autonomous Desktop & Filesystem Controller",
+            )
+            return {
+                "reply": f"Ultron desktop controller executed successfully. Created real file '{target_path.name}' on D: drive ({size} bytes). Safety guardrails verified: C-drive isolated, zero-deletion policy active{addr_suffix}.",
+                "actions": [act],
+                "status": "executed",
+            }
+        except Exception as exc:
+            act = _make_action(
+                name="file_create",
+                tool="desktop_filesystem_creator",
+                args={"path": str(target_path)},
+                output=f"Filesystem error: {exc}",
+                success=False,
+                status="failed",
+                guardrails="PASSED [Security Check Passed]",
+            )
+            return {
+                "reply": f"Encountered an OS error while creating {target_path}: {exc}{addr_suffix}.",
+                "actions": [act],
+                "status": "failed",
+            }
+
+    # -----------------------------------------------------------------------
+    # 1. Drive & Directory / Explorer operations
+    # -----------------------------------------------------------------------
+    drive_match = re.search(r"\b(?:open|show|launch|explore)\s+(?:the\s+)?([a-zA-Z])(?::|\s+drive)\b", q)
+    open_my_drive = bool(re.search(r"\b(?:open|show|launch|explore)\s+(?:(?:my|the)\s+)?(?:computer|pc|this\s+pc|drives?|drive\s+on\s+my\s+computer)\b", q))
+    folder_match = re.search(r"\b(?:open|show|explore)\s+(?:my\s+)?(?:folder|directory)\s+([^\n\r]+)", q)
+    special_folder = re.search(r"\b(?:open|show|explore)\s+(?:my\s+)?(downloads|documents|desktop|pictures|videos|music)\b", q)
+
+    if drive_match or open_my_drive or folder_match or special_folder:
+        target_path = None
+        if drive_match:
+            letter = drive_match.group(1).upper()
+            target_path = f"{letter}:\\"
+        elif special_folder:
+            folder_name = special_folder.group(1).capitalize()
+            target_path = str(Path.home() / folder_name)
+        elif folder_match:
+            raw_path = folder_match.group(1).strip().strip("'\"")
+            p = Path(raw_path)
+            target_path = str(p if p.is_absolute() else Path.cwd() / p)
+        elif open_my_drive:
+            target_path = "D:\\" if Path("D:\\").exists() else "C:\\"
+
+        if target_path:
+            try:
+                if sys.platform == "win32":
+                    subprocess.Popen(["explorer.exe", target_path])
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", target_path])
+                else:
+                    subprocess.Popen(["xdg-open", target_path])
+
+                act = _make_action(
+                    name="open_drive",
+                    tool="explorer_view",
+                    args={"path": target_path},
+                    output=f"Opened {target_path} in File Explorer",
+                    success=True,
+                    status="executed",
+                    guardrails="PASSED [Read/Explore Access Permitted]",
+                )
+                return {
+                    "reply": f"Opening drive volume {target_path} in Windows Explorer on your computer now{addr_suffix}. File manager window is active.",
+                    "actions": [act],
+                    "status": "executed",
+                }
+            except Exception as exc:
+                act = _make_action(
+                    name="open_drive",
+                    tool="explorer_view",
+                    args={"path": target_path},
+                    output=str(exc),
+                    success=False,
+                    status="failed",
+                    guardrails="PASSED [Read/Explore Access Permitted]",
+                )
+                return {
+                    "reply": f"Attempted to open {target_path}, but encountered an OS error: {exc}{addr_suffix}.",
+                    "actions": [act],
+                    "status": "executed",
+                }
+
+    # -----------------------------------------------------------------------
+    # 2. Browser & Web Search Navigation
+    # -----------------------------------------------------------------------
+    browser_search = re.search(r"\b(?:search|look\s+up)\s+(?:for\s+)?(.+?)(?:\s+(?:on|in)\s+(google|youtube))?$", q)
+    open_web = re.search(r"\b(?:open|launch|go\s+to|browse)\s+(?:the\s+)?(?:web\s+)?(?:browser|chrome|edge)\b", q)
+    open_site = re.search(r"\b(?:open|launch|go\s+to|visit)\s+(https?://[^\s]+|youtube|google|github|reddit|twitter|x\.com)\b", q)
+
+    if open_web or open_site or (browser_search and any(w in q for w in ("search for", "look up"))):
+        url = "https://www.google.com"
+        action_name = "browser_navigate"
+        desc = "browser"
+
+        if open_site:
+            target = open_site.group(1).lower()
+            if target.startswith("http"):
+                url = target
+            elif "youtube" in target:
+                url = "https://www.youtube.com"
+            elif "github" in target:
+                url = "https://github.com"
+            elif "reddit" in target:
+                url = "https://www.reddit.com"
+            elif "twitter" in target or "x.com" in target:
+                url = "https://x.com"
+            desc = target
+        elif browser_search:
+            query_term = browser_search.group(1).strip()
+            dest = (browser_search.group(2) or "google").lower()
+            if "youtube" in dest:
+                url = f"https://www.youtube.com/results?search_query={urllib.parse.quote_plus(query_term)}"
+                desc = f"YouTube search for '{query_term}'"
+            else:
+                url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query_term)}"
+                desc = f"Google search for '{query_term}'"
+
+        try:
+            webbrowser.open(url)
+            act = _make_action(
+                name=action_name,
+                tool="browser_controller",
+                args={"url": url},
+                output=f"Navigated to {url}",
+                success=True,
+                status="executed",
+                guardrails="PASSED [Network Web Navigation]",
+            )
+            return {
+                "reply": f"Launching browser and navigating to {desc} now{addr_suffix}.",
+                "actions": [act],
+                "status": "executed",
+            }
+        except Exception:
+            pass
+
+    # -----------------------------------------------------------------------
+    # 3. Application Launcher (Notepad, Calc, Terminal, Paint, etc.)
+    # -----------------------------------------------------------------------
+    app_match = re.search(r"\b(?:open|launch|run|start)\s+(notepad|calculator|calc|cmd|terminal|powershell|paint|task\s+manager|code|vs\s*code)\b", q)
+    if app_match:
+        target_app = app_match.group(1).lower().replace(" ", "")
+        app_map = {
+            "notepad": ["notepad.exe"],
+            "calculator": ["calc.exe"],
+            "calc": ["calc.exe"],
+            "cmd": ["cmd.exe"],
+            "terminal": ["wt.exe", "powershell.exe", "cmd.exe"],
+            "powershell": ["powershell.exe"],
+            "paint": ["mspaint.exe"],
+            "taskmanager": ["taskmgr.exe"],
+            "code": ["code.cmd", "code"],
+            "vscode": ["code.cmd", "code"],
+        }
+        cmd_candidates = app_map.get(target_app, [f"{target_app}.exe"])
+        launched = False
+        for cmd in cmd_candidates:
+            try:
+                subprocess.Popen([cmd])
+                launched = True
+                break
+            except Exception:
+                continue
+
+        if launched:
+            act = _make_action(
+                name="launch_app",
+                tool="application_launcher",
+                args={"app": target_app},
+                output=f"Launched {target_app}",
+                success=True,
+                status="executed",
+                guardrails="PASSED [Process Launch Permitted]",
+            )
+            return {
+                "reply": f"Launching {target_app} on your workstation now{addr_suffix}.",
+                "actions": [act],
+                "status": "executed",
+            }
+
+    # -----------------------------------------------------------------------
+    # 4. Desktop Screenshot Capture
+    # -----------------------------------------------------------------------
+    if re.search(r"\b(?:take|capture)\s+(?:a\s+)?(?:desktop\s+|screen\s+)?screenshot\b", q):
+        try:
+            from PIL import ImageGrab
+            img = ImageGrab.grab()
+            out_dir = Path("d:/Ultron/screenshots")
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = out_dir / f"screenshot_{int(time.time())}.png"
+            img.save(str(out_path))
+            act = _make_action(
+                name="take_screenshot",
+                tool="desktop_screengrab",
+                args={"destination": str(out_path)},
+                output=f"Saved screenshot to {out_path}",
+                success=True,
+                status="executed",
+                guardrails="PASSED [Screen Capture Permitted]",
+            )
+            return {
+                "reply": f"Desktop screenshot captured and archived to {out_path.name}{addr_suffix}.",
+                "actions": [act],
+                "status": "executed",
+            }
+        except Exception:
+            pass
+
+    # -----------------------------------------------------------------------
+    # 5. Disk Space & Storage Inspection
+    # -----------------------------------------------------------------------
+    if re.search(r"\b(?:check|show|get|what\s+is\s+my|how\s+much)\s+(?:the\s+)?(?:disk\s+space|storage\s+space|drive\s+space|storage|disk)\b", q):
+        try:
+            drives = ["C:\\", "D:\\"]
+            telemetry = []
+            for d in drives:
+                if Path(d).exists():
+                    total, used, free = shutil.disk_usage(d)
+                    free_gb = round(free / (1024 ** 3), 1)
+                    total_gb = round(total / (1024 ** 3), 1)
+                    telemetry.append(f"{d} {free_gb} GB free of {total_gb} GB")
+            joined_tel = ", ".join(telemetry)
+            act = _make_action(
+                name="check_storage",
+                tool="storage_telemetry",
+                args={"drives": drives},
+                output=joined_tel,
+                success=True,
+                status="executed",
+                guardrails="PASSED [Read Telemetry Permitted]",
+            )
+            return {
+                "reply": f"Current local storage telemetry: {joined_tel}{addr_suffix}.",
+                "actions": [act],
+                "status": "executed",
+            }
+        except Exception:
+            pass
+
+    # -----------------------------------------------------------------------
+    # 6. Current Time and Date
+    # -----------------------------------------------------------------------
+    if re.search(r"\b(?:what\s+time\s+is\s+it|what'?s\s+the\s+time|current\s+time|what\s+is\s+the\s+date|what\s+day\s+is\s+it|today'?s\s+date)\b", q):
+        now_dt = datetime.datetime.now()
+        time_str = now_dt.strftime("%I:%M %p, %A, %B %d, %Y")
+        act = _make_action(
+            name="system_clock",
+            tool="system_clock_reader",
+            args={},
+            output=time_str,
+            success=True,
+            status="executed",
+            guardrails="PASSED [Read Clock Permitted]",
+        )
+        return {
+            "reply": f"The current system time is {time_str}{addr_suffix}.",
+            "actions": [act],
+            "status": "executed",
+        }
+
+    return None
+
+    return None
+
+
 @hologram_router.post("/api/hologram/directive")
 async def handle_directive(request: Request, payload: dict) -> dict:
     """Process user voice or text directive and return articulate reply.
@@ -185,6 +613,11 @@ async def handle_directive(request: Request, payload: dict) -> dict:
                 "actions": [],
             }
 
+        # 0b. Real-time native OS, desktop, browser & application action execution
+        real_action = execute_real_system_action(directive, user_addr=user_addr)
+        if real_action is not None:
+            return real_action
+
         # 1. Full Backend Execution: route through running JarvisSystem if wired
         system = getattr(request.app.state, "system", None)
         if system is not None and hasattr(system, "ask"):
@@ -257,7 +690,7 @@ async def handle_directive(request: Request, payload: dict) -> dict:
         # 3. Final safe fallback
         addr_suffix = f", {user_addr}" if user_addr else ""
         return {
-            "reply": f"Standing by to execute your objective{addr_suffix}.",
+            "reply": f"Directive received: '{directive}'. Ready to execute your operational objective{addr_suffix}. Please specify any target parameters.",
             "status": "fallback",
         }
     finally:

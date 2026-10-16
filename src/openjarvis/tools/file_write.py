@@ -101,14 +101,16 @@ class FileWriteTool(BaseTool):
 
         path = Path(file_path)
 
-        # Block sensitive files (secrets, credentials, keys)
-        from openjarvis.security.file_policy import is_sensitive_file
+        # Enforce Ultron Safety Guardrails (Zero-Deletion & C-Drive Isolation)
+        from openjarvis.security.file_policy import is_sensitive_file, validate_ultron_fs_operation
 
-        if is_sensitive_file(path):
+        valid, guardrail_msg = validate_ultron_fs_operation(path, operation=mode)
+        if not valid:
             return ToolResult(
                 tool_name="file_write",
-                content=f"Access denied: {file_path} is a sensitive file.",
+                content=guardrail_msg,
                 success=False,
+                metadata={"guardrails": "BLOCKED", "reason": guardrail_msg},
             )
 
         if not self._is_path_allowed(path):

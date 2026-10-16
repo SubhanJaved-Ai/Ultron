@@ -354,7 +354,7 @@ class UltronBrain:
 
         # Default intelligent response
         addr_suffix = f", {user_addr}" if user_addr else ""
-        return f"Directive received: '{query}'. All core Ultron cognitive nodes are standing by to process and execute this task{addr_suffix}."
+        return f"Understood{addr_suffix}. I have processed your directive: '{query}'. Ready to proceed with execution—specify any additional parameters or target paths."
 
     def _eval_math(self, text: str) -> str | None:
         """Evaluate arithmetic directly."""

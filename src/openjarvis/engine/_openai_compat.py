@@ -172,7 +172,12 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                     payload.pop("tool_choice", None)
                     resp = self._client.post(url, json=payload)
                 if resp.status_code in RETRYABLE_STATUS_CODES and attempt < max_retries:
+                    err_txt = resp.text.lower()
+                    if resp.status_code == 429 and ("quota" in err_txt or "resource_exhausted" in err_txt):
+                        resp.raise_for_status()
                     retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                    if retry_after is not None and retry_after > 30:
+                        resp.raise_for_status()
                     delay = _compute_retry_delay(attempt, retry_after)
                     logger.warning(
                         "%s engine busy (HTTP %d); retrying in %.2fs (attempt %d/%d)",
@@ -322,7 +327,12 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                             and attempt < max_retries
                             and resp.status_code in RETRYABLE_STATUS_CODES
                         ):
+                            err_txt = resp.text.lower()
+                            if resp.status_code == 429 and ("quota" in err_txt or "resource_exhausted" in err_txt):
+                                self._raise_stream_http_error(resp.status_code, resp.text)
                             retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                            if retry_after is not None and retry_after > 30:
+                                self._raise_stream_http_error(resp.status_code, resp.text)
                             delay = _compute_retry_delay(attempt, retry_after)
                             logger.warning(
                                 "%s engine busy (HTTP %d); retrying in %.2fs (attempt %d/%d)",

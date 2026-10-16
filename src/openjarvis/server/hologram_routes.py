@@ -382,6 +382,19 @@ def execute_real_system_action(directive: str, user_addr: str = "") -> dict | No
             else:
                 webbrowser.open(target_url)
                 launched_ok = True
+
+            if launched_ok and sys.platform == "win32":
+                try:
+                    # Bring Chrome window directly to the foreground for the user
+                    activate_script = (
+                        "$wshell = New-Object -ComObject WScript.Shell\n"
+                        "Start-Sleep -Milliseconds 350\n"
+                        "$wshell.AppActivate('Google Chrome')\n"
+                        "$wshell.AppActivate('Chrome')\n"
+                    )
+                    subprocess.Popen(["powershell", "-NoProfile", "-Command", activate_script])
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -399,6 +412,7 @@ def execute_real_system_action(directive: str, user_addr: str = "") -> dict | No
         return {
             "reply": f"Directing Chrome to profile '{profile_match_name}'{email_str} and navigating to {target_url} on your workstation now{addr_suffix}.",
             "actions": [act],
+            "target_url": target_url,
             "status": "executed",
         }
 
@@ -439,6 +453,18 @@ def execute_real_system_action(directive: str, user_addr: str = "") -> dict | No
 
         try:
             webbrowser.open(url)
+            if sys.platform == "win32":
+                try:
+                    activate_script = (
+                        "$wshell = New-Object -ComObject WScript.Shell\n"
+                        "Start-Sleep -Milliseconds 350\n"
+                        "$wshell.AppActivate('Google Chrome')\n"
+                        "$wshell.AppActivate('Browser')\n"
+                    )
+                    subprocess.Popen(["powershell", "-NoProfile", "-Command", activate_script])
+                except Exception:
+                    pass
+
             act = _make_action(
                 name=action_name,
                 tool="browser_controller",
@@ -451,6 +477,7 @@ def execute_real_system_action(directive: str, user_addr: str = "") -> dict | No
             return {
                 "reply": f"Launching browser and navigating to {desc} now{addr_suffix}.",
                 "actions": [act],
+                "target_url": url,
                 "status": "executed",
             }
         except Exception:

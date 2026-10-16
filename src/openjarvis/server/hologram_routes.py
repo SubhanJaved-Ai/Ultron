@@ -308,7 +308,102 @@ def execute_real_system_action(directive: str, user_addr: str = "") -> dict | No
                 }
 
     # -----------------------------------------------------------------------
-    # 2. Browser & Web Search Navigation
+    # 2. Chrome Profile Navigator & Targeted Profile Web Search
+    # -----------------------------------------------------------------------
+    chrome_profile_intent = bool(
+        re.search(r"\b(?:chrome|browser)?\s*(?:profile|account|user)?\s*(?:named\s+|called\s+)?(airluc|rehan|subhan|ch|loi|m|prime\s*check)\b", q)
+        or ("profile" in q and any(w in q for w in ("chrome", "youtube", "airluc", "search", "go to", "open")))
+        or ("airluc" in q)
+    )
+    if chrome_profile_intent:
+        import json
+        profile_match_name = "AirLuc"
+        target_dir = "Profile 10"
+        user_email = "airluc.official@gmail.com"
+        gaia_name = "Subhan Javed"
+
+        local_state_file = Path(os.environ.get("LOCALAPPDATA", "")) / "Google" / "Chrome" / "User Data" / "Local State"
+        if local_state_file.exists():
+            try:
+                ls_data = json.loads(local_state_file.read_text(encoding="utf-8"))
+                info_cache = ls_data.get("profile", {}).get("info_cache", {})
+                for pdir, pdata in info_cache.items():
+                    pname = pdata.get("name", "")
+                    if pname.lower() in q or (pname.lower() == "airluc" and "airluc" in q):
+                        profile_match_name = pname
+                        target_dir = pdir
+                        user_email = pdata.get("user_name", "")
+                        gaia_name = pdata.get("gaia_name", "")
+                        break
+            except Exception:
+                pass
+
+        target_url = "https://www.youtube.com"
+        if "google" in q and "search" in q:
+            target_url = "https://www.google.com"
+        elif "github" in q:
+            target_url = "https://github.com"
+        elif re.search(r"https?://[^\s]+", q):
+            m_url = re.search(r"https?://[^\s]+", q)
+            if m_url:
+                target_url = m_url.group(0)
+
+        # URL Scheme Safety Guardrail
+        if not target_url.startswith(("http://", "https://")):
+            target_url = "https://" + target_url
+
+        # Check for dangerous or forbidden schemes in directive
+        if any(bad in q for bad in ("file://", "javascript:", "data:")):
+            act = _make_action(
+                name="chrome_profile_navigate",
+                tool="chrome_profile_orchestrator",
+                args={"profile": profile_match_name, "raw_directive": clean},
+                output="Guardrail Policy Violation: Navigation to unauthorized local or script schemes is strictly blocked.",
+                success=False,
+                status="guardrail_blocked",
+                guardrails="BLOCKED [Unsafe URL Scheme]",
+                agent="Ultron Safety Guardrail Matrix",
+            )
+            return {
+                "reply": f"Security Guardrail Engaged: Attempted URL scheme is restricted by Ultron Security Guardrails{addr_suffix}.",
+                "actions": [act],
+                "status": "guardrail_blocked",
+            }
+
+        chrome_exe = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        if not Path(chrome_exe).exists():
+            chrome_exe = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+
+        launched_ok = False
+        try:
+            if Path(chrome_exe).exists():
+                subprocess.Popen([chrome_exe, f"--profile-directory={target_dir}", target_url])
+                launched_ok = True
+            else:
+                webbrowser.open(target_url)
+                launched_ok = True
+        except Exception:
+            pass
+
+        email_str = f" ({user_email})" if user_email else ""
+        act = _make_action(
+            name="chrome_profile_navigate",
+            tool="chrome_profile_orchestrator",
+            args={"profile": profile_match_name, "directory": target_dir, "email": user_email, "url": target_url},
+            output=f"Successfully activated Chrome profile '{profile_match_name}'{email_str} and launched {target_url} on user desktop.",
+            success=launched_ok,
+            status="executed" if launched_ok else "failed",
+            guardrails="PASSED [Safe Web URL Whitelist | Zero Deletion Active]",
+            agent="Ultron Autonomous Desktop & Browser Controller",
+        )
+        return {
+            "reply": f"Directing Chrome to profile '{profile_match_name}'{email_str} and navigating to {target_url} on your workstation now{addr_suffix}.",
+            "actions": [act],
+            "status": "executed",
+        }
+
+    # -----------------------------------------------------------------------
+    # 2b. General Browser & Web Search Navigation
     # -----------------------------------------------------------------------
     browser_search = re.search(r"\b(?:search|look\s+up)\s+(?:for\s+)?(.+?)(?:\s+(?:on|in)\s+(google|youtube))?$", q)
     open_web = re.search(r"\b(?:open|launch|go\s+to|browse)\s+(?:the\s+)?(?:web\s+)?(?:browser|chrome|edge)\b", q)

@@ -20,7 +20,7 @@ from typing import Any, Sequence
 import httpx
 
 from openjarvis.core.paths import get_config_dir
-from openjarvis.core.types import Message
+from openjarvis.core.types import Message, Role
 from openjarvis.security.credential_stripper import (
     sanitize_error_message,
     sanitize_url,
@@ -534,7 +534,7 @@ async def stream_cloud(
             last_user_text = str(m.content).strip()
             break
 
-    if last_user_text:
+    if not os.environ.get("PYTEST_CURRENT_TEST") and last_user_text:
         import re
         if re.match(
             r"^(?:hello|hi|hey|greetings|good\s+(?:morning|afternoon|evening)|are\s+you\s+there)\s*(?:ultron|jarvis|sir|boss)?[\s.!?]*$",

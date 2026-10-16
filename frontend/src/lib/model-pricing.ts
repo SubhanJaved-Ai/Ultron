@@ -23,6 +23,7 @@ export const KNOWN_MODEL_PRICING: ModelPricingTier[] = [
   { idPrefix: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', inputPerMillion: 0.10, outputPerMillion: 0.40 },
   { idPrefix: 'gemini-3.5-flash', displayName: 'Gemini 3.5 Flash', inputPerMillion: 0.15, outputPerMillion: 0.60 },
   { idPrefix: 'gemini-3.7-flash', displayName: 'Gemini 3.7 Flash', inputPerMillion: 0.15, outputPerMillion: 0.60 },
+  { idPrefix: 'gemini-3.8-flash', displayName: 'Gemini 3.8 Flash', inputPerMillion: 0.15, outputPerMillion: 0.60 },
   { idPrefix: 'gemini-flash', displayName: 'Gemini Flash', inputPerMillion: 0.10, outputPerMillion: 0.40 },
   { idPrefix: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', inputPerMillion: 1.25, outputPerMillion: 5.00 },
   { idPrefix: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', inputPerMillion: 1.25, outputPerMillion: 5.00 },

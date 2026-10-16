@@ -3,24 +3,15 @@ import {
   Zap,
   Activity,
   Thermometer,
-  DollarSign,
-  TrendingDown,
-  Cloud,
-  HardDrive,
   Hash,
   X,
   Trophy,
   ExternalLink,
   Cpu,
-  CheckCircle2,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 import { getBase } from '../../lib/api';
-import {
-  calculateModelCost,
-  getModelPricing,
-  formatModelName,
-} from '../../lib/model-pricing';
+import { calculateModelCost } from '../../lib/model-pricing';
 
 interface EnergyData {
   total_energy_j?: number;
@@ -37,11 +28,6 @@ interface TelemetryStats {
   completion_tokens?: number;
   active_model?: string;
 }
-
-const BENCHMARKS = [
-  { name: 'GPT-4o', input: 2.50, output: 10.00 },
-  { name: 'Claude 3.5 Sonnet', input: 3.00, output: 15.00 },
-];
 
 export function SystemPanel() {
   const savings = useAppStore((s) => s.savings);
@@ -97,8 +83,11 @@ export function SystemPanel() {
   const activeCostResult = calculateModelCost(activeModelId, promptTokens, completionTokens, savings?.local_cost ?? 0);
   const activeModelCost = activeCostResult.cost;
 
-  const promptK = promptTokens / 1000;
-  const completionK = completionTokens / 1000;
+  const isLocal = Boolean(
+    activeCostResult.pricing.isLocal ||
+    activeModelId.toLowerCase().includes('ollama') ||
+    activeModelId.toLowerCase().includes('local')
+  );
 
   return (
     <div
@@ -116,7 +105,7 @@ export function SystemPanel() {
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
         <span className="text-xs font-semibold tracking-wide uppercase" style={{ color: 'var(--color-text-secondary)' }}>
-          System
+          System & Telemetry
         </span>
         <button
           onClick={toggleSystemPanel}
@@ -138,8 +127,8 @@ export function SystemPanel() {
             <MiniStat icon={Hash} label="Requests" value={String(totalRequests)} />
             <MiniStat
               icon={Hash}
-              label="Output Tokens"
-              value={formatNumber(completionTokens || totalTokens)}
+              label="Tokens Used"
+              value={formatNumber(totalTokens || completionTokens)}
             />
           </div>
         </section>
@@ -173,15 +162,15 @@ export function SystemPanel() {
           </div>
         </section>
 
-        {/* Real-Time Cost & Usage */}
+        {/* Real-Time Cost & Usage — ONLY the Active Model */}
         <section>
           <h4 className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
-            Model Usage & Cost
+            Active Model & Cost
           </h4>
 
-          {/* Active Model */}
+          {/* Active Model Card */}
           <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 mb-2"
+            className="flex items-center gap-2 rounded-lg px-3 py-2.5 mb-2.5"
             style={{ background: 'var(--color-accent-subtle)', border: '1px solid var(--color-accent)' }}
           >
             <Cpu size={15} style={{ color: 'var(--color-accent)' }} />
@@ -198,84 +187,47 @@ export function SystemPanel() {
                 </span>
               </div>
               <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                {promptTokens > 0 || completionTokens > 0
-                  ? `${formatNumber(promptTokens)} in · ${formatNumber(completionTokens)} out`
-                  : '0 tokens used'}
+                {isLocal ? 'On-Device · Zero API Cost' : 'Cloud Provider · Live Pay-Per-Token'}
               </div>
             </div>
-            <div className="text-xs font-bold font-mono" style={{ color: 'var(--color-text)' }}>
-              ${activeModelCost.toFixed(4)}
-            </div>
-          </div>
-
-          {/* Local vs Cloud Context */}
-          {activeModelId.toLowerCase().includes('ollama') || activeModelId.toLowerCase().includes('local') ? (
-            <div
-              className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
-              style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
-            >
-              <HardDrive size={14} style={{ color: 'var(--color-success)' }} />
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>On-Device Inference</div>
-                <div className="text-[9.5px]" style={{ color: 'var(--color-text-tertiary)' }}>100% Private & Free</div>
-              </div>
-              <div className="text-xs font-mono font-semibold" style={{ color: 'var(--color-success)' }}>
-                $0.0000
-              </div>
-            </div>
-          ) : (
-            <div
-              className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
-              style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
-            >
-              <Cloud size={14} style={{ color: 'var(--color-accent)' }} />
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>Cloud Provider</div>
-                <div className="text-[9.5px]" style={{ color: 'var(--color-text-tertiary)' }}>Pay-Per-Token / BYOK</div>
-              </div>
-              <div className="text-xs font-mono font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+            <div className="text-right shrink-0">
+              <div className="text-xs font-bold font-mono" style={{ color: isLocal ? 'var(--color-success)' : 'var(--color-text)' }}>
                 ${activeModelCost.toFixed(4)}
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Hypothetical Commercial Benchmark (Savings) */}
+          {/* Detailed Token Accounting Box */}
           <div
-            className="rounded-lg p-2.5"
+            className="rounded-lg p-3 space-y-2"
             style={{
               background: 'var(--color-bg-secondary)',
               border: '1px solid var(--color-border)',
             }}
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>
-                Commercial Benchmark (Hypothetical)
+            <div className="flex items-center justify-between text-[11px]">
+              <span style={{ color: 'var(--color-text-secondary)' }}>Input (Prompt) Tokens</span>
+              <span className="font-mono font-medium" style={{ color: 'var(--color-text)' }}>
+                {formatNumber(promptTokens)}
               </span>
-              <DollarSign size={11} style={{ color: 'var(--color-text-tertiary)' }} />
             </div>
-            {BENCHMARKS.map((provider) => {
-              const hypotheticalCost = (promptK * provider.input) / 1000 + (completionK * provider.output) / 1000;
-              const savedVsActive = hypotheticalCost - activeModelCost;
-              return (
-                <div
-                  key={provider.name}
-                  className="flex items-center justify-between text-[11px] py-1 border-t first:border-t-0"
-                  style={{ borderColor: 'var(--color-border)' }}
-                >
-                  <span style={{ color: 'var(--color-text-secondary)' }}>{provider.name}</span>
-                  <div className="text-right">
-                    <span className="font-mono text-[10.5px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                      ${hypotheticalCost.toFixed(4)}
-                    </span>
-                    {savedVsActive > 0.0001 && (
-                      <span className="text-[9px] block font-medium" style={{ color: 'var(--color-success)' }}>
-                        Save ${(savedVsActive).toFixed(4)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            <div className="flex items-center justify-between text-[11px]">
+              <span style={{ color: 'var(--color-text-secondary)' }}>Output (Completion) Tokens</span>
+              <span className="font-mono font-medium" style={{ color: 'var(--color-text)' }}>
+                {formatNumber(completionTokens)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] pt-1.5 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <span className="font-semibold" style={{ color: 'var(--color-text)' }}>Total Session Cost</span>
+              <span className="font-mono font-bold text-xs" style={{ color: isLocal ? 'var(--color-success)' : 'var(--color-accent)' }}>
+                ${activeModelCost.toFixed(4)}
+              </span>
+            </div>
+            {!isLocal && activeCostResult.pricing.inputPerMillion > 0 && (
+              <div className="text-[9.5px] pt-1 text-center font-mono" style={{ color: 'var(--color-text-tertiary)' }}>
+                Rate: ${activeCostResult.pricing.inputPerMillion}/1M in · ${activeCostResult.pricing.outputPerMillion}/1M out
+              </div>
+            )}
           </div>
         </section>
 

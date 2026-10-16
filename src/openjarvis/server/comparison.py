@@ -215,9 +215,9 @@ COMPARISON_HTML = """\
         <tr>
           <th></th>
           <th>OpenJarvis (Local)</th>
-          <th>GPT-5.6 Sol</th>
-          <th>Claude Fable 5</th>
-          <th>Gemini 3.1 Pro</th>
+          <th>GPT-4o</th>
+          <th>Claude 3.5 Sonnet</th>
+          <th>Gemini 1.5 Pro</th>
         </tr>
       </thead>
       <tbody>
@@ -261,15 +261,15 @@ COMPARISON_HTML = """\
         <div class="cc-value">$0.00/mo</div>
       </div>
       <div class="calc-card cloud">
-        <div class="cc-label">GPT-5.6 Sol</div>
+        <div class="cc-label">GPT-4o</div>
         <div class="cc-value" id="calc-gpt">--</div>
       </div>
       <div class="calc-card cloud">
-        <div class="cc-label">Claude Fable 5</div>
+        <div class="cc-label">Claude 3.5 Sonnet</div>
         <div class="cc-value" id="calc-claude">--</div>
       </div>
       <div class="calc-card cloud">
-        <div class="cc-label">Gemini 3.1 Pro</div>
+        <div class="cc-label">Gemini 1.5 Pro</div>
         <div class="cc-value" id="calc-gemini">--</div>
       </div>
     </div>
@@ -293,16 +293,16 @@ COMPARISON_HTML = """\
 // Embedded data -- avoids API calls, keeps the page static and fast.
 const CLOUD_PRICING = {
   "gpt-5.6-sol": {
-    input_per_1m: 5.00, output_per_1m: 30.00,
-    label: "GPT-5.6 Sol"
+    input_per_1m: 2.50, output_per_1m: 10.00,
+    label: "GPT-4o"
   },
   "claude-fable-5": {
-    input_per_1m: 10.00, output_per_1m: 50.00,
-    label: "Claude Fable 5"
+    input_per_1m: 3.00, output_per_1m: 15.00,
+    label: "Claude 3.5 Sonnet"
   },
   "gemini-3.1-pro": {
-    input_per_1m: 2.00, output_per_1m: 12.00,
-    label: "Gemini 3.1 Pro"
+    input_per_1m: 1.25, output_per_1m: 5.00,
+    label: "Gemini 1.5 Pro"
   }
 };
 

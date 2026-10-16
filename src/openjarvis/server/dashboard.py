@@ -184,7 +184,7 @@ DASHBOARD_HTML = """\
   <div class="providers">
     <div class="provider-card openai">
       <div class="pname">OpenAI</div>
-      <div class="pmodel">GPT-5.6 Sol &mdash; $5.00 / $30.00 per 1M tokens</div>
+      <div class="pmodel">GPT-4o &mdash; $2.50 / $10.00 per 1M tokens</div>
       <div class="savings-amount" id="save-openai">$0.00</div>
       <div class="breakdown">
         <div class="item">
@@ -199,7 +199,7 @@ DASHBOARD_HTML = """\
     </div>
     <div class="provider-card anthropic">
       <div class="pname">Anthropic</div>
-      <div class="pmodel">Claude Fable 5 &mdash; $10.00 / $50.00 per 1M tokens</div>
+      <div class="pmodel">Claude 3.5 Sonnet &mdash; $3.00 / $15.00 per 1M tokens</div>
       <div class="savings-amount" id="save-anthropic">$0.00</div>
       <div class="breakdown">
         <div class="item">
@@ -214,7 +214,7 @@ DASHBOARD_HTML = """\
     </div>
     <div class="provider-card google">
       <div class="pname">Google</div>
-      <div class="pmodel">Gemini 3.1 Pro &mdash; $2.00 / $12.00 per 1M tokens</div>
+      <div class="pmodel">Gemini 1.5 Pro &mdash; $1.25 / $5.00 per 1M tokens</div>
       <div class="savings-amount" id="save-google">$0.00</div>
       <div class="breakdown">
         <div class="item">
@@ -281,12 +281,12 @@ DASHBOARD_HTML = """\
   <div class="providers-heading">Energy &amp; Compute Avoided</div>
   <div class="metrics-row">
     <div class="metric-card">
-      <div class="mheading">Energy Saved (vs GPT-5.6 Sol)</div>
+      <div class="mheading">Energy Saved (vs GPT-4o)</div>
       <div class="mvalue green" id="energy-joules">0 <span class="munit">J</span></div>
       <div class="msub" id="energy-kwh">0 kWh of cloud datacenter energy avoided</div>
     </div>
     <div class="metric-card">
-      <div class="mheading">FLOPs Avoided (vs GPT-5.6 Sol)</div>
+      <div class="mheading">FLOPs Avoided (vs GPT-4o)</div>
       <div class="mvalue purple" id="flops-val">0 <span class="munit">FLOP</span></div>
       <div class="msub" id="flops-sub">cloud compute operations not needed</div>
     </div>
@@ -390,7 +390,7 @@ async function refresh() {
     document.getElementById('proj-google')
       .textContent = fmtDollar(proj['gemini-3.1-pro'] || 0);
 
-    // Energy / FLOPs (use GPT-5.6 Sol as reference)
+    // Energy / FLOPs (use GPT-4o as reference)
     const ej = oa.energy_joules || 0;
     const eWh = oa.energy_wh || 0;
     const fl = oa.flops || 0;

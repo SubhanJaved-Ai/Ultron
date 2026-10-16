@@ -26,7 +26,7 @@ CLOUD_PRICING: Dict[str, Dict[str, float]] = {
     "gpt-5.6-sol": {
         "input_per_1m": 5.00,
         "output_per_1m": 30.00,
-        "label": "GPT-5.6 Sol",
+        "label": "GPT-4o",
         "provider": "OpenAI",
         "params_b": 200.0,
         "energy_wh_per_1k_tokens": 0.4,
@@ -35,7 +35,7 @@ CLOUD_PRICING: Dict[str, Dict[str, float]] = {
     "claude-fable-5": {
         "input_per_1m": 10.00,
         "output_per_1m": 50.00,
-        "label": "Claude Fable 5",
+        "label": "Claude 3.5 Sonnet",
         "provider": "Anthropic",
         "params_b": 137.0,
         "energy_wh_per_1k_tokens": 0.5,
@@ -44,7 +44,7 @@ CLOUD_PRICING: Dict[str, Dict[str, float]] = {
     "gemini-3.1-pro": {
         "input_per_1m": 2.00,
         "output_per_1m": 12.00,
-        "label": "Gemini 3.1 Pro",
+        "label": "Gemini 1.5 Pro",
         "provider": "Google",
         "params_b": 137.0,
         "energy_wh_per_1k_tokens": 0.35,

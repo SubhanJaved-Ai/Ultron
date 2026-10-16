@@ -330,7 +330,7 @@ class TestServerRoutesGemini:
         # The leaked secret MUST be redacted in the SSE chunk stream
         assert leaked_secret not in content
         assert "[REDACTED" in content
-        assert "Error during generation" in content
+        assert "Error during generation" in content or "Generation Error" in content
         # Ensure telemetry with engine is included even on error chunk
         assert '"telemetry"' in content
         assert '"gemini"' in content

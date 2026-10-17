@@ -101,10 +101,11 @@ class FileWriteTool(BaseTool):
 
         path = Path(file_path)
 
-        # Enforce Ultron Safety Guardrails (Zero-Deletion & C-Drive Isolation)
+        # Enforce Ultron Safety Guardrails via Safety Kernel
         from openjarvis.security.file_policy import is_sensitive_file, validate_ultron_fs_operation
 
-        valid, guardrail_msg = validate_ultron_fs_operation(path, operation=mode)
+        auth_token = params.get("authorization_token")
+        valid, guardrail_msg = validate_ultron_fs_operation(path, operation=mode, authorization_token=auth_token)
         if not valid:
             return ToolResult(
                 tool_name="file_write",

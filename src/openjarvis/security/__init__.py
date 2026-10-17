@@ -132,12 +132,19 @@ def setup_security(
 
 
 __all__ = [
+    "ActionEffect",
     "AuditLogger",
     "BaseScanner",
+    "CustomRule",
+    "CustomRuleEngine",
     "DEFAULT_SENSITIVE_PATTERNS",
     "GuardrailsEngine",
     "PIIScanner",
     "RedactionMode",
+    "RiskLevel",
+    "SafetyCodeManager",
+    "SafetyDecision",
+    "SafetyKernel",
     "ScanFinding",
     "ScanResult",
     "SecretScanner",
@@ -148,14 +155,18 @@ __all__ = [
     "ThreatLevel",
     "check_ssrf",
     "filter_sensitive_paths",
+    "get_safety_kernel",
     "is_private_ip",
     "is_sensitive_file",
     "setup_security",
 ]
 
 _LAZY_EXPORTS = {
+    "ActionEffect": ("openjarvis.security.kernel", "ActionEffect"),
     "AuditLogger": ("openjarvis.security.audit", "AuditLogger"),
     "BaseScanner": ("openjarvis.security._stubs", "BaseScanner"),
+    "CustomRule": ("openjarvis.security.kernel", "CustomRule"),
+    "CustomRuleEngine": ("openjarvis.security.kernel", "CustomRuleEngine"),
     "DEFAULT_SENSITIVE_PATTERNS": (
         "openjarvis.security.file_policy",
         "DEFAULT_SENSITIVE_PATTERNS",
@@ -163,6 +174,10 @@ _LAZY_EXPORTS = {
     "GuardrailsEngine": ("openjarvis.security.guardrails", "GuardrailsEngine"),
     "PIIScanner": ("openjarvis.security.scanner", "PIIScanner"),
     "RedactionMode": ("openjarvis.security.types", "RedactionMode"),
+    "RiskLevel": ("openjarvis.security.kernel", "RiskLevel"),
+    "SafetyCodeManager": ("openjarvis.security.kernel", "SafetyCodeManager"),
+    "SafetyDecision": ("openjarvis.security.kernel", "SafetyDecision"),
+    "SafetyKernel": ("openjarvis.security.kernel", "SafetyKernel"),
     "ScanFinding": ("openjarvis.security.types", "ScanFinding"),
     "ScanResult": ("openjarvis.security.types", "ScanResult"),
     "SecretScanner": ("openjarvis.security.scanner", "SecretScanner"),
@@ -178,6 +193,7 @@ _LAZY_EXPORTS = {
         "openjarvis.security.file_policy",
         "filter_sensitive_paths",
     ),
+    "get_safety_kernel": ("openjarvis.security.kernel", "get_safety_kernel"),
     "is_private_ip": ("openjarvis.security.ssrf", "is_private_ip"),
     "is_sensitive_file": ("openjarvis.security.file_policy", "is_sensitive_file"),
 }

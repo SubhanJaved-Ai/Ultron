@@ -1609,6 +1609,246 @@
     .personality-status.error {
       color: #f87171;
     }
+    /* ── Safety Kernel & Custom Rules Modal ────────────────────────────────── */
+    .safety-toggle-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 9999px;
+      color: #6ee7b7;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: all 0.25s ease;
+    }
+    .safety-toggle-pill:hover {
+      background: rgba(16, 185, 129, 0.22);
+      border-color: rgba(16, 185, 129, 0.6);
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+      transform: translateY(-1px);
+    }
+    .safety-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+      animation: safetyBackdropFade 0.25s ease;
+    }
+    .safety-modal-backdrop.hidden { display: none; }
+    @keyframes safetyBackdropFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .safety-modal-card {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.18);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 680px;
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: safetyCardPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+    @keyframes safetyCardPop {
+      from { opacity: 0; transform: scale(0.95) translateY(12px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .safety-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 12px;
+    }
+    .safety-modal-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .safety-badge-status {
+      font-size: 9px;
+      padding: 3px 8px;
+      background: rgba(16, 185, 129, 0.16);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 9999px;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+    .safety-badge-status.not-set {
+      background: rgba(245, 158, 11, 0.16);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .safety-nav-tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .safety-tab-btn {
+      flex: 1;
+      padding: 7px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .safety-tab-btn.active {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+    }
+    .safety-tab-pane { display: flex; flex-direction: column; gap: 14px; }
+    .safety-tab-pane.hidden { display: none; }
+    .rule-textarea {
+      width: 100%;
+      min-height: 70px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #f8fafc;
+      font-size: 12px;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    .rule-textarea:focus {
+      border-color: #34d399;
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.25);
+    }
+    .example-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .example-chip {
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      font-size: 10px;
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .example-chip:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+    }
+    .btn-safety-primary {
+      padding: 9px 16px;
+      background: linear-gradient(135deg, #059669, #10b981);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-safety-primary:hover {
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+      transform: translateY(-1px);
+    }
+    .rules-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .rule-item-card {
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .rule-effect-badge {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.06em;
+    }
+    .rule-effect-badge.ALLOW { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .rule-effect-badge.DENY { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .rule-effect-badge.ASK { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .rule-item-details { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+    .rule-item-raw { font-size: 11px; color: #f1f5f9; }
+    .rule-item-sub { font-size: 9.5px; color: #94a3b8; font-family: monospace; }
+    .risk-tier-card {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.25);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .risk-tier-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .risk-tier-info { display: flex; flex-direction: column; gap: 2px; }
+    .risk-tier-title { font-size: 11px; font-weight: 700; color: #f8fafc; letter-spacing: 0.04em; }
+    .risk-tier-desc { font-size: 10px; color: #94a3b8; line-height: 1.4; }
+    .safety-notice-box {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      font-size: 10px;
+      color: #bae6fd;
+      line-height: 1.45;
+    }
     /* ── End Personality Panel ─────────────────────────────────────────────── */
   </style>
 </head>
@@ -1657,6 +1897,11 @@
         <button id="personality-btn" class="personality-toggle-pill" onclick="openPersonalityModal()" title="Soul Circuit — Personality Controls">
           <span>🧬</span>
           <span>SOUL CIRCUIT</span>
+        </button>
+        <!-- Safety Kernel & Rules Button -->
+        <button id="safety-btn" class="safety-toggle-pill" onclick="openSafetyModal()" title="Safety Kernel & Custom Rules">
+          <span>🛡️</span>
+          <span>SAFETY</span>
         </button>
         <!-- Emergency Stop HALT Button (TSK-P5-01) — shown when active -->
         <button id="halt-btn" onclick="triggerEmergencyStop()" title="Emergency Stop — also press Escape">
@@ -1718,6 +1963,124 @@
         <!-- Status + Save -->
         <div id="personality-status" class="personality-status"></div>
         <button id="personality-save-btn" class="personality-save-btn" onclick="savePersonality()">APPLY CALIBRATION</button>
+      </div>
+    </div>
+
+    <!-- Safety Kernel & Custom Rules Modal -->
+    <div id="safety-modal" class="safety-modal-backdrop hidden" onclick="if(event.target===this)closeSafetyModal()">
+      <div class="safety-modal-card">
+        <div class="safety-modal-header">
+          <div class="safety-modal-title">
+            <span>🛡️</span>
+            <span>SAFETY KERNEL & RULES HUB</span>
+            <span id="safety-header-badge" class="safety-badge-status">KERNEL ACTIVE</span>
+          </div>
+          <button type="button" class="chat-action-btn close-btn" onclick="closeSafetyModal()">✕</button>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="safety-nav-tabs">
+          <button type="button" id="tab-btn-rules" class="safety-tab-btn active" onclick="switchSafetyTab('rules')">CUSTOM RULES</button>
+          <button type="button" id="tab-btn-code" class="safety-tab-btn" onclick="switchSafetyTab('code')">SAFETY CODE</button>
+          <button type="button" id="tab-btn-matrix" class="safety-tab-btn" onclick="switchSafetyTab('matrix')">RISK MATRIX</button>
+        </div>
+
+        <!-- Tab 1: Custom Safety Rules -->
+        <div id="safety-pane-rules" class="safety-tab-pane">
+          <div style="font-size:11px; color:#cbd5e1; line-height:1.4;">
+            Teach Ultron custom safety boundaries in plain English. Rules are compiled into structured logic, previewed for your confirmation, and enforced across all tools.
+          </div>
+          <div class="example-chips">
+            <span class="example-chip" onclick="setRuleExample('Ultron can read the C drive but cannot modify or delete files inside C:\\Windows.')">C:\Windows Read-Only</span>
+            <span class="example-chip" onclick="setRuleExample('Ultron can create and edit files inside D:\\Projects.')">D:\Projects Workspace</span>
+            <span class="example-chip" onclick="setRuleExample('Ask my permission before deleting files elsewhere.')">Ask Before Deletions</span>
+          </div>
+          <textarea id="rule-instruction-input" class="rule-textarea" placeholder="Describe your safety rule in natural language..."></textarea>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button type="button" class="btn-safety-primary" onclick="compileSafetyRule()">
+              <span>⚡</span>
+              <span>COMPILE & PREVIEW</span>
+            </button>
+            <span id="rule-compile-status" style="font-size:10px; color:#34d399;"></span>
+          </div>
+
+          <!-- Preview Container (Hidden until compiled) -->
+          <div id="rule-preview-container" class="hidden" style="background:rgba(0,0,0,0.35); border:1px solid rgba(56,189,248,0.3); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:10.5px; font-weight:700; color:#38bdf8; letter-spacing:0.06em;">PREVIEW STRUCTURED RULES (CONFIRMATION REQUIRED)</div>
+            <div id="rule-preview-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+            <div style="display:flex; gap:8px; margin-top:4px;">
+              <button type="button" class="btn-safety-primary" onclick="saveCompiledRules()">✓ APPROVE & SAVE RULES</button>
+              <button type="button" class="chat-action-btn" onclick="dismissRulePreview()">DISMISS</button>
+            </div>
+          </div>
+
+          <!-- Active Rules List -->
+          <div style="margin-top:6px;">
+            <div style="font-size:10.5px; font-weight:700; color:#94a3b8; letter-spacing:0.06em; margin-bottom:6px;">ACTIVE SAVED RULES (<span id="saved-rules-count">0</span>)</div>
+            <div id="saved-rules-list" class="rules-list">
+              <div style="font-size:10.5px; color:#64748b; font-style:italic;">Loading active rules...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Safety Code Management -->
+        <div id="safety-pane-code" class="safety-tab-pane hidden">
+          <div class="safety-notice-box">
+            🔒 <strong>Cryptographic Protection:</strong> The Safety Code is hashed with PBKDF2-HMAC-SHA256 (120,000 iterations). Plaintext codes are never stored, logged, or visible to the AI model.
+          </div>
+          <div id="safety-code-status-box" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+            <span style="font-size:11px; color:#cbd5e1;">Safety Code Status:</span>
+            <span id="safety-code-badge" class="safety-badge-status">CHECKING...</span>
+          </div>
+
+          <div id="field-old-code" class="auth-field hidden">
+            <label>CURRENT SAFETY CODE</label>
+            <input type="password" id="input-old-code" placeholder="Enter current safety code" autocomplete="off">
+          </div>
+          <div class="auth-field">
+            <label>NEW SAFETY CODE (MIN 4 CHARACTERS)</label>
+            <input type="password" id="input-new-code" placeholder="Enter new safety code" autocomplete="off">
+          </div>
+          <button type="button" class="btn-safety-primary" onclick="submitSafetyCode()">SAVE SAFETY CODE</button>
+          <div id="safety-code-msg" style="font-size:10.5px; text-align:center; min-height:16px;"></div>
+        </div>
+
+        <!-- Tab 3: Risk Matrix & Platform Invariants -->
+        <div id="safety-pane-matrix" class="safety-tab-pane hidden">
+          <div style="font-size:11px; color:#cbd5e1; line-height:1.4;">
+            Ultron classifies every requested action into 4 practical risk tiers. Platform security restrictions and hard invariants always take precedence over custom permissions.
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div class="risk-tier-card">
+              <div class="risk-tier-indicator" style="background:#10b981;"></div>
+              <div class="risk-tier-info">
+                <div class="risk-tier-title">LOW RISK — Automatic Execution</div>
+                <div class="risk-tier-desc">Read-only actions, queries, desktop app launches, browser navigation. Executes seamlessly without interrupting workflow.</div>
+              </div>
+            </div>
+            <div class="risk-tier-card">
+              <div class="risk-tier-indicator" style="background:#f59e0b;"></div>
+              <div class="risk-tier-info">
+                <div class="risk-tier-title">MEDIUM RISK — Safe Workspace Operations</div>
+                <div class="risk-tier-desc">Filesystem creations & edits inside authorized directories (e.g. D:\Projects, user profile). Notify and request one-click approval when configured.</div>
+              </div>
+            </div>
+            <div class="risk-tier-card">
+              <div class="risk-tier-indicator" style="background:#f97316;"></div>
+              <div class="risk-tier-info">
+                <div class="risk-tier-title">HIGH RISK — Explicit Approval & Safety Code</div>
+                <div class="risk-tier-desc">File cleanup, deletions, destructive shell commands. Shows exact action target preview, impact estimate, and requires explicit user confirmation + safety code. Deletions route to Windows Recycle Bin or safe quarantine.</div>
+              </div>
+            </div>
+            <div class="risk-tier-card">
+              <div class="risk-tier-indicator" style="background:#ef4444;"></div>
+              <div class="risk-tier-info">
+                <div class="risk-tier-title">CRITICAL RISK — Hard Invariant Blocks</div>
+                <div class="risk-tier-desc">Drive formatting, disk partitioning, modifications to C:\Windows, system boot files, and bulk destructive overrides. Permanently blocked by default. A safety code can never override fundamental security boundaries.</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -3959,6 +4322,233 @@
     // Hydrate hologram theme on startup
     _loadHologramTheme();
     // ── End Tri-Theme Hologram Controller ─────────────────────────────────────
+
+    // ── Safety Kernel & Rules Hub Controller ──────────────────────────────────
+    let _activeSafetyTab = 'rules';
+    let _compiledRulesPending = [];
+
+    function openSafetyModal() {
+      const modal = document.getElementById('safety-modal');
+      if (modal) modal.classList.remove('hidden');
+      loadSafetyStatus();
+    }
+
+    function closeSafetyModal() {
+      const modal = document.getElementById('safety-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function switchSafetyTab(tab) {
+      _activeSafetyTab = tab;
+      const tabs = ['rules', 'code', 'matrix'];
+      tabs.forEach(t => {
+        const btn = document.getElementById('tab-btn-' + t);
+        const pane = document.getElementById('safety-pane-' + t);
+        if (btn) btn.classList.toggle('active', t === tab);
+        if (pane) pane.classList.toggle('hidden', t !== tab);
+      });
+    }
+
+    function setRuleExample(text) {
+      const input = document.getElementById('rule-instruction-input');
+      if (input) {
+        input.value = text;
+        input.focus();
+      }
+    }
+
+    async function loadSafetyStatus() {
+      try {
+        const res = await fetch('/api/safety/status', {
+          headers: typeof getAuthHeaders === 'function' ? getAuthHeaders() : {},
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Update code badge & inputs
+          const badge = document.getElementById('safety-code-badge');
+          const oldField = document.getElementById('field-old-code');
+          if (badge) {
+            badge.textContent = data.configured ? 'CONFIGURED (PBKDF2)' : 'NOT CONFIGURED';
+            badge.className = 'safety-badge-status' + (data.configured ? '' : ' not-set');
+          }
+          if (oldField) {
+            oldField.classList.toggle('hidden', !data.configured);
+          }
+          // Render saved rules
+          renderSavedRules(data.rules || []);
+        }
+      } catch (err) {
+        console.error('Failed to load safety status:', err);
+      }
+    }
+
+    function renderSavedRules(rules) {
+      const listEl = document.getElementById('saved-rules-list');
+      const countEl = document.getElementById('saved-rules-count');
+      if (countEl) countEl.textContent = rules.length;
+      if (!listEl) return;
+
+      if (!rules || rules.length === 0) {
+        listEl.innerHTML = '<div style="font-size:10.5px; color:#64748b; font-style:italic;">No custom rules defined yet. Baseline system invariants active.</div>';
+        return;
+      }
+
+      listEl.innerHTML = rules.map(r => `
+        <div class="rule-item-card">
+          <span class="rule-effect-badge ${r.effect}">${r.effect}</span>
+          <div class="rule-item-details">
+            <span class="rule-item-raw">${escapeHtml(r.raw_text)}</span>
+            <span class="rule-item-sub">Path: ${escapeHtml(r.path_pattern)} • Actions: ${r.action_types.join(', ')}</span>
+          </div>
+          <button type="button" class="chat-action-btn close-btn" onclick="deleteSafetyRule('${r.id}')" title="Delete Rule">✕</button>
+        </div>
+      `).join('');
+    }
+
+    async function compileSafetyRule() {
+      const input = document.getElementById('rule-instruction-input');
+      const statusEl = document.getElementById('rule-compile-status');
+      const previewBox = document.getElementById('rule-preview-container');
+      const previewList = document.getElementById('rule-preview-list');
+      const instruction = (input?.value || '').trim();
+
+      if (!instruction) {
+        if (statusEl) statusEl.textContent = 'Please enter an instruction.';
+        return;
+      }
+
+      if (statusEl) statusEl.textContent = 'Compiling rule...';
+
+      try {
+        const res = await fetch('/api/safety/rules/compile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}) },
+          credentials: 'include',
+          body: JSON.stringify({ instruction: instruction })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          _compiledRulesPending = data.preview_rules || [];
+          if (statusEl) statusEl.textContent = `✓ Generated ${_compiledRulesPending.length} rule preview(s).`;
+
+          if (previewList && _compiledRulesPending.length > 0) {
+            previewList.innerHTML = _compiledRulesPending.map(r => `
+              <div class="rule-item-card" style="background:rgba(56,189,248,0.06); border-color:rgba(56,189,248,0.25);">
+                <span class="rule-effect-badge ${r.effect}">${r.effect}</span>
+                <div class="rule-item-details">
+                  <span class="rule-item-raw"><strong>${r.effect}</strong>: ${escapeHtml(r.raw_text)}</span>
+                  <span class="rule-item-sub">Target: ${escapeHtml(r.path_pattern)} | Risk: ${r.risk_level.toUpperCase()}</span>
+                </div>
+              </div>
+            `).join('');
+            if (previewBox) previewBox.classList.remove('hidden');
+          }
+        } else {
+          const err = await res.json().catch(() => ({}));
+          if (statusEl) statusEl.textContent = '⚠ ' + (err.detail || 'Compile failed');
+        }
+      } catch (e) {
+        if (statusEl) statusEl.textContent = '⚠ Network error';
+      }
+    }
+
+    function dismissRulePreview() {
+      _compiledRulesPending = [];
+      const previewBox = document.getElementById('rule-preview-container');
+      if (previewBox) previewBox.classList.add('hidden');
+      const statusEl = document.getElementById('rule-compile-status');
+      if (statusEl) statusEl.textContent = '';
+    }
+
+    async function saveCompiledRules() {
+      if (!_compiledRulesPending.length) return;
+      try {
+        const res = await fetch('/api/safety/rules/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}) },
+          credentials: 'include',
+          body: JSON.stringify({ rules: _compiledRulesPending })
+        });
+        if (res.ok) {
+          dismissRulePreview();
+          const input = document.getElementById('rule-instruction-input');
+          if (input) input.value = '';
+          const statusEl = document.getElementById('rule-compile-status');
+          if (statusEl) {
+            statusEl.textContent = '✓ Rules successfully approved and active in Safety Kernel!';
+            setTimeout(() => { statusEl.textContent = ''; }, 4000);
+          }
+          loadSafetyStatus();
+        }
+      } catch (err) {
+        console.error('Failed to save rules:', err);
+      }
+    }
+
+    async function deleteSafetyRule(ruleId) {
+      if (!confirm('Remove this safety rule?')) return;
+      try {
+        const res = await fetch('/api/safety/rules/' + encodeURIComponent(ruleId), {
+          method: 'DELETE',
+          headers: typeof getAuthHeaders === 'function' ? getAuthHeaders() : {},
+          credentials: 'include'
+        });
+        if (res.ok) {
+          loadSafetyStatus();
+        }
+      } catch (err) {
+        console.error('Failed to delete rule:', err);
+      }
+    }
+
+    async function submitSafetyCode() {
+      const oldInput = document.getElementById('input-old-code');
+      const newInput = document.getElementById('input-new-code');
+      const msgEl = document.getElementById('safety-code-msg');
+
+      const newCode = (newInput?.value || '').trim();
+      const oldCode = (oldInput?.value || '').trim() || null;
+
+      if (newCode.length < 4) {
+        if (msgEl) {
+          msgEl.textContent = 'Safety code must be at least 4 characters.';
+          msgEl.style.color = '#f87171';
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/safety/code/set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}) },
+          credentials: 'include',
+          body: JSON.stringify({ code: newCode, old_code: oldCode })
+        });
+        if (res.ok) {
+          if (newInput) newInput.value = '';
+          if (oldInput) oldInput.value = '';
+          if (msgEl) {
+            msgEl.textContent = '✓ Safety code configured with PBKDF2 hashing!';
+            msgEl.style.color = '#34d399';
+            setTimeout(() => { msgEl.textContent = ''; }, 4000);
+          }
+          loadSafetyStatus();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          if (msgEl) {
+            msgEl.textContent = '⚠ ' + (err.detail || 'Failed to update safety code.');
+            msgEl.style.color = '#f87171';
+          }
+        }
+      } catch (e) {
+        if (msgEl) {
+          msgEl.textContent = '⚠ Network error.';
+          msgEl.style.color = '#f87171';
+        }
+      }
+    }
+    // ── End Safety Kernel Controller ──────────────────────────────────────────
   </script>
 </body>
 </html>

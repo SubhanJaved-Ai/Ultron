@@ -41,12 +41,16 @@ class DesktopSafetyGuardrails:
     FORBIDDEN_URL_SCHEMES = ("file://", "javascript:", "data:", "vbscript:")
 
     @classmethod
-    def check_deletion(cls, text: str) -> Tuple[bool, str]:
-        """Hard block any directive attempting to delete or destroy host files."""
-        lower = text.lower()
-        for pat in cls.FORBIDDEN_DELETE_PATTERNS:
-            if re.search(pat, lower):
-                return False, "File deletion is strictly prohibited by Ultron Zero-Data-Loss Safety Policy. No files will be modified or removed."
+    def check_deletion(cls, text: str, target: str = "") -> Tuple[bool, str]:
+        """Check directive or target deletion with Central Safety Kernel."""
+        from openjarvis.security.kernel import ActionEffect, get_safety_kernel
+
+        kernel = get_safety_kernel()
+        decision = kernel.evaluate("delete", target=target or text)
+        if decision.effect == ActionEffect.BLOCK:
+            return False, decision.reason
+        if decision.effect in (ActionEffect.ASK, ActionEffect.ASK_WITH_CODE):
+            return False, decision.reason
         return True, ""
 
     @classmethod

@@ -278,6 +278,38 @@ class ShellExecTool(BaseTool):
         # Optional cancellation token passed by the orchestrator
         cancellation_token = params.get("cancellation_token")
 
+        # Enforce Safety Kernel checks on shell command
+        from openjarvis.security.kernel import ActionEffect, get_safety_kernel
+
+        kernel = get_safety_kernel()
+        decision = kernel.evaluate("shell_exec", target=command, params={"command": command, "working_dir": working_dir})
+        if decision.effect == ActionEffect.BLOCK:
+            return ToolResult(
+                tool_name="shell_exec",
+                content=f"Safety Kernel Policy Violation: {decision.reason}",
+                success=False,
+                metadata={"safety_decision": decision.to_dict(), "guardrails": "BLOCKED"},
+            )
+
+        if decision.effect in (ActionEffect.ASK, ActionEffect.ASK_WITH_CODE):
+            auth_token = params.get("authorization_token")
+            if auth_token:
+                valid, msg = kernel.code_mgr.consume_action_token(auth_token, decision.fingerprint)
+                if not valid:
+                    return ToolResult(
+                        tool_name="shell_exec",
+                        content=f"Safety Kernel Authorization Error: {msg}",
+                        success=False,
+                        metadata={"safety_decision": decision.to_dict(), "guardrails": "AUTH_REQUIRED"},
+                    )
+            else:
+                return ToolResult(
+                    tool_name="shell_exec",
+                    content=f"Safety Kernel Approval Required ({decision.risk_level.value}): {decision.reason}",
+                    success=False,
+                    metadata={"safety_decision": decision.to_dict(), "guardrails": "AUTH_REQUIRED"},
+                )
+
         try:
             from openjarvis._rust_bridge import get_rust_module
 

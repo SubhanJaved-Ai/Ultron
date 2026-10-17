@@ -25,6 +25,7 @@ from openjarvis.server.hologram_routes import hologram_router
 from openjarvis.server.node_routes import node_router
 from openjarvis.server.research_router import router as research_router
 from openjarvis.server.routes import router
+from openjarvis.server.safety_routes import safety_router
 from openjarvis.server.upload_router import router as upload_router
 
 logger = logging.getLogger(__name__)
@@ -559,6 +560,7 @@ def create_app(
     app.include_router(hologram_router)
     app.include_router(node_router)
     app.include_router(auth_router)
+    app.include_router(safety_router)
     # Global Emergency Stop — TSK-P5-01
     app.include_router(cancellation_router)
     include_all_routes(app)

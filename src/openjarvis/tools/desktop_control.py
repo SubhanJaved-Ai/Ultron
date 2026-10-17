@@ -172,7 +172,7 @@ class DesktopMouseClickTool(BaseTool):
                 },
             },
             category="desktop",
-            required_capabilities=["os:control"],
+            required_capabilities=["system:admin"],
         )
 
     def execute(self, **params: Any) -> ToolResult:
@@ -236,7 +236,7 @@ class DesktopMouseMoveTool(BaseTool):
                 "required": ["x", "y"],
             },
             category="desktop",
-            required_capabilities=["os:control"],
+            required_capabilities=["system:admin"],
         )
 
     def execute(self, **params: Any) -> ToolResult:
@@ -288,7 +288,7 @@ class DesktopKeyboardTypeTool(BaseTool):
                 "required": ["text"],
             },
             category="desktop",
-            required_capabilities=["os:control"],
+            required_capabilities=["system:admin"],
         )
 
     def execute(self, **params: Any) -> ToolResult:
@@ -349,7 +349,7 @@ class DesktopKeyPressTool(BaseTool):
                 "required": ["key"],
             },
             category="desktop",
-            required_capabilities=["os:control"],
+            required_capabilities=["system:admin"],
         )
 
     def execute(self, **params: Any) -> ToolResult:
@@ -423,6 +423,7 @@ class DesktopScreenInfoTool(BaseTool):
             description="Get the screen resolution (width, height in pixels) and current mouse cursor position.",
             parameters={"type": "object", "properties": {}},
             category="desktop",
+            required_capabilities=["system:admin"],
         )
 
     def execute(self, **params: Any) -> ToolResult:

@@ -253,6 +253,11 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "cronjob_manage": [Capability.SCHEDULE_CREATE],
     "db_query": [Capability.CODE_EXECUTE],
     "delegate_task": [Capability.SYSTEM_ADMIN],
+    "desktop_key_press": [Capability.SYSTEM_ADMIN],
+    "desktop_keyboard_type": [Capability.SYSTEM_ADMIN],
+    "desktop_mouse_click": [Capability.SYSTEM_ADMIN],
+    "desktop_mouse_move": [Capability.SYSTEM_ADMIN],
+    "desktop_screen_info": [Capability.SYSTEM_ADMIN],
     "digest_collect": [Capability.MEMORY_READ, Capability.NETWORK_FETCH],
     "docker_shell_exec": [Capability.CODE_EXECUTE],
     "execute_pending_actions": [

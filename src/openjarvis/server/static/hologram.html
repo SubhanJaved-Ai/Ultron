@@ -3223,19 +3223,38 @@
                 showActionHud(
                   'REAL BROWSER ACTION EXECUTED',
                   `Chrome Profile [${profileName}] Activated`,
-                  `Navigated to ${urlToOpen} on your workstation desktop.`,
+                  `Navigated to ${urlToOpen} in native OS window on your desktop.`,
                   urlToOpen,
                   `OPEN ${urlToOpen.replace(/^https?:\/\//, '').split('/')[0].toUpperCase()} TAB`,
                   '🌐'
                 );
-                // Directly open tab in front of operator
-                try {
-                  window.open(urlToOpen, '_blank');
-                } catch (e) {
-                  console.warn('Window open notice:', e);
-                }
               }
-              // 2. Physical File creation action
+              // 2. Desktop Application launch action
+              else if (act.name === 'app_launch') {
+                const appName = act.args?.app || 'Application';
+                const targetPath = act.args?.target || '';
+                showActionHud(
+                  'DESKTOP APPLICATION LAUNCHED',
+                  `Application [${appName}] Active`,
+                  `Spawned via native Windows Shell on your workstation desktop. Active in foreground.`,
+                  null,
+                  null,
+                  '🚀'
+                );
+              }
+              // 3. Media & Video playback action
+              else if (act.name === 'media_play') {
+                const videoName = act.args?.video_name || 'Video File';
+                showActionHud(
+                  'MEDIA PLAYBACK STARTED',
+                  `Playing Video: ${videoName}`,
+                  `Launched in media player on your desktop workstation. Active in foreground.`,
+                  null,
+                  null,
+                  '🎬'
+                );
+              }
+              // 4. Physical File creation action
               else if (act.name === 'file_create') {
                 const filePath = act.args?.path || 'D:\\Ultron new create file.txt';
                 const baseName = filePath.split(/[\\\/]/).pop();
@@ -3248,9 +3267,9 @@
                   '📁'
                 );
               }
-              // 3. Explorer / Drive open action
-              else if (act.name === 'open_drive') {
-                const drivePath = act.args?.path || 'D:\\';
+              // 5. Explorer / Drive open action
+              else if (act.name === 'open_drive' || act.name === 'open_folder') {
+                const drivePath = act.args?.path || act.args?.name || 'D:\\';
                 showActionHud(
                   'WINDOWS EXPLORER EXECUTED',
                   `Explorer Window Opened: ${drivePath}`,

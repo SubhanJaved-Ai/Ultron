@@ -32,6 +32,7 @@ import {
   Activity,
   ArrowUp,
   ArrowDown,
+  GitBranch,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -636,6 +637,53 @@ export function SkillComposer({
     handleTemplateChange(stepIdx, nextVal);
   };
 
+  const handleConditionChange = (idx: number, val: string) => {
+    setValidationResult(null);
+    setValidationError(null);
+    const updated = [...steps];
+    const existing = updated[idx];
+    if (!existing) return;
+    updated[idx] = { ...existing, condition: val, is_else: false };
+    setSteps(updated);
+  };
+
+  const handleToggleElse = (idx: number, isElse: boolean) => {
+    setValidationResult(null);
+    setValidationError(null);
+    const updated = [...steps];
+    const existing = updated[idx];
+    if (!existing) return;
+    updated[idx] = {
+      ...existing,
+      is_else: isElse,
+      condition: isElse ? 'else' : '',
+    };
+    setSteps(updated);
+  };
+
+  const handleSelectElseSkill = (idx: number, skillName: string) => {
+    setValidationResult(null);
+    setValidationError(null);
+    const updated = [...steps];
+    const existing = updated[idx];
+    if (!existing) return;
+    updated[idx] = { ...existing, else_skill_name: skillName };
+    setSteps(updated);
+  };
+
+  const handleInsertConditionToken = (stepIdx: number, token: string) => {
+    setValidationResult(null);
+    setValidationError(null);
+    const current = steps[stepIdx]?.condition || '';
+    let nextVal = current;
+    if (!current.trim()) {
+      nextVal = `{${token}} == 'success'`;
+    } else {
+      nextVal = current + ` {${token}}`;
+    }
+    handleConditionChange(stepIdx, nextVal);
+  };
+
   const runValidation = async (): Promise<ValidateCompositeSkillResponse | null> => {
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -904,6 +952,93 @@ export function SkillComposer({
                       <Trash2 size={13} />
                     </button>
                   </div>
+                </div>
+
+                {/* Branch Condition Configuration */}
+                <div className="p-2.5 rounded-lg border border-slate-800/80 bg-slate-950/40 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-slate-300 font-medium text-[11px]">
+                      <GitBranch size={13} className="text-purple-400" />
+                      <span>Branch Condition</span>
+                      {st.is_else ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          ELSE BRANCH
+                        </span>
+                      ) : st.condition ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          CONDITIONAL IF
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] text-slate-400 bg-slate-800">
+                          SEQUENTIAL
+                        </span>
+                      )}
+                    </div>
+                    {idx > 0 && (
+                      <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-400 hover:text-slate-200">
+                        <input
+                          type="checkbox"
+                          aria-label={`Step ${idx + 1} Is Else Branch`}
+                          checked={st.is_else || false}
+                          onChange={(e) => handleToggleElse(idx, e.target.checked)}
+                          className="rounded border-slate-700 bg-slate-900 text-purple-600 focus:ring-0"
+                        />
+                        <span>Else branch of Step {idx}</span>
+                      </label>
+                    )}
+                  </div>
+
+                  {!st.is_else && (
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          aria-label={`Step ${idx + 1} Condition`}
+                          placeholder="e.g. {step1_out} == 'success' or {count} > 0"
+                          value={st.condition || ''}
+                          onChange={(e) => handleConditionChange(idx, e.target.value)}
+                          className="flex-1 p-1.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-200 outline-none"
+                        />
+                      </div>
+                      {preceding.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className="text-[10px] text-slate-400">Condition Tokens:</span>
+                          {preceding.map((outKey) => (
+                            <button
+                              key={outKey}
+                              type="button"
+                              onClick={() => handleInsertConditionToken(idx, outKey)}
+                              aria-label={`Insert condition token {${outKey}} into Step ${idx + 1}`}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 cursor-pointer"
+                              title={`Insert token {${outKey}}`}
+                            >
+                              &#123;{outKey}&#125;
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Optional Inline Else Child Skill */}
+                      {st.condition && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-slate-400 shrink-0">Inline Else Child Skill:</span>
+                          <select
+                            aria-label={`Step ${idx + 1} Else Child Skill`}
+                            value={st.else_skill_name || ''}
+                            onChange={(e) => handleSelectElseSkill(idx, e.target.value)}
+                            className="p-1 rounded border border-slate-700 bg-slate-900 text-slate-100 text-[11px] font-mono flex-1 outline-none"
+                          >
+                            <option value="">-- None (Skip step if False) --</option>
+                            {approvedSkills.map((sk) => (
+                              <option key={sk.name} value={sk.name}>
+                                {sk.name} (v{sk.version})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Step Configuration Grid */}

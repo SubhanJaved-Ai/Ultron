@@ -615,6 +615,43 @@ describe('Memory & Skills Control Center Components', () => {
     });
   });
 
+  describe('SkillComposer conditional branching', () => {
+    it('renders branch condition controls and sequential badges', () => {
+      const html = renderToStaticMarkup(
+        <SkillComposer
+          availableSkills={[
+            {
+              name: 'skill_a',
+              version: '1.0.0',
+              description: 'Skill A',
+              approval_status: 'approved',
+              author: 'system',
+              tags: ['system'],
+              required_capabilities: [],
+              depends: [],
+              user_invocable: true,
+              disable_model_invocation: false,
+              approved: true,
+              disabled: false,
+              is_protected: true,
+              steps_count: 1,
+              health: { is_healthy: true, issues: [], execution_count: 0, consecutive_failures: 0, outdated: false },
+              validation: { is_valid: true, errors: [] },
+              metadata: {},
+              steps: [],
+            },
+          ]}
+          onClose={vi.fn()}
+        />,
+      );
+
+      expect(html).toContain('Skill Composer');
+      expect(html).toContain('Branch Condition');
+      expect(html).toContain('SEQUENTIAL');
+      expect(html).toContain('e.g. {step1_out} == &#x27;success&#x27; or {count} &gt; 0');
+    });
+  });
+
   describe('MemorySkillsPage main view', () => {
     it('renders tab headers, search inputs, and filters', () => {
       const html = renderToStaticMarkup(<MemorySkillsPage />);
@@ -630,3 +667,4 @@ describe('Memory & Skills Control Center Components', () => {
     });
   });
 });
+

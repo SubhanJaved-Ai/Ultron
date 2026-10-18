@@ -374,6 +374,12 @@ export interface CreateCompositeSkillStep {
   skill_name?: string;
   arguments_template?: string;
   output_key?: string;
+  condition?: string;
+  is_else?: boolean;
+  else_skill_name?: string;
+  else_tool_name?: string;
+  else_arguments_template?: string;
+  else_output_key?: string;
 }
 
 export interface CreateCompositeSkillRequest {

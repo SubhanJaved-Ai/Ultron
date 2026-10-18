@@ -833,6 +833,20 @@ class WorkflowSkillLearner:
             arg_tpl = step.arguments_template.replace("\\", "\\\\").replace('"', '\\"')
             lines.append(f'arguments_template = "{arg_tpl}"')
             lines.append(f'output_key = "{step.output_key}"')
+            if getattr(step, "condition", ""):
+                cond = step.condition.replace("\\", "\\\\").replace('"', '\\"')
+                lines.append(f'condition = "{cond}"')
+            if getattr(step, "is_else", False):
+                lines.append(f"is_else = {str(step.is_else).lower()}")
+            if getattr(step, "else_skill_name", ""):
+                lines.append(f'else_skill_name = "{step.else_skill_name}"')
+            if getattr(step, "else_tool_name", ""):
+                lines.append(f'else_tool_name = "{step.else_tool_name}"')
+            if getattr(step, "else_arguments_template", "") and step.else_arguments_template != "{}":
+                else_tpl = step.else_arguments_template.replace("\\", "\\\\").replace('"', '\\"')
+                lines.append(f'else_arguments_template = "{else_tpl}"')
+            if getattr(step, "else_output_key", ""):
+                lines.append(f'else_output_key = "{step.else_output_key}"')
             lines.append("")
 
         return "\n".join(lines)

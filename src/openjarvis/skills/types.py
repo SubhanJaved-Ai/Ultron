@@ -14,6 +14,12 @@ class SkillStep:
     skill_name: str = ""  # invoke another skill instead of a tool
     arguments_template: str = "{}"  # Jinja2-style template
     output_key: str = ""  # Key to store result in context
+    condition: str = ""  # Expression or 'else'
+    is_else: bool = False  # True if step executes on prior condition false
+    else_skill_name: str = ""  # Alternative skill if condition evaluates to False
+    else_tool_name: str = ""  # Alternative tool if condition evaluates to False
+    else_arguments_template: str = "{}"
+    else_output_key: str = ""
 
 
 @dataclass(slots=True)
@@ -49,6 +55,12 @@ class SkillManifest:
                     "skill_name": s.skill_name,
                     "arguments_template": s.arguments_template,
                     "output_key": s.output_key,
+                    "condition": s.condition,
+                    "is_else": s.is_else,
+                    "else_skill_name": s.else_skill_name,
+                    "else_tool_name": s.else_tool_name,
+                    "else_arguments_template": s.else_arguments_template,
+                    "else_output_key": s.else_output_key,
                 }
                 for s in self.steps
             ],

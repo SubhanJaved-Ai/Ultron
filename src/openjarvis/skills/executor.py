@@ -136,12 +136,58 @@ class SkillExecutor:
                 {"skill": manifest.name, "steps": len(manifest.steps)},
             )
 
+        last_condition_met: Optional[bool] = None
+
         for i, step in enumerate(manifest.steps):
-            step_id = step.tool_name or step.skill_name
+            is_else_step = step.is_else or (step.condition.strip().lower() == "else")
+
+            target_tool = step.tool_name
+            target_skill = step.skill_name
+            target_template = step.arguments_template
+            target_output_key = step.output_key
+
+            if is_else_step:
+                # Executes if and only if the preceding conditional step did not match
+                if last_condition_met is not False:
+                    # Skipped
+                    continue
+                last_condition_met = None
+            elif step.condition:
+                try:
+                    from openjarvis.skills.composition import evaluate_condition
+                    cond_val = evaluate_condition(step.condition, ctx)
+                except Exception as exc:
+                    result = ToolResult(
+                        tool_name=step.tool_name or step.skill_name or "condition",
+                        content=f"Condition evaluation error in step {i + 1}: {exc}",
+                        success=False,
+                    )
+                    all_results.append(result)
+                    break
+
+                last_condition_met = cond_val
+                if cond_val:
+                    # Primary branch selected
+                    pass
+                else:
+                    # Condition is False
+                    if step.else_skill_name or step.else_tool_name:
+                        # Inline alternative branch selected
+                        target_tool = step.else_tool_name
+                        target_skill = step.else_skill_name
+                        target_template = step.else_arguments_template or "{}"
+                        target_output_key = step.else_output_key or step.output_key
+                    else:
+                        # No inline alternative; step is skipped
+                        continue
+            else:
+                last_condition_met = None
+
+            step_id = target_tool or target_skill
 
             # Render template
             try:
-                rendered = self._render_template(step.arguments_template, ctx)
+                rendered = self._render_template(target_template, ctx)
             except Exception as exc:
                 result = ToolResult(
                     tool_name=step_id,
@@ -151,16 +197,16 @@ class SkillExecutor:
                 all_results.append(result)
                 break
 
-            if step.skill_name:
+            if target_skill:
                 # Delegate to sub-skill resolver
                 result = self._run_sub_skill(
-                    step.skill_name, rendered, ctx, manifest.name, i, current_stack
+                    target_skill, rendered, ctx, manifest.name, i, current_stack
                 )
             else:
                 # Execute via tool executor
                 tool_call = ToolCall(
                     id=f"skill_{manifest.name}_{i}",
-                    name=step.tool_name,
+                    name=target_tool,
                     arguments=rendered,
                 )
                 result = self._tool_executor.execute(tool_call)
@@ -171,8 +217,8 @@ class SkillExecutor:
                 break
 
             # Store output in context
-            if step.output_key:
-                ctx[step.output_key] = result.content
+            if target_output_key:
+                ctx[target_output_key] = result.content
 
         success = all(r.success for r in all_results)
 

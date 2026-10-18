@@ -106,6 +106,12 @@ class CreateCompositeSkillStep(BaseModel):
     skill_name: Optional[str] = Field("", description="Child skill name for step")
     arguments_template: Optional[str] = Field("{}", description="Arguments template")
     output_key: Optional[str] = Field("", description="Context output key")
+    condition: Optional[str] = Field("", description="Boolean condition expression or 'else'")
+    is_else: Optional[bool] = Field(False, description="Whether this step is an else branch")
+    else_skill_name: Optional[str] = Field("", description="Optional inline alternative skill name")
+    else_tool_name: Optional[str] = Field("", description="Optional inline alternative tool name")
+    else_arguments_template: Optional[str] = Field("{}", description="Arguments template for inline else")
+    else_output_key: Optional[str] = Field("", description="Context output key for inline else")
 
 
 class CreateCompositeSkillRequest(BaseModel):
@@ -311,6 +317,12 @@ def _serialize_skill_manifest(
                 "skill_name": s.skill_name,
                 "arguments_template": s.arguments_template,
                 "output_key": s.output_key,
+                "condition": getattr(s, "condition", ""),
+                "is_else": getattr(s, "is_else", False),
+                "else_skill_name": getattr(s, "else_skill_name", ""),
+                "else_tool_name": getattr(s, "else_tool_name", ""),
+                "else_arguments_template": getattr(s, "else_arguments_template", "{}"),
+                "else_output_key": getattr(s, "else_output_key", ""),
             }
             for s in manifest.steps
         ],

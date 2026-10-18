@@ -87,6 +87,12 @@ def load_skill(
                 skill_name=step_data.get("skill_name", ""),
                 arguments_template=step_data.get("arguments_template", "{}"),
                 output_key=step_data.get("output_key", ""),
+                condition=step_data.get("condition", ""),
+                is_else=bool(step_data.get("is_else", False)),
+                else_skill_name=step_data.get("else_skill_name", ""),
+                else_tool_name=step_data.get("else_tool_name", ""),
+                else_arguments_template=step_data.get("else_arguments_template", "{}"),
+                else_output_key=step_data.get("else_output_key", ""),
             )
         )
 

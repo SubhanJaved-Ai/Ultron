@@ -14,6 +14,7 @@ _INDEX_HTML_PATH = pathlib.Path(__file__).parent / "static" / "index.html"
 
 
 @hologram_router.get("/hologram", response_class=HTMLResponse)
+@hologram_router.get("/hologram.html", response_class=HTMLResponse)
 async def serve_hologram() -> HTMLResponse:
     """Serve the 3D Hologram PWA interface with cache-busting headers."""
     headers = {

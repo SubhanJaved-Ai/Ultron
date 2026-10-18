@@ -8,15 +8,15 @@ export function HologramPage() {
   const hologramUrl = `${apiBase}/hologram.html`;
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#02050c] text-slate-100 overflow-hidden relative">
+    <div className="flex flex-col h-full w-full bg-[#f8fafc] text-slate-800 overflow-hidden relative">
       {/* Top Floating Glassmorphic Nav */}
       <header
         className="flex items-center justify-between px-4 py-2.5 z-20 shrink-0"
         style={{
-          background: 'rgba(6, 8, 14, 0.75)',
-          backdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
-          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.5)',
+          background: 'rgba(255, 255, 255, 0.85)',
+          backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
+          boxShadow: '0 4px 20px rgba(15, 23, 42, 0.05)',
         }}
       >
         <div className="flex items-center gap-3">
@@ -24,17 +24,17 @@ export function HologramPage() {
             onClick={() => navigate('/')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
             style={{
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: 'var(--color-text-secondary)',
+              background: 'rgba(241, 245, 249, 0.85)',
+              border: '1px solid rgba(203, 213, 225, 0.7)',
+              color: '#334155',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
-              e.currentTarget.style.color = '#fff';
+              e.currentTarget.style.background = '#ffffff';
+              e.currentTarget.style.color = '#0f172a';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
-              e.currentTarget.style.color = 'var(--color-text-secondary)';
+              e.currentTarget.style.background = 'rgba(241, 245, 249, 0.85)';
+              e.currentTarget.style.color = '#334155';
             }}
             title="Return to standard chat interface"
           >
@@ -45,11 +45,11 @@ export function HologramPage() {
           <div className="flex items-center gap-2">
             <span
               className="w-2 h-2 rounded-full animate-ping"
-              style={{ background: '#38bdf8' }}
+              style={{ background: '#0284c7' }}
             />
             <span
               className="text-xs font-semibold uppercase tracking-wider font-mono"
-              style={{ color: '#38bdf8', letterSpacing: '0.1em' }}
+              style={{ color: '#0284c7', letterSpacing: '0.1em' }}
             >
               Ultron 3D Matrix
             </span>
@@ -60,9 +60,9 @@ export function HologramPage() {
           <div
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono"
             style={{
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              color: '#10b981',
+              background: 'rgba(5, 150, 105, 0.1)',
+              border: '1px solid rgba(5, 150, 105, 0.3)',
+              color: '#059669',
             }}
           >
             <Radio size={11} className="animate-pulse" />
@@ -75,17 +75,18 @@ export function HologramPage() {
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
             style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: '#e2e8f0',
+              background: 'rgba(255, 255, 255, 0.9)',
+              border: '1px solid rgba(203, 213, 225, 0.7)',
+              color: '#1e293b',
+              boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.16)';
-              e.currentTarget.style.color = '#fff';
+              e.currentTarget.style.background = '#ffffff';
+              e.currentTarget.style.boxShadow = '0 2px 6px rgba(15, 23, 42, 0.08)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-              e.currentTarget.style.color = '#e2e8f0';
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
+              e.currentTarget.style.boxShadow = '0 1px 2px rgba(15, 23, 42, 0.04)';
             }}
             title="Open 3D Hologram in full browser window"
           >
@@ -97,16 +98,16 @@ export function HologramPage() {
             onClick={() => navigate('/')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
             style={{
-              background: 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              color: '#38bdf8',
+              background: 'rgba(2, 132, 199, 0.1)',
+              border: '1px solid rgba(2, 132, 199, 0.3)',
+              color: '#0284c7',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(56, 189, 248, 0.25)';
-              e.currentTarget.style.boxShadow = '0 0 14px rgba(56, 189, 248, 0.4)';
+              e.currentTarget.style.background = 'rgba(2, 132, 199, 0.18)';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(2, 132, 199, 0.25)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)';
+              e.currentTarget.style.background = 'rgba(2, 132, 199, 0.1)';
               e.currentTarget.style.boxShadow = 'none';
             }}
             title="Switch back to Chat interface"
@@ -118,7 +119,7 @@ export function HologramPage() {
       </header>
 
       {/* Hologram Matrix Canvas Viewport */}
-      <div className="flex-1 w-full h-full relative overflow-hidden bg-[#02050c]">
+      <div className="flex-1 w-full h-full relative overflow-hidden bg-[#f8fafc]">
         <iframe
           src={hologramUrl}
           title="Ultron 3D Quantum Hologram"

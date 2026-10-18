@@ -259,8 +259,35 @@ class TestMCPRoutes:
         assert "super_secret_pw" not in data["error"]
         assert "sensitive_bearer_token_xyz987" not in data["error"]
 
-    def test_mock_mcp_server_protocol_endpoints(self, client: TestClient):
-        """Verify the deterministic mock MCP endpoint satisfies JSON-RPC 2.0 MCP protocol."""
+    def test_mock_mcp_server_disabled_by_default(self, client: TestClient, monkeypatch: pytest.MonkeyPatch):
+        """Security: mock MCP server endpoint is disabled by default (returns 404)."""
+        monkeypatch.delenv("OPENJARVIS_ENABLE_MCP_MOCK_SERVER", raising=False)
+        monkeypatch.delenv("ULTRON_ENABLE_MCP_MOCK_SERVER", raising=False)
+        res = client.post(
+            "/api/mcp/mock-server",
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize"},
+        )
+        assert res.status_code == 404
+        assert "disabled by default" in res.json()["detail"]
+
+    def test_mock_mcp_server_prohibited_in_production(self, client: TestClient, monkeypatch: pytest.MonkeyPatch):
+        """Security: mock MCP server endpoint is strictly prohibited in production mode (returns 403)."""
+        monkeypatch.setenv("OPENJARVIS_ENABLE_MCP_MOCK_SERVER", "true")
+        for prod_env in ("production", "prod"):
+            monkeypatch.setenv("ENVIRONMENT", prod_env)
+            res = client.post(
+                "/api/mcp/mock-server",
+                json={"jsonrpc": "2.0", "id": 1, "method": "initialize"},
+            )
+            assert res.status_code == 403
+            assert "strictly prohibited in production mode" in res.json()["detail"]
+
+    def test_mock_mcp_server_protocol_endpoints(self, client: TestClient, monkeypatch: pytest.MonkeyPatch):
+        """Verify the deterministic mock MCP endpoint satisfies JSON-RPC 2.0 MCP protocol when explicitly enabled."""
+        monkeypatch.setenv("OPENJARVIS_ENABLE_MCP_MOCK_SERVER", "true")
+        monkeypatch.delenv("ENVIRONMENT", raising=False)
+        monkeypatch.delenv("OPENJARVIS_ENV", raising=False)
+
         # 1. Initialize
         init_res = client.post(
             "/api/mcp/mock-server",
@@ -304,8 +331,9 @@ class TestMCPRoutes:
         assert len(tools) == 1
         assert tools[0]["name"] == "system_diagnostics"
 
-    def test_authorization_non_admin_forbidden_in_multi_user(self):
-        """Security: untrusted/non-admin users cannot configure or test MCP servers."""
+    def test_authorization_non_admin_forbidden_in_multi_user(self, monkeypatch: pytest.MonkeyPatch):
+        """Security: untrusted/non-admin users cannot configure or test MCP servers, nor access mock server."""
+        monkeypatch.setenv("OPENJARVIS_ENABLE_MCP_MOCK_SERVER", "true")
         from openjarvis.auth.models import Role, User
         from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.requests import Request
@@ -337,4 +365,10 @@ class TestMCPRoutes:
             # 4. POST /api/mcp/servers/validate -> 403
             val_res = tc.post("/api/mcp/servers/validate", json={"name": "test-srv", "url": "https://mcp.example.com"})
             assert val_res.status_code == 403
+
+            # 5. POST /api/mcp/mock-server -> 403 (unauthorized/non-admin cannot access mock endpoint)
+            mock_res = tc.post("/api/mcp/mock-server", json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+            assert mock_res.status_code == 403
+            assert "Administrator privileges required" in mock_res.json()["detail"]
+
 

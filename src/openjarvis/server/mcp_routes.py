@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+import os
 import pathlib
 import re
 import shutil
@@ -116,6 +117,12 @@ def _require_admin(request: Request) -> None:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Administrator privileges required to manage MCP servers.",
             )
+    env_multi = os.environ.get("OPENJARVIS_MULTI_USER", "").strip().lower() in ("1", "true", "yes")
+    if env_multi and (user is None or not getattr(user, "is_admin", lambda: False)()):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator privileges required to manage MCP servers.",
+        )
 
 
 def _init_runtime_servers() -> None:
@@ -399,12 +406,48 @@ async def delete_mcp_server(server_name: str, request: Request) -> Dict[str, Any
     return {"name": server_name, "status": "deleted"}
 
 
+def _is_production_environment() -> bool:
+    """Check if the current runtime environment is flagged as production."""
+    for var_name in ("OPENJARVIS_ENV", "ENVIRONMENT", "APP_ENV", "NODE_ENV"):
+        val = os.environ.get(var_name, "").strip().lower()
+        if val in ("production", "prod"):
+            return True
+    return False
+
+
+def _is_mock_server_enabled() -> bool:
+    """Check if the mock MCP server is explicitly enabled in non-production mode."""
+    if _is_production_environment():
+        return False
+    for var_name in ("OPENJARVIS_ENABLE_MCP_MOCK_SERVER", "ULTRON_ENABLE_MCP_MOCK_SERVER"):
+        val = os.environ.get(var_name, "").strip().lower()
+        if val in ("1", "true", "yes", "enabled", "on"):
+            return True
+    return False
+
+
 @mcp_router.post("/mock-server")
 async def mock_mcp_server_endpoint(request: Request) -> Dict[str, Any]:
     """Deterministic local MCP server for isolated testing and browser verification.
 
-    Responds to standard JSON-RPC 2.0 initialize, notifications/initialized, and tools/list.
+    Requires explicit non-production configuration (OPENJARVIS_ENABLE_MCP_MOCK_SERVER=true).
+    Strictly rejected in production mode and requires administrator authorization.
     """
+    if _is_production_environment():
+        logger.warning("Attempted access to MCP mock server in production environment.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Mock MCP server is strictly prohibited in production mode.",
+        )
+
+    if not _is_mock_server_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mock MCP server is disabled by default. Set OPENJARVIS_ENABLE_MCP_MOCK_SERVER=true in non-production environments.",
+        )
+
+    _require_admin(request)
+
     try:
         body = await request.json()
     except Exception:

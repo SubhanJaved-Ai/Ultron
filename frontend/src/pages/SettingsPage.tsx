@@ -40,10 +40,20 @@ import {
   saveMCPServer,
   deleteMCPServer,
   isTauri,
+  fetchVoiceSettings,
+  updateVoiceSettings,
+  testElevenLabsConnection,
+  fetchElevenLabsVoices,
+  fetchElevenLabsModels,
+  previewElevenLabsVoice,
   type InferenceSource,
   type MemoryStats,
   type MCPServerInfo,
   type MCPTestResult,
+  type VoiceSettings,
+  type VoiceSettingsUpdate,
+  type ElevenLabsVoice,
+  type ElevenLabsModel,
 } from '../lib/api';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
@@ -598,6 +608,20 @@ export function SettingsPage() {
   const [ttsBackend, setTtsBackend] = useState<{ available: boolean; backend?: string; voice_id?: string } | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // Voice settings & ElevenLabs state
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings | null>(null);
+  const [elevenLabsApiKeyInput, setElevenLabsApiKeyInput] = useState('');
+  const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>([]);
+  const [elevenLabsModels, setElevenLabsModels] = useState<ElevenLabsModel[]>([]);
+  const [connTestState, setConnTestState] = useState<{
+    status: 'idle' | 'testing' | 'connected' | 'invalid_key' | 'quota_limited' | 'timeout' | 'error' | 'unconfigured';
+    message: string;
+  }>({ status: 'idle', message: '' });
+  const [previewState, setPreviewState] = useState<'idle' | 'loading' | 'playing'>('idle');
+  const [previewText, setPreviewText] = useState('Hello, I am Ultron. Speech synthesis is operational.');
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(() => !isAutoUpdateDisabled());
   const [updateCheckState, setUpdateCheckState] = useState<'idle' | 'checking' | 'available' | 'latest'>('idle');
 
@@ -702,7 +726,149 @@ export function SettingsPage() {
     fetchTtsHealth()
       .then((h) => setTtsBackend(h))
       .catch(() => setTtsBackend({ available: false }));
+    fetchVoiceSettings()
+      .then((vs) => {
+        setVoiceSettings(vs);
+        if (vs.has_api_key) {
+          fetchElevenLabsVoices().then(setElevenLabsVoices).catch(() => {});
+          fetchElevenLabsModels().then(setElevenLabsModels).catch(() => {});
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    };
   }, []);
+
+  const handleSaveApiKey = async () => {
+    if (!elevenLabsApiKeyInput.trim()) return;
+    try {
+      const updated = await updateVoiceSettings({ api_key: elevenLabsApiKeyInput.trim() });
+      setVoiceSettings(updated);
+      setElevenLabsApiKeyInput('');
+      showSaved();
+      setConnTestState({ status: 'testing', message: 'Verifying saved API key...' });
+      const testRes = await testElevenLabsConnection();
+      setConnTestState({ status: testRes.status, message: testRes.message });
+      if (testRes.valid) {
+        fetchElevenLabsVoices().then(setElevenLabsVoices).catch(() => {});
+        fetchElevenLabsModels().then(setElevenLabsModels).catch(() => {});
+      }
+      fetchTtsHealth().then(setTtsBackend).catch(() => setTtsBackend({ available: false }));
+    } catch (err) {
+      setConnTestState({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Failed to save API key',
+      });
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setConnTestState({ status: 'testing', message: 'Testing connection to ElevenLabs...' });
+    try {
+      const res = await testElevenLabsConnection(elevenLabsApiKeyInput.trim() || undefined);
+      setConnTestState({ status: res.status, message: res.message });
+      if (res.valid) {
+        fetchElevenLabsVoices().then(setElevenLabsVoices).catch(() => {});
+        fetchElevenLabsModels().then(setElevenLabsModels).catch(() => {});
+      }
+    } catch (err) {
+      setConnTestState({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Connection test failed',
+      });
+    }
+  };
+
+  const handleProviderChange = async (prov: string) => {
+    try {
+      const updated = await updateVoiceSettings({ provider: prov });
+      setVoiceSettings(updated);
+      showSaved();
+      fetchTtsHealth().then(setTtsBackend).catch(() => setTtsBackend({ available: false }));
+      if (prov === 'elevenlabs' && updated.has_api_key && elevenLabsVoices.length === 0) {
+        fetchElevenLabsVoices().then(setElevenLabsVoices).catch(() => {});
+        fetchElevenLabsModels().then(setElevenLabsModels).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Failed to change voice provider:', err);
+    }
+  };
+
+  const handleVoiceParamChange = async (param: keyof VoiceSettingsUpdate, value: any) => {
+    try {
+      const updated = await updateVoiceSettings({ [param]: value });
+      setVoiceSettings(updated);
+      showSaved();
+      fetchTtsHealth().then(setTtsBackend).catch(() => setTtsBackend({ available: false }));
+    } catch (err) {
+      console.error(`Failed to update voice setting ${param}:`, err);
+    }
+  };
+
+  const handlePlayPreview = async () => {
+    if (previewState === 'playing') {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+      setPreviewState('idle');
+      return;
+    }
+
+    setPreviewState('loading');
+    try {
+      const blob = await previewElevenLabsVoice({
+        voiceId: voiceSettings?.voice_id,
+        modelId: voiceSettings?.model_id,
+        stability: voiceSettings?.stability,
+        similarityBoost: voiceSettings?.similarity_boost,
+        style: voiceSettings?.style,
+        speed: voiceSettings?.speed,
+        text: previewText,
+      });
+      const url = URL.createObjectURL(blob);
+      previewUrlRef.current = url;
+      const audioEl = new Audio(url);
+      previewAudioRef.current = audioEl;
+      audioEl.onended = () => {
+        if (previewUrlRef.current) {
+          URL.revokeObjectURL(previewUrlRef.current);
+          previewUrlRef.current = null;
+        }
+        previewAudioRef.current = null;
+        setPreviewState('idle');
+      };
+      audioEl.onerror = () => {
+        if (previewUrlRef.current) {
+          URL.revokeObjectURL(previewUrlRef.current);
+          previewUrlRef.current = null;
+        }
+        previewAudioRef.current = null;
+        setPreviewState('idle');
+      };
+      await audioEl.play();
+      setPreviewState('playing');
+    } catch (err) {
+      setPreviewState('idle');
+      setConnTestState({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Preview playback failed',
+      });
+    }
+  };
 
   const showSaved = () => {
     setSaved(true);
@@ -1156,7 +1322,24 @@ export function SettingsPage() {
                 />
               </button>
             </SettingRow>
-            <SettingRow label="Voice" description="Backend and voice used for spoken replies">
+            <SettingRow label="Voice provider" description="Select speech synthesis provider">
+              <select
+                id="voice-provider-select"
+                value={voiceSettings?.provider || 'system'}
+                onChange={(e) => handleProviderChange(e.target.value)}
+                className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <option value="system">System Default (Windows SAPI / Local)</option>
+                <option value="elevenlabs">ElevenLabs</option>
+              </select>
+            </SettingRow>
+
+            <SettingRow label="Active voice" description="Backend and voice used for spoken replies">
               <div className="flex items-center gap-2">
                 <span
                   className="w-2 h-2 rounded-full"
@@ -1171,6 +1354,284 @@ export function SettingsPage() {
                 </span>
               </div>
             </SettingRow>
+
+            {/* ElevenLabs Configuration Panel */}
+            {(voiceSettings?.provider === 'elevenlabs' || voiceSettings?.has_api_key) && (
+              <div
+                id="elevenlabs-settings-panel"
+                className="my-2 p-4 rounded-xl flex flex-col gap-3.5"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">ElevenLabs Voice Configuration</span>
+                    {voiceSettings?.has_api_key ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(34,197,94,0.15)', color: 'var(--color-success)' }}>
+                        Connected
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-error)' }}>
+                        Key Required
+                      </span>
+                    )}
+                  </div>
+                  {voiceSettings?.masked_api_key && (
+                    <span className="text-xs font-mono" style={{ color: 'var(--color-text-tertiary)' }}>
+                      Key: {voiceSettings.masked_api_key}
+                    </span>
+                  )}
+                </div>
+
+                {/* API Key Input and Action Buttons */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                    API Key
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="elevenlabs-api-key-input"
+                      type="password"
+                      value={elevenLabsApiKeyInput}
+                      onChange={(e) => setElevenLabsApiKeyInput(e.target.value)}
+                      placeholder={voiceSettings?.has_api_key ? 'Update ElevenLabs API Key...' : 'Enter ElevenLabs API Key...'}
+                      autoComplete="off"
+                      className="text-sm px-3 py-1.5 rounded-lg outline-none flex-1"
+                      style={{
+                        background: 'var(--color-bg-primary)',
+                        color: 'var(--color-text)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    />
+                    <button
+                      id="elevenlabs-save-key-btn"
+                      onClick={handleSaveApiKey}
+                      disabled={!elevenLabsApiKeyInput.trim()}
+                      className="text-xs px-3 py-1.5 rounded-lg transition-colors font-medium cursor-pointer"
+                      style={{
+                        background: elevenLabsApiKeyInput.trim() ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
+                        color: elevenLabsApiKeyInput.trim() ? '#fff' : 'var(--color-text-tertiary)',
+                        cursor: elevenLabsApiKeyInput.trim() ? 'pointer' : 'default',
+                      }}
+                    >
+                      Save Key
+                    </button>
+                    <button
+                      id="elevenlabs-test-conn-btn"
+                      onClick={handleTestConnection}
+                      disabled={connTestState.status === 'testing' || (!voiceSettings?.has_api_key && !elevenLabsApiKeyInput.trim())}
+                      className="text-xs px-3 py-1.5 rounded-lg transition-colors font-medium cursor-pointer"
+                      style={{
+                        background: 'var(--color-bg-tertiary)',
+                        color: 'var(--color-text)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      {connTestState.status === 'testing' ? 'Testing...' : 'Test Connection'}
+                    </button>
+                  </div>
+                  {connTestState.message && (
+                    <div
+                      id="elevenlabs-conn-status-msg"
+                      className="text-xs mt-1 px-2.5 py-1.5 rounded-lg flex items-center gap-2"
+                      style={{
+                        background:
+                          connTestState.status === 'connected' ? 'rgba(34,197,94,0.1)' :
+                          connTestState.status === 'invalid_key' ? 'rgba(239,68,68,0.1)' :
+                          connTestState.status === 'quota_limited' ? 'rgba(245,158,11,0.1)' :
+                          'rgba(148,163,184,0.1)',
+                        color:
+                          connTestState.status === 'connected' ? 'var(--color-success)' :
+                          connTestState.status === 'invalid_key' ? 'var(--color-error)' :
+                          connTestState.status === 'quota_limited' ? '#f59e0b' :
+                          'var(--color-text-secondary)',
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{
+                        background:
+                          connTestState.status === 'connected' ? 'var(--color-success)' :
+                          connTestState.status === 'invalid_key' ? 'var(--color-error)' :
+                          connTestState.status === 'quota_limited' ? '#f59e0b' :
+                          'var(--color-text-secondary)',
+                      }} />
+                      <span>{connTestState.message}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Voice & Model Dynamic Selectors */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                      Account Voice
+                    </label>
+                    <select
+                      id="elevenlabs-voice-select"
+                      value={voiceSettings?.voice_id || 'JBFqnCBsd6RMkjVDRZzb'}
+                      onChange={(e) => handleVoiceParamChange('voice_id', e.target.value)}
+                      className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+                      style={{
+                        background: 'var(--color-bg-primary)',
+                        color: 'var(--color-text)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      {elevenLabsVoices.length > 0 ? (
+                        elevenLabsVoices.map((v) => (
+                          <option key={v.voice_id} value={v.voice_id}>
+                            {v.name} {v.category ? `(${v.category})` : ''}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="JBFqnCBsd6RMkjVDRZzb">George (Jarvis Preset)</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                      TTS Model
+                    </label>
+                    <select
+                      id="elevenlabs-model-select"
+                      value={voiceSettings?.model_id || 'eleven_turbo_v2_5'}
+                      onChange={(e) => handleVoiceParamChange('model_id', e.target.value)}
+                      className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+                      style={{
+                        background: 'var(--color-bg-primary)',
+                        color: 'var(--color-text)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      {elevenLabsModels.length > 0 ? (
+                        elevenLabsModels.map((m) => (
+                          <option key={m.model_id} value={m.model_id}>
+                            {m.name}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="eleven_turbo_v2_5">Eleven Turbo v2.5 (Fastest)</option>
+                          <option value="eleven_multilingual_v2">Eleven Multilingual v2</option>
+                          <option value="eleven_monolingual_v1">Eleven Monolingual v1</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Fine-Tuning Sliders: Stability, Similarity, Style, Speed */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Stability</span>
+                      <span className="font-mono text-xs">{voiceSettings?.stability?.toFixed(2) ?? '0.50'}</span>
+                    </div>
+                    <input
+                      id="elevenlabs-stability-slider"
+                      type="range"
+                      min="0.0"
+                      max="1.0"
+                      step="0.05"
+                      value={voiceSettings?.stability ?? 0.5}
+                      onChange={(e) => handleVoiceParamChange('stability', parseFloat(e.target.value))}
+                      className="accent-[var(--color-accent)] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Similarity Boost</span>
+                      <span className="font-mono text-xs">{voiceSettings?.similarity_boost?.toFixed(2) ?? '0.75'}</span>
+                    </div>
+                    <input
+                      id="elevenlabs-similarity-slider"
+                      type="range"
+                      min="0.0"
+                      max="1.0"
+                      step="0.05"
+                      value={voiceSettings?.similarity_boost ?? 0.75}
+                      onChange={(e) => handleVoiceParamChange('similarity_boost', parseFloat(e.target.value))}
+                      className="accent-[var(--color-accent)] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Style Exaggeration</span>
+                      <span className="font-mono text-xs">{voiceSettings?.style?.toFixed(2) ?? '0.00'}</span>
+                    </div>
+                    <input
+                      id="elevenlabs-style-slider"
+                      type="range"
+                      min="0.0"
+                      max="1.0"
+                      step="0.05"
+                      value={voiceSettings?.style ?? 0.0}
+                      onChange={(e) => handleVoiceParamChange('style', parseFloat(e.target.value))}
+                      className="accent-[var(--color-accent)] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Speed</span>
+                      <span className="font-mono text-xs">{voiceSettings?.speed?.toFixed(2) ?? '1.00'}x</span>
+                    </div>
+                    <input
+                      id="elevenlabs-speed-slider"
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.05"
+                      value={voiceSettings?.speed ?? 1.0}
+                      onChange={(e) => handleVoiceParamChange('speed', parseFloat(e.target.value))}
+                      className="accent-[var(--color-accent)] cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* Voice Preview Section */}
+                <div className="pt-2 border-t flex flex-col gap-2" style={{ borderColor: 'var(--color-border)' }}>
+                  <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                    Voice Preview
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="elevenlabs-preview-text-input"
+                      type="text"
+                      value={previewText}
+                      onChange={(e) => setPreviewText(e.target.value)}
+                      maxLength={120}
+                      placeholder="Sample preview phrase..."
+                      className="text-xs px-3 py-1.5 rounded-lg outline-none flex-1"
+                      style={{
+                        background: 'var(--color-bg-primary)',
+                        color: 'var(--color-text)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    />
+                    <button
+                      id="elevenlabs-preview-btn"
+                      onClick={handlePlayPreview}
+                      disabled={previewState === 'loading' || !voiceSettings?.has_api_key}
+                      className="text-xs px-3.5 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5"
+                      style={{
+                        background: previewState === 'playing' ? 'var(--color-error)' : 'var(--color-accent)',
+                        color: '#fff',
+                        opacity: !voiceSettings?.has_api_key ? 0.5 : 1,
+                        cursor: voiceSettings?.has_api_key ? 'pointer' : 'default',
+                      }}
+                    >
+                      {previewState === 'loading' ? 'Generating...' : previewState === 'playing' ? 'Stop' : 'Play Preview'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <SettingRow label="Backend status" description="Requires Whisper, Deepgram, or another speech backend">
               <div className="flex items-center gap-2">
                 <span

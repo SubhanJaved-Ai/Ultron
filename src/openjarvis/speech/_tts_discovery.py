@@ -58,7 +58,19 @@ def get_tts_backend(
 
     seen = attempted if attempted is not None else set()
 
-    for key in dict.fromkeys((preferred, *TTS_BACKEND_ORDER)):
+    effective_preferred = preferred
+    if not effective_preferred:
+        try:
+            from openjarvis.core.user_preferences import get_voice_preferences
+
+            vprefs = get_voice_preferences()
+            prov = vprefs.get("provider", "")
+            if prov and prov != "system":
+                effective_preferred = prov
+        except Exception:
+            pass
+
+    for key in dict.fromkeys((effective_preferred, *TTS_BACKEND_ORDER)):
         if not key or key in seen:
             continue
         seen.add(key)
@@ -75,13 +87,27 @@ def get_tts_backend(
 
 
 def voice_preferences(config: "JarvisConfig") -> tuple[str, str, float]:
-    """Resolve ``(tts_backend, voice_id, speed)`` from *config*."""
+    """Resolve ``(tts_backend, voice_id, speed)`` from *config* and user preferences."""
+    try:
+        from openjarvis.core.user_preferences import get_voice_preferences
+
+        vprefs = get_voice_preferences()
+        if vprefs.get("provider") == "elevenlabs":
+            return (
+                "elevenlabs",
+                vprefs.get("voice_id") or BACKEND_DEFAULT_VOICE["elevenlabs"],
+                float(vprefs.get("speed", 1.0)),
+            )
+    except Exception:
+        pass
+
     speech = getattr(config, "speech", None)
     return (
         getattr(speech, "tts_backend", "kokoro") or "kokoro",
         getattr(speech, "voice_id", "") or "",
         float(getattr(speech, "voice_speed", 1.0)),
     )
+
 
 
 __all__ = [

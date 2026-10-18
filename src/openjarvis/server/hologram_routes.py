@@ -37,8 +37,9 @@ async def serve_hologram() -> HTMLResponse:
 
 @hologram_router.get("/api/tts")
 async def get_speech_audio(text: str = ""):
-    """Stream synthesized WAV speech audio directly to the browser."""
+    """Stream synthesized speech audio (ElevenLabs or Windows SAPI) to the browser/hologram."""
     import asyncio
+    import logging
 
     from fastapi import HTTPException
     from fastapi.responses import Response
@@ -47,6 +48,48 @@ async def get_speech_audio(text: str = ""):
     if not query_text:
         raise HTTPException(status_code=400, detail="Query text required")
 
+    logger = logging.getLogger("openjarvis.server.hologram.tts")
+
+    # 1. Check if user configured ElevenLabs as preferred voice provider
+    try:
+        from openjarvis.core.user_preferences import get_voice_preferences
+
+        prefs = get_voice_preferences()
+        if prefs.get("provider") == "elevenlabs":
+            from openjarvis.speech.elevenlabs_tts import ElevenLabsTTSBackend
+
+            el_backend = ElevenLabsTTSBackend(
+                model_id=prefs.get("model_id", ""),
+                default_voice_id=prefs.get("voice_id", ""),
+                stability=prefs.get("stability", 0.5),
+                similarity_boost=prefs.get("similarity_boost", 0.75),
+                style=prefs.get("style", 0.0),
+                speed=prefs.get("speed", 1.0),
+            )
+            if el_backend.health():
+                res = await asyncio.to_thread(
+                    el_backend.synthesize,
+                    query_text,
+                    output_format="mp3",
+                )
+                if res and res.audio:
+                    return Response(
+                        content=res.audio,
+                        media_type="audio/mpeg",
+                        headers={
+                            "Cache-Control": "public, max-age=3600",
+                            "Content-Length": str(len(res.audio)),
+                            "X-Voice-Provider": "elevenlabs",
+                            "X-Voice-Id": res.voice_id,
+                        },
+                    )
+    except Exception as exc:
+        logger.warning(
+            "ElevenLabs synthesis failed in hologram route; falling back to local SAPI: %s",
+            exc,
+        )
+
+    # 2. Local fallback: Native Windows SAPI
     from openjarvis.server.tts_engine import synthesize_wav
 
     wav_bytes = await asyncio.to_thread(synthesize_wav, query_text)
@@ -59,8 +102,10 @@ async def get_speech_audio(text: str = ""):
         headers={
             "Cache-Control": "public, max-age=3600",
             "Content-Length": str(len(wav_bytes)),
+            "X-Voice-Provider": "windows_sapi",
         },
     )
+
 
 
 def execute_real_system_action(directive: str, user_addr: str = "") -> dict | None:

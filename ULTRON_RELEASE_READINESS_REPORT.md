@@ -42,23 +42,32 @@ During the **Product Readiness Sprint**, Ultron was comprehensively prepared, ha
      - Journey 7: Memory & Skills Control Center with trust tiers and provenance.
      - Journey 8: MCP Settings modal with HTTP/SSE transport selection.
 
-5. **Owner Manual QA Session Preparation (Priority 5)**:
-   - Generated `MANUAL_QA_CHECKLIST.md` with startup commands, URL inventory, verification checklist, disposable sandbox guidelines, and a bug report template.
+5. **ElevenLabs Voice Integration (Priority 5)**:
+   - Integrated ElevenLabs as an optional voice provider alongside existing Windows SAPI and browser speech engines.
+   - Server-side masked credential storage (`••••••••` + last 4 characters), dynamic voice/model discovery, and stability/similarity/style/speed controls.
+   - Comprehensive coverage in `tests/speech/test_elevenlabs_provider.py` (23/23 PASS) and `frontend/src/lib/voice-settings.test.ts` (8/8 PASS).
+   - Full report available in `ULTRON_ELEVENLABS_INTEGRATION_REPORT.md`.
+
+6. **Owner Manual QA Session Preparation (Priority 6)**:
+   - Generated `MANUAL_QA_CHECKLIST.md` with startup commands, URL inventory, verification checklist, disposable sandbox guidelines, bug report template, and ElevenLabs voice testing procedures.
    - Server left running on `http://127.0.0.1:8000` for immediate owner testing.
 
 ---
 
 ## 2. Automated Test Suite Results
 
-A total of **92 tests were executed and passed (100%)**:
+A total of **115 backend readiness tests were executed and passed (100%)**:
 
 | Test Suite File | Domain Covered | Tests | Result | Execution Time |
 | :--- | :--- | :---: | :---: | :---: |
+| `tests/speech/test_elevenlabs_provider.py` | ElevenLabs TTS, credentials, models, WAV/MP3, fallback | 23 | **PASS** | 10.45s |
 | `tests/engine/test_provider_compat.py` | Provider compatibility, 401/403, key masking, normalization | 26 | **PASS** | 7.15s |
 | `tests/tools/test_file_sandbox_reliability.py` | Sandbox write/read/patch, traversal defense, approval gating | 5 | **PASS** | 9.09s |
 | `tests/server/test_hologram_theme.py` | Argon Hologram CSS tokens, palette controller, persistence | 31 | **PASS** | 12.30s |
 | `tests/server/test_hologram.py` | Hologram routes, directives, voice selection, soul circuit | 30 | **PASS** | 14.28s |
-| **Total** | **Full Product Readiness Suite** | **92** | **PASS** | **42.82s** |
+| **Total** | **Full Product Readiness Suite** | **115** | **PASS** | **53.27s** |
+
+Frontend Vitest Suite: **170/170 passed** across 22 test files (including `voice-settings.test.ts`).
 
 ---
 
@@ -76,13 +85,15 @@ A total of **92 tests were executed and passed (100%)**:
 | **6** | Disposable Sandbox | Local CLI | Write, read, patch in temporary folder, exact bytes, clean teardown | Verified via runner | **PASS** |
 | **7** | `/memory-skills` | 1280x800 | Fact inspection, trust tiers (Trusted, Quarantined), learned skills | `screenshots/readiness_memory.png` | **PASS** |
 | **8** | `/settings` (MCP) | 1280x800 | "Add MCP Server" modal, transport selection (HTTP/SSE), token field | `screenshots/readiness_mcp.png` | **PASS** |
+| **9** | `/settings` (ElevenLabs) | 1280x800 | Provider toggle, masked key display, connection test, voice & model dropdowns | Live MCP Evaluated | **PASS** |
 
 ---
 
 ## 4. Security & Credential Protection Audit
 
-- **Secret Scan Execution:** Scanned all newly introduced and modified files (`HologramPage.tsx`, `hologram_routes.py`, `hologram.html`, `MANUAL_QA_CHECKLIST.md`, `test_provider_compat.py`, `test_file_sandbox_reliability.py`).
+- **Secret Scan Execution:** Scanned all newly introduced and modified files across sprints.
 - **Result:** **Zero** active credentials, API keys, or private tokens present.
+- **ElevenLabs Key Protection:** Server-side persistence in `~/.openjarvis/cloud-keys.env`, masked responses (`••••••••abcd`), zero client-side plaintext storage.
 - **Runtime Masking:** Verified that `CredentialStripper` actively sanitizes error messages and URLs in `cloud_router.py` and `file_policy.py`, replacing tokens with `[REDACTED]`.
 - **Filesystem Security:** Verified that `.env`, `credentials.*`, `*.pem`, and `id_rsa` are permanently guarded against read, write, and patch attempts.
 
@@ -90,11 +101,11 @@ A total of **92 tests were executed and passed (100%)**:
 
 ## 5. Owner Handoff Instructions
 
-The owner should consult `MANUAL_QA_CHECKLIST.md` at the repository root.
+The owner should consult `MANUAL_QA_CHECKLIST.md` and `ULTRON_ELEVENLABS_INTEGRATION_REPORT.md` at the repository root.
 
 1. **Server Status:** The server is already active in the background on `http://localhost:8000`.
 2. **Access URL:** Open Google Chrome or any desktop browser to `http://localhost:8000`.
-3. **Execution Protocol:** Walk through the 6 phases detailed in `MANUAL_QA_CHECKLIST.md`.
+3. **Execution Protocol:** Walk through the 6 phases detailed in `MANUAL_QA_CHECKLIST.md` and test the ElevenLabs voice integration in Settings.
 4. **Issue Tracking:** Use the standardized **Bug Report Template** at the bottom of the checklist to document any visual nuances or feedback.
 
 Ultron is officially prepared and verified for owner manual testing.

@@ -486,6 +486,169 @@ export async function fetchSpeechHealth(): Promise<SpeechHealth> {
   return res.json();
 }
 
+export interface VoiceProviderOption {
+  id: string;
+  name: string;
+  available: boolean;
+}
+
+export interface VoiceSettings {
+  provider: string;
+  voice_id: string;
+  model_id: string;
+  stability: number;
+  similarity_boost: number;
+  style: number;
+  speed: number;
+  has_api_key: boolean;
+  masked_api_key: string;
+  available_providers?: VoiceProviderOption[];
+}
+
+export interface VoiceSettingsUpdate {
+  provider?: string;
+  api_key?: string;
+  voice_id?: string;
+  model_id?: string;
+  stability?: number;
+  similarity_boost?: number;
+  style?: number;
+  speed?: number;
+}
+
+export interface ElevenLabsVoice {
+  voice_id: string;
+  name: string;
+  category?: string;
+  preview_url?: string;
+  labels?: Record<string, string>;
+}
+
+export interface ElevenLabsModel {
+  model_id: string;
+  name: string;
+  description?: string;
+  can_do_text_to_speech?: boolean;
+  can_be_finetuned?: boolean;
+}
+
+export interface ElevenLabsConnectionTestResult {
+  valid: boolean;
+  status: 'connected' | 'invalid_key' | 'quota_limited' | 'timeout' | 'error' | 'unconfigured';
+  message: string;
+  voices_count: number;
+  models_count: number;
+}
+
+export async function fetchVoiceSettings(): Promise<VoiceSettings> {
+  const res = await apiFetch(`/v1/speech/voice-settings`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch voice settings: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function updateVoiceSettings(updates: VoiceSettingsUpdate): Promise<VoiceSettings> {
+  const res = await apiFetch(`/v1/speech/voice-settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const err = await res.json();
+      detail = err.detail || '';
+    } catch {
+      // Ignore non-json
+    }
+    throw new Error(detail || `Failed to update voice settings: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function testElevenLabsConnection(apiKey?: string): Promise<ElevenLabsConnectionTestResult> {
+  const res = await apiFetch(`/v1/speech/elevenlabs/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: apiKey || undefined }),
+  });
+  if (!res.ok) {
+    throw new Error(`Connection test failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function fetchElevenLabsVoices(): Promise<ElevenLabsVoice[]> {
+  const res = await apiFetch(`/v1/speech/elevenlabs/voices`);
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const err = await res.json();
+      detail = err.detail || '';
+    } catch {
+      // Ignore non-json
+    }
+    throw new Error(detail || `Failed to fetch ElevenLabs voices: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.voices || [];
+}
+
+export async function fetchElevenLabsModels(): Promise<ElevenLabsModel[]> {
+  const res = await apiFetch(`/v1/speech/elevenlabs/models`);
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const err = await res.json();
+      detail = err.detail || '';
+    } catch {
+      // Ignore non-json
+    }
+    throw new Error(detail || `Failed to fetch ElevenLabs models: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.models || [];
+}
+
+export async function previewElevenLabsVoice(opts: {
+  voiceId?: string;
+  modelId?: string;
+  stability?: number;
+  similarityBoost?: number;
+  style?: number;
+  speed?: number;
+  text?: string;
+  signal?: AbortSignal;
+} = {}): Promise<Blob> {
+  const res = await apiFetch(`/v1/speech/elevenlabs/preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      voice_id: opts.voiceId,
+      model_id: opts.modelId,
+      stability: opts.stability,
+      similarity_boost: opts.similarityBoost,
+      style: opts.style,
+      speed: opts.speed,
+      text: opts.text,
+    }),
+    signal: opts.signal,
+  });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = await res.json();
+      detail = body.detail || '';
+    } catch {
+      // Keep status code
+    }
+    throw new Error(detail || `Voice preview failed: ${res.status}`);
+  }
+  return res.blob();
+}
+
+
 // ---------------------------------------------------------------------------
 // Agent Manager
 // ---------------------------------------------------------------------------

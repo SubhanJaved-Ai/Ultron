@@ -331,3 +331,185 @@ def set_theme(theme: str, user_id: str | None = None) -> str:
     f.write_text(json.dumps(data, indent=2), encoding="utf-8")
     logger.info("Hologram theme updated: %s", validated)
     return validated
+
+
+# ---------------------------------------------------------------------------
+# Voice & ElevenLabs Preferences
+# ---------------------------------------------------------------------------
+
+VALID_VOICE_PROVIDERS = ("system", "elevenlabs", "kokoro", "openai_tts", "cartesia")
+DEFAULT_VOICE_PROVIDER = "system"
+DEFAULT_ELEVENLABS_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"
+DEFAULT_ELEVENLABS_MODEL = "eleven_turbo_v2_5"
+
+_VOICE_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,64}$")
+_MODEL_ID_RE = re.compile(r"^[a-zA-Z0-9_\-\.]{1,64}$")
+
+
+def mask_api_key(key: str) -> str:
+    """Return a masked representation of an API key, revealing at most 4 trailing chars."""
+    if not key:
+        return ""
+    clean = key.strip()
+    if len(clean) <= 4:
+        return "••••••••"
+    return "••••••••" + clean[-4:]
+
+
+def get_elevenlabs_api_key() -> str:
+    """Retrieve ElevenLabs API key from process environment or cloud-keys.env."""
+    import os
+
+    for env_var in ("ELEVENLABS_API_KEY", "ELEVEN_API_KEY"):
+        val = os.environ.get(env_var, "").strip()
+        if val:
+            return val
+
+    # Check ~/.openjarvis/cloud-keys.env
+    env_file = paths.get_config_dir() / "cloud-keys.env"
+    if env_file.is_file():
+        try:
+            for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    if k.strip() in ("ELEVENLABS_API_KEY", "ELEVEN_API_KEY"):
+                        val = v.strip()
+                        if val:
+                            return val
+        except Exception:
+            pass
+
+    return ""
+
+
+def save_elevenlabs_api_key(key: str) -> None:
+    """Save ElevenLabs API key server-side into environment and cloud-keys.env."""
+    import os
+
+    clean_key = (key or "").strip()
+    if clean_key:
+        os.environ["ELEVENLABS_API_KEY"] = clean_key
+    else:
+        os.environ.pop("ELEVENLABS_API_KEY", None)
+        os.environ.pop("ELEVEN_API_KEY", None)
+
+    env_file = paths.get_config_dir() / "cloud-keys.env"
+    lines = []
+    found = False
+    if env_file.is_file():
+        try:
+            for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, _ = line.split("=", 1)
+                    if k.strip() in ("ELEVENLABS_API_KEY", "ELEVEN_API_KEY"):
+                        if clean_key:
+                            lines.append(f"ELEVENLABS_API_KEY={clean_key}")
+                        found = True
+                        continue
+                lines.append(raw_line)
+        except Exception:
+            lines = []
+
+    if clean_key and not found:
+        lines.append(f"ELEVENLABS_API_KEY={clean_key}")
+
+    env_file.parent.mkdir(parents=True, exist_ok=True)
+    env_file.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
+
+
+def get_voice_preferences(user_id: str | None = None) -> dict:
+    """Return voice preferences dictionary with masked API key info."""
+    f = _get_pref_file()
+    data: dict = {}
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    voice_data = data.get("voice", {})
+    provider = voice_data.get("provider", DEFAULT_VOICE_PROVIDER)
+    if provider not in VALID_VOICE_PROVIDERS:
+        provider = DEFAULT_VOICE_PROVIDER
+
+    key = get_elevenlabs_api_key()
+    has_key = bool(key)
+    masked_key = mask_api_key(key)
+
+    return {
+        "provider": provider,
+        "voice_id": str(voice_data.get("voice_id", DEFAULT_ELEVENLABS_VOICE_ID)),
+        "model_id": str(voice_data.get("model_id", DEFAULT_ELEVENLABS_MODEL)),
+        "stability": float(voice_data.get("stability", 0.5)),
+        "similarity_boost": float(voice_data.get("similarity_boost", 0.75)),
+        "style": float(voice_data.get("style", 0.0)),
+        "speed": float(voice_data.get("speed", 1.0)),
+        "has_api_key": has_key,
+        "masked_api_key": masked_key,
+    }
+
+
+def set_voice_preferences(updates: dict, user_id: str | None = None) -> dict:
+    """Validate and persist voice preferences in user_preferences.json."""
+    if not isinstance(updates, dict):
+        raise ValueError("Payload must be a dictionary")
+
+    f = _get_pref_file()
+    data: dict = {}
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    current = data.get("voice", {})
+
+    if "provider" in updates:
+        prov = str(updates["provider"]).strip().lower()
+        if prov not in VALID_VOICE_PROVIDERS:
+            raise ValueError(f"Invalid voice provider: {prov}")
+        current["provider"] = prov
+
+    if "voice_id" in updates:
+        vid = str(updates["voice_id"]).strip()
+        if not _VOICE_ID_RE.match(vid):
+            raise ValueError(f"Invalid voice_id format: {vid}")
+        current["voice_id"] = vid
+
+    if "model_id" in updates:
+        mid = str(updates["model_id"]).strip()
+        if not _MODEL_ID_RE.match(mid):
+            raise ValueError(f"Invalid model_id format: {mid}")
+        current["model_id"] = mid
+
+    if "stability" in updates:
+        stab = float(updates["stability"])
+        if not (0.0 <= stab <= 1.0):
+            raise ValueError("Stability must be between 0.0 and 1.0")
+        current["stability"] = stab
+
+    if "similarity_boost" in updates:
+        sim = float(updates["similarity_boost"])
+        if not (0.0 <= sim <= 1.0):
+            raise ValueError("Similarity boost must be between 0.0 and 1.0")
+        current["similarity_boost"] = sim
+
+    if "style" in updates:
+        sty = float(updates["style"])
+        if not (0.0 <= sty <= 1.0):
+            raise ValueError("Style must be between 0.0 and 1.0")
+        current["style"] = sty
+
+    if "speed" in updates:
+        spd = float(updates["speed"])
+        if not (0.5 <= spd <= 2.0):
+            raise ValueError("Speed must be between 0.5 and 2.0")
+        current["speed"] = spd
+
+    data["voice"] = current
+    f.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    logger.info("Voice preferences updated: provider=%s", current.get("provider"))
+    return get_voice_preferences(user_id=user_id)
+

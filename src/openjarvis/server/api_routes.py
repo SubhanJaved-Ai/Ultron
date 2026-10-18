@@ -38,6 +38,33 @@ class SpeechSynthesizeRequest(BaseModel):
     text: str
     voice_id: Optional[str] = None
     speed: Optional[float] = None
+    format: Optional[str] = "wav"
+
+
+class VoiceSettingsRequest(BaseModel):
+    provider: Optional[str] = None
+    api_key: Optional[str] = None
+    voice_id: Optional[str] = None
+    model_id: Optional[str] = None
+    stability: Optional[float] = None
+    similarity_boost: Optional[float] = None
+    style: Optional[float] = None
+    speed: Optional[float] = None
+
+
+class ElevenLabsTestRequest(BaseModel):
+    api_key: Optional[str] = None
+
+
+class ElevenLabsPreviewRequest(BaseModel):
+    voice_id: Optional[str] = None
+    model_id: Optional[str] = None
+    stability: Optional[float] = 0.5
+    similarity_boost: Optional[float] = 0.75
+    style: Optional[float] = 0.0
+    speed: Optional[float] = 1.0
+    text: Optional[str] = "Hello, I am Ultron. Speech synthesis is operational."
+
 
 
 class MemoryStoreRequest(BaseModel):
@@ -1139,7 +1166,7 @@ def _tts_voice_and_speed(request: Request, backend) -> tuple[str, float]:
 
 @speech_router.post("/synthesize")
 async def synthesize_speech(request: Request, body: SpeechSynthesizeRequest):
-    """Synthesize text to speech and return the audio as WAV."""
+    """Synthesize text to speech and return the audio as WAV or MP3."""
     text = body.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Missing 'text'")
@@ -1161,24 +1188,27 @@ async def synthesize_speech(request: Request, body: SpeechSynthesizeRequest):
     if body.speed is not None:
         speed = body.speed
 
+    req_format = body.format or "wav"
     try:
         result = await asyncio.to_thread(
             backend.synthesize,
             text,
             voice_id=voice_id,
             speed=speed,
-            output_format="wav",
+            output_format=req_format,
         )
     except Exception as exc:
         logger.exception("Speech synthesis failed")
         raise HTTPException(status_code=500, detail="Speech synthesis failed") from exc
 
+    media_type = "audio/mpeg" if result.format == "mp3" else "audio/wav"
     return Response(
         content=result.audio,
-        media_type="audio/wav",
+        media_type=media_type,
         headers={
             "X-Voice-Id": result.voice_id or voice_id,
             "X-Sample-Rate": str(result.sample_rate),
+            "X-Voice-Provider": getattr(backend, "backend_id", "tts"),
         },
     )
 
@@ -1197,6 +1227,226 @@ async def tts_health(request: Request):
         "voice_id": voice_id,
         "speed": speed,
     }
+
+
+@speech_router.get("/voice-settings")
+async def get_voice_settings_endpoint():
+    """Retrieve current voice provider configuration with masked credentials."""
+    from openjarvis.core.user_preferences import (
+        get_elevenlabs_api_key,
+        get_voice_preferences,
+    )
+
+    prefs = get_voice_preferences()
+    has_el_key = bool(get_elevenlabs_api_key())
+    return {
+        **prefs,
+        "available_providers": [
+            {
+                "id": "system",
+                "name": "System Default (Windows SAPI / Local)",
+                "available": True,
+            },
+            {
+                "id": "elevenlabs",
+                "name": "ElevenLabs",
+                "available": has_el_key,
+            },
+        ],
+    }
+
+
+@speech_router.post("/voice-settings")
+async def update_voice_settings_endpoint(request: Request, body: VoiceSettingsRequest):
+    """Update voice provider preferences and optionally save ElevenLabs credentials."""
+    from openjarvis.core.user_preferences import (
+        save_elevenlabs_api_key,
+        set_voice_preferences,
+    )
+
+    if body.api_key is not None:
+        save_elevenlabs_api_key(body.api_key.strip())
+        request.app.state.tts_resolved = False
+        request.app.state.tts_backend = None
+
+    updates: dict[str, Any] = {}
+    if body.provider is not None:
+        updates["provider"] = body.provider
+    if body.voice_id is not None:
+        updates["voice_id"] = body.voice_id
+    if body.model_id is not None:
+        updates["model_id"] = body.model_id
+    if body.stability is not None:
+        updates["stability"] = body.stability
+    if body.similarity_boost is not None:
+        updates["similarity_boost"] = body.similarity_boost
+    if body.style is not None:
+        updates["style"] = body.style
+    if body.speed is not None:
+        updates["speed"] = body.speed
+
+    if updates:
+        try:
+            set_voice_preferences(updates)
+            request.app.state.tts_resolved = False
+            request.app.state.tts_backend = None
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return await get_voice_settings_endpoint()
+
+
+@speech_router.post("/elevenlabs/test")
+async def test_elevenlabs_connection(body: ElevenLabsTestRequest):
+    """Test ElevenLabs credentials and connectivity against upstream endpoints."""
+    from openjarvis.core.user_preferences import get_elevenlabs_api_key
+    from openjarvis.speech.elevenlabs_tts import test_connection
+
+    api_key = (body.api_key or "").strip() or get_elevenlabs_api_key()
+    if not api_key:
+        return {
+            "valid": False,
+            "status": "unconfigured",
+            "message": "ElevenLabs API key is not configured.",
+            "voices_count": 0,
+            "models_count": 0,
+        }
+
+    return await asyncio.to_thread(test_connection, api_key)
+
+
+@speech_router.get("/elevenlabs/voices")
+async def list_elevenlabs_voices():
+    """Retrieve available voices from ElevenLabs account."""
+    from openjarvis.core.user_preferences import get_elevenlabs_api_key
+    from openjarvis.speech.elevenlabs_tts import (
+        ElevenLabsAuthError,
+        ElevenLabsQuotaError,
+        ElevenLabsTimeoutError,
+        _fetch_voices,
+    )
+
+    api_key = get_elevenlabs_api_key()
+    if not api_key:
+        raise HTTPException(
+            status_code=401, detail="ElevenLabs API key is not configured"
+        )
+
+    try:
+        voices = await asyncio.to_thread(_fetch_voices, api_key)
+        return {"voices": voices}
+    except ElevenLabsAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except ElevenLabsQuotaError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except ElevenLabsTimeoutError as exc:
+        raise HTTPException(
+            status_code=504, detail="ElevenLabs request timed out"
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail=f"Failed to fetch voices: {exc}"
+        ) from exc
+
+
+@speech_router.get("/elevenlabs/models")
+async def list_elevenlabs_models():
+    """Retrieve compatible TTS models from ElevenLabs."""
+    from openjarvis.core.user_preferences import get_elevenlabs_api_key
+    from openjarvis.speech.elevenlabs_tts import (
+        ElevenLabsAuthError,
+        ElevenLabsQuotaError,
+        ElevenLabsTimeoutError,
+        _fetch_models,
+    )
+
+    api_key = get_elevenlabs_api_key()
+    if not api_key:
+        raise HTTPException(
+            status_code=401, detail="ElevenLabs API key is not configured"
+        )
+
+    try:
+        models = await asyncio.to_thread(_fetch_models, api_key)
+        return {"models": models}
+    except ElevenLabsAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except ElevenLabsQuotaError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except ElevenLabsTimeoutError as exc:
+        raise HTTPException(
+            status_code=504, detail="ElevenLabs request timed out"
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail=f"Failed to fetch models: {exc}"
+        ) from exc
+
+
+@speech_router.post("/elevenlabs/preview")
+async def preview_elevenlabs_voice(body: ElevenLabsPreviewRequest):
+    """Generate a short preview utterance using the server's configured ElevenLabs key."""
+    from openjarvis.core.user_preferences import get_elevenlabs_api_key
+    from openjarvis.speech.elevenlabs_tts import (
+        DEFAULT_ELEVENLABS_MODEL,
+        DEFAULT_ELEVENLABS_VOICE_ID,
+        ElevenLabsAuthError,
+        ElevenLabsQuotaError,
+        ElevenLabsTimeoutError,
+        _elevenlabs_synthesize,
+    )
+
+    api_key = get_elevenlabs_api_key()
+    if not api_key:
+        raise HTTPException(
+            status_code=401, detail="ElevenLabs API key is not configured"
+        )
+
+    preview_text = (
+        body.text or "Hello, I am Ultron. Speech synthesis is operational."
+    ).strip()
+    if len(preview_text) > 120:
+        preview_text = preview_text[:120].strip()
+
+    try:
+        audio_bytes = await asyncio.to_thread(
+            _elevenlabs_synthesize,
+            api_key=api_key,
+            text=preview_text,
+            voice_id=body.voice_id or DEFAULT_ELEVENLABS_VOICE_ID,
+            model_id=body.model_id or DEFAULT_ELEVENLABS_MODEL,
+            output_format="mp3",
+            stability=body.stability if body.stability is not None else 0.5,
+            similarity_boost=(
+                body.similarity_boost if body.similarity_boost is not None else 0.75
+            ),
+            style=body.style if body.style is not None else 0.0,
+            speed=body.speed if body.speed is not None else 1.0,
+        )
+    except ElevenLabsAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except ElevenLabsQuotaError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except ElevenLabsTimeoutError as exc:
+        raise HTTPException(
+            status_code=504, detail="ElevenLabs preview request timed out"
+        ) from exc
+    except Exception as exc:
+        logger.exception("ElevenLabs voice preview failed")
+        raise HTTPException(
+            status_code=500, detail=f"Voice preview failed: {exc}"
+        ) from exc
+
+    return Response(
+        content=audio_bytes,
+        media_type="audio/mpeg",
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Content-Length": str(len(audio_bytes)),
+            "X-Voice-Provider": "elevenlabs",
+        },
+    )
+
 
 
 # ---- Feedback routes ----

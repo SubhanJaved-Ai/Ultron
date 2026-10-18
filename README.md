@@ -46,7 +46,11 @@ cd Jarvis-2.0
 # 2. Install dependencies (using uv or pip)
 pip install -e .
 
-# 3. Launch Ultron 3D Holographic Interface
+# 3. Configure environment
+cp .env.example .env
+# Set your preferred API key (e.g. GEMINI_API_KEY=... or OPENAI_API_KEY=...)
+
+# 4. Launch Ultron 3D Holographic Interface
 jarvis serve --hologram
 ```
 Open **`http://localhost:8000/hologram`** in your browser. Click anywhere to synchronize the neural audio link, say *"Ultron"* or *"Jarvis"*, and assign your task!
@@ -175,8 +179,8 @@ We welcome contributions! See the [Contributing Guide](CONTRIBUTING.md) for ince
 Quick start for contributors:
 
 ```bash
-git clone https://github.com/open-jarvis/OpenJarvis.git
-cd OpenJarvis
+git clone https://github.com/Airlucofficial/Jarvis-2.0.git
+cd Jarvis-2.0
 uv sync --extra dev
 uv run pre-commit install
 uv run pytest tests/ -v

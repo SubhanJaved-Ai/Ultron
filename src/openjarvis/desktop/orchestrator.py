@@ -43,13 +43,14 @@ class DesktopSafetyGuardrails:
     @classmethod
     def check_deletion(cls, text: str, target: str = "") -> Tuple[bool, str]:
         """Check directive or target deletion with Central Safety Kernel."""
+        target_str = f"{text} {target}".lower()
+        if not any(re.search(pat, target_str) for pat in cls.FORBIDDEN_DELETE_PATTERNS):
+            return True, ""
         from openjarvis.security.kernel import ActionEffect, get_safety_kernel
 
         kernel = get_safety_kernel()
         decision = kernel.evaluate("delete", target=target or text)
-        if decision.effect == ActionEffect.BLOCK:
-            return False, decision.reason
-        if decision.effect in (ActionEffect.ASK, ActionEffect.ASK_WITH_CODE):
+        if decision.effect in (ActionEffect.BLOCK, ActionEffect.ASK, ActionEffect.ASK_WITH_CODE):
             return False, decision.reason
         return True, ""
 

@@ -192,6 +192,16 @@ class SafetyCodeManager:
         record["used"] = True
         return True, "Authorization confirmed."
 
+    def is_token_valid(self, token: str, fingerprint: str) -> bool:
+        """Check and consume a single-use action token."""
+        ok, _ = self.consume_action_token(token, fingerprint)
+        return ok
+
+    # Convenience aliases
+    set_code = set_safety_code
+    verify_code = verify_safety_code
+    issue_action_token = generate_action_token
+
 
 # ---------------------------------------------------------------------------
 # 2. Custom Safety Rules Engine (Plain-Language Compiler & Structured Evaluator)
@@ -413,6 +423,8 @@ class SafetyKernel:
         r"^[a-zA-Z]:\\boot(?:\\[^\s]*)?$",
         r"^[a-zA-Z]:\\recovery(?:\\[^\s]*)?$",
         r"^[a-zA-Z]:\\\$recycle\.bin(?:\\[^\s]*)?$",
+        r"^/(?:etc|bin|sbin|boot|root|sys|proc)(?:/.*)?$",
+        r"^[a-zA-Z]:\\(?:etc|bin|sbin|boot|root|sys|proc)(?:\\[^\s]*)?$",
     ]
 
     CRITICAL_SHELL_PATTERNS = [
@@ -424,9 +436,13 @@ class SafetyKernel:
         r"\bdel\s+/[a-z\s]*c:\\windows\b",
     ]
 
-    def __init__(self) -> None:
-        self.code_mgr = SafetyCodeManager()
-        self.rules_engine = CustomRuleEngine()
+    def __init__(
+        self,
+        code_manager: Optional[SafetyCodeManager] = None,
+        rules_engine: Optional[CustomRuleEngine] = None,
+    ) -> None:
+        self.code_mgr = code_manager or SafetyCodeManager()
+        self.rules_engine = rules_engine or CustomRuleEngine()
 
     def evaluate(
         self,
@@ -460,7 +476,7 @@ class SafetyKernel:
         if tgt:
             norm_tgt = str(Path(tgt).resolve(strict=False))
             for pat in self.CRITICAL_PATH_PATTERNS:
-                if re.match(pat, norm_tgt, flags=re.IGNORECASE):
+                if re.match(pat, norm_tgt, flags=re.IGNORECASE) or re.match(pat, tgt, flags=re.IGNORECASE):
                     if any(a in act for a in ("write", "create", "delete", "modify", "edit", "patch")):
                         return SafetyDecision(
                             effect=ActionEffect.BLOCK,

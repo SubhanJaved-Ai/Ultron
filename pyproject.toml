@@ -259,6 +259,12 @@ exclude = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore:(?s).*on_event is deprecated.*:DeprecationWarning",
+    "ignore:(?s).*Using `httpx` with `starlette.testclient` is deprecated.*:Warning",
+    "ignore:.*starlette.testclient.*:Warning",
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+]
 markers = [
     "amd: requires AMD GPU",
     "apple: requires Apple Silicon",

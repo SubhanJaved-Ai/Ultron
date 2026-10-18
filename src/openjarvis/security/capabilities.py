@@ -252,6 +252,7 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "code_interpreter_docker": [Capability.CODE_EXECUTE],
     "cronjob_manage": [Capability.SCHEDULE_CREATE],
     "db_query": [Capability.CODE_EXECUTE],
+    "delete_file": [Capability.FILE_WRITE],
     "delegate_task": [Capability.SYSTEM_ADMIN],
     "desktop_key_press": [Capability.SYSTEM_ADMIN],
     "desktop_keyboard_type": [Capability.SYSTEM_ADMIN],

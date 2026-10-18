@@ -276,7 +276,24 @@ class PersistentTaskRunner:
                                 content=f"Refusing to execute outdated/unhealthy skill '{target_skill}': {'; '.join(issues)}",
                                 success=False,
                             )
+                        # If composite skill, validate before execution
+                        if any(s.skill_name for s in manifest.steps):
+                            from openjarvis.skills.composition import (
+                                CompositionValidationError,
+                                DepthExceededError,
+                                validate_composite_skill,
+                            )
+
+                            try:
+                                validate_composite_skill(manifest, self.skill_manager)
+                            except (CompositionValidationError, DepthExceededError) as exc:
+                                return ToolResult(
+                                    tool_name=target_skill,
+                                    content=f"Refusing to execute invalid composite skill '{target_skill}': {exc}",
+                                    success=False,
+                                )
                         res = self.skill_manager.execute(target_skill, context=kwargs)
+
                         output_str = getattr(res, "output", "") or getattr(res, "content", "") or str(res)
                         success_val = getattr(res, "success", True)
                         return ToolResult(
@@ -510,34 +527,78 @@ class PersistentTaskRunner:
         for step in steps:
             canonical_name, _, _ = self.resolve_tool_handler(step.tool_name)
 
-            # Check learned-skill approval
-            if self.skill_manager is not None and (step.tool_name in self.skill_manager.skill_names() or canonical_name in self.skill_manager.skill_names()):
-                target_s = step.tool_name if step.tool_name in self.skill_manager.skill_names() else canonical_name
+            # Check learned-skill approval and composite validation
+            if self.skill_manager is not None and (
+                step.tool_name in self.skill_manager.skill_names()
+                or canonical_name in self.skill_manager.skill_names()
+            ):
+                target_s = (
+                    step.tool_name
+                    if step.tool_name in self.skill_manager.skill_names()
+                    else canonical_name
+                )
                 manifest = self.skill_manager.resolve(target_s)
-                if self.workflow_skill_learner is not None and not self.workflow_skill_learner.is_skill_approved(manifest):
-                    status_val = (manifest.metadata or {}).get("approval_status", "pending_review")
+                if (
+                    self.workflow_skill_learner is not None
+                    and not self.workflow_skill_learner.is_skill_approved(manifest)
+                ):
+                    status_val = (manifest.metadata or {}).get(
+                        "approval_status", "pending_review"
+                    )
                     raise TaskPlanPermissionError(
                         f"Task plan validation failed: Skill '{step.tool_name}' in step '{step.step_id}' "
                         f"is not approved (status: '{status_val}'). Learned skills cannot be executed until explicitly approved."
                     )
+                # Check composite skills
+                if any(s.skill_name for s in manifest.steps):
+                    from openjarvis.skills.composition import (
+                        CompositionValidationError,
+                        DepthExceededError,
+                        validate_composite_skill,
+                    )
+
+                    try:
+                        validate_composite_skill(manifest, self.skill_manager)
+                    except (CompositionValidationError, DepthExceededError) as exc:
+                        raise TaskPlanPermissionError(
+                            f"Task plan validation failed: Composite skill '{step.tool_name}' in step '{step.step_id}' failed validation: {exc}"
+                        )
 
             # Capability check
             if self.capability_policy:
-                caps = DEFAULT_TOOL_CAPABILITIES.get(canonical_name.lower()) or DEFAULT_TOOL_CAPABILITIES.get(step.tool_name.lower())
+                caps = DEFAULT_TOOL_CAPABILITIES.get(
+                    canonical_name.lower()
+                ) or DEFAULT_TOOL_CAPABILITIES.get(step.tool_name.lower())
                 if caps is None:
-                    if self.skill_manager is not None and (step.tool_name in self.skill_manager.skill_names() or canonical_name in self.skill_manager.skill_names()):
-                        target_s = step.tool_name if step.tool_name in self.skill_manager.skill_names() else canonical_name
+                    if self.skill_manager is not None and (
+                        step.tool_name in self.skill_manager.skill_names()
+                        or canonical_name in self.skill_manager.skill_names()
+                    ):
+                        target_s = (
+                            step.tool_name
+                            if step.tool_name in self.skill_manager.skill_names()
+                            else canonical_name
+                        )
                         manifest = self.skill_manager.resolve(target_s)
-                        caps = manifest.required_capabilities or [Capability.TOOL_INVOKE.value]
+                        from openjarvis.skills.composition import (
+                            compute_composite_capabilities,
+                        )
+
+                        caps = compute_composite_capabilities(
+                            manifest, self.skill_manager
+                        )
                     else:
                         caps = [Capability.TOOL_INVOKE.value]
                 for cap in caps:
                     cap_val = cap.value if hasattr(cap, "value") else str(cap)
-                    if not self.capability_policy.check(owner_id, cap_val, step.tool_name):
+                    if not self.capability_policy.check(
+                        owner_id, cap_val, step.tool_name
+                    ):
                         raise TaskPlanPermissionError(
                             f"Task plan validation failed: Unauthorized tool '{step.tool_name}' in step '{step.step_id}'. "
                             f"Agent/owner '{owner_id}' is not authorized; lacks capability '{cap_val}'."
                         )
+
 
             # Safety Kernel upfront evaluation
             action_type, target = self._map_to_safety_action(step)

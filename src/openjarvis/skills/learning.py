@@ -425,11 +425,36 @@ class WorkflowSkillLearner:
             if step.output_key:
                 output_keys_produced.add(step.output_key)
 
-        # 3. Check required capabilities coverage
-        # Ensure manifest does not under-declare capabilities
+        # 3. Check composition rules if steps invoke child skills
+        if any(s.skill_name for s in manifest.steps) and self.skill_manager is not None:
+            from openjarvis.skills.composition import (
+                CompositionValidationError,
+                compute_composite_capabilities,
+                validate_composite_skill,
+            )
+
+            try:
+                validate_composite_skill(manifest, self.skill_manager)
+            except CompositionValidationError as cve:
+                errors.append(f"Skill composition validation failed: {cve}")
+
+        # 4. Check required capabilities coverage (including transitive child skills)
         declared_caps = set(manifest.required_capabilities or [])
+
+        if any(s.skill_name for s in manifest.steps) and self.skill_manager is not None:
+            from openjarvis.skills.composition import compute_composite_capabilities
+
+            expected_caps = compute_composite_capabilities(manifest, self.skill_manager)
+            missing_caps = [c for c in expected_caps if c not in declared_caps]
+            if missing_caps:
+                errors.append(
+                    f"Composite skill is missing required transitive capabilities: {missing_caps}."
+                )
+
         for step in manifest.steps:
-            step_tool = (step.tool_name or step.skill_name or "").strip().lower()
+            if not step.tool_name:
+                continue
+            step_tool = step.tool_name.strip().lower()
             canonical_tool = step_tool
             # Standard verb mappings
             verb_map = {
@@ -454,6 +479,7 @@ class WorkflowSkillLearner:
                         )
 
         return len(errors) == 0, errors
+
 
     def approve_skill(
         self,
@@ -674,8 +700,55 @@ class WorkflowSkillLearner:
                 if tool and tool not in avail_set:
                     issues.append(f"Required tool '{step.tool_name}' is not currently registered.")
 
+        # Check child skill availability and health for composite skills
+        if self.skill_manager is not None:
+            for step in manifest.steps:
+                if step.skill_name:
+                    try:
+                        child = self.skill_manager.resolve(step.skill_name)
+                        child_meta = child.metadata or {}
+                        if child_meta.get("disabled") is True:
+                            issues.append(f"Child skill '{step.skill_name}' is disabled.")
+                        if child_meta.get("outdated") is True:
+                            issues.append(
+                                f"Child skill '{step.skill_name}' is outdated: {child_meta.get('outdated_reason', '')}"
+                            )
+                    except KeyError:
+                        issues.append(
+                            f"Required child skill '{step.skill_name}' is missing from registry."
+                        )
+
         is_healthy = len(issues) == 0
         return is_healthy, issues
+
+    def compose_skills(
+        self,
+        name: str,
+        steps: List[SkillStep | Dict[str, Any]],
+        *,
+        description: str = "",
+        author: str = "operator",
+        require_approval: bool = True,
+        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+    ) -> SkillManifest:
+        """Create and register a composite skill combining multiple approved child skills."""
+        from openjarvis.skills.composition import create_composite_manifest
+
+        manifest = create_composite_manifest(
+            name=name,
+            steps=steps,
+            description=description,
+            author=author,
+            skill_manager=self.skill_manager,
+            metadata=metadata,
+            tags=tags,
+            require_approval=require_approval,
+        )
+
+        self.save_and_register_skill(manifest, overwrite=True)
+        return manifest
+
 
     def mark_skill_execution_result(
         self,

@@ -99,6 +99,26 @@ class DisableSkillRequest(BaseModel):
     )
 
 
+class CreateCompositeSkillStep(BaseModel):
+    """A single step in a candidate composite skill."""
+
+    tool_name: Optional[str] = Field("", description="Tool name for step")
+    skill_name: Optional[str] = Field("", description="Child skill name for step")
+    arguments_template: Optional[str] = Field("{}", description="Arguments template")
+    output_key: Optional[str] = Field("", description="Context output key")
+
+
+class CreateCompositeSkillRequest(BaseModel):
+    """Payload to construct a new composite skill workflow."""
+
+    name: str = Field(..., description="Unique name for the composite skill")
+    description: Optional[str] = Field("", description="Description of the composite skill")
+    steps: List[CreateCompositeSkillStep] = Field(..., description="Ordered workflow steps")
+    require_approval: bool = Field(True, description="Whether newly composed skill requires review")
+    tags: Optional[List[str]] = Field(default_factory=list, description="Tags for skill")
+
+
+
 class ApproveMaintenanceRequest(BaseModel):
     """Payload to approve and apply a memory maintenance suggestion."""
 
@@ -279,7 +299,12 @@ def _serialize_skill_manifest(
         "disabled": is_disabled,
         "disabled_reason": meta.get("disabled_reason"),
         "is_protected": is_protected,
+        "is_composite": bool(
+            meta.get("composite", False)
+            or any(s.skill_name for s in manifest.steps)
+        ),
         "steps_count": len(manifest.steps),
+
         "steps": [
             {
                 "tool_name": s.tool_name,
@@ -904,4 +929,86 @@ def enable_learned_skill(skill_name: str, request: Request) -> Dict[str, Any]:
     }
 
 
+@memory_skills_router.post(
+    "/api/skills/composite", summary="Create a new composite skill workflow"
+)
+def create_composite_skill(
+    body: CreateCompositeSkillRequest, request: Request
+) -> Dict[str, Any]:
+    """Create, validate, and register a new composite skill combining existing skills."""
+    _check_admin_authorization(request, "create_composite_skill")
+
+    learner = _get_skill_learner(request)
+    user_id, _ = _get_current_user_and_role(request)
+    author_id = user_id or "operator"
+
+    step_dicts = [s.model_dump() for s in body.steps]
+
+    from openjarvis.skills.composition import (
+        CompositionValidationError,
+        DepthExceededError,
+    )
+
+    try:
+        manifest = learner.compose_skills(
+            name=body.name,
+            steps=step_dicts,
+            description=body.description or "",
+            author=author_id,
+            require_approval=body.require_approval,
+            tags=body.tags or [],
+        )
+    except (CompositionValidationError, DepthExceededError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+    return {
+        "status": "created",
+        "skill": _serialize_skill_manifest(manifest, learner),
+    }
+
+
+@memory_skills_router.post(
+    "/api/skills/composite/validate",
+    summary="Validate a candidate composite skill",
+)
+def validate_composite_skill_endpoint(
+    body: CreateCompositeSkillRequest, request: Request
+) -> Dict[str, Any]:
+    """Validate dependencies, cycles, depth limits, and parameter flow for a candidate composite skill without saving."""
+    learner = _get_skill_learner(request)
+    from openjarvis.skills.composition import (
+        CompositionValidationError,
+        DepthExceededError,
+        create_composite_manifest,
+    )
+
+    step_dicts = [s.model_dump() for s in body.steps]
+    try:
+        manifest = create_composite_manifest(
+            name=body.name,
+            steps=step_dicts,
+            description=body.description or "",
+            author="validator",
+            skill_manager=learner.skill_manager,
+            require_approval=body.require_approval,
+            tags=body.tags or [],
+        )
+        return {
+            "valid": True,
+            "errors": [],
+            "required_capabilities": manifest.required_capabilities,
+            "dependencies": manifest.depends,
+        }
+    except (CompositionValidationError, DepthExceededError, ValueError) as exc:
+        return {
+            "valid": False,
+            "errors": [str(exc)],
+            "required_capabilities": [],
+            "dependencies": [],
+        }
+
+
 __all__ = ["memory_skills_router"]
+

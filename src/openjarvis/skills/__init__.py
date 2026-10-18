@@ -1,8 +1,21 @@
 """Skill system — reusable multi-tool compositions."""
 
+from openjarvis.skills.composition import (
+    CircularCompositionError,
+    CompositionValidationError,
+    DepthExceededError,
+    DisabledSkillError,
+    MissingDependencyError,
+    ParameterFlowError,
+    UnapprovedSkillError,
+    compute_composite_capabilities,
+    create_composite_manifest,
+    is_skill_approved_and_active,
+    validate_composite_skill,
+    validate_parameter_flow,
+)
 from openjarvis.skills.dependency import (
     DependencyCycleError,
-    DepthExceededError,
     build_dependency_graph,
     compute_capability_union,
     validate_dependencies,
@@ -23,9 +36,14 @@ from openjarvis.skills.tool_translator import TOOL_TRANSLATION, ToolTranslator
 from openjarvis.skills.types import SkillManifest, SkillStep
 
 __all__ = [
+    "CircularCompositionError",
+    "CompositionValidationError",
     "DependencyCycleError",
     "DepthExceededError",
+    "DisabledSkillError",
     "ImportResult",
+    "MissingDependencyError",
+    "ParameterFlowError",
     "SkillApprovalStatus",
     "SkillExecutor",
     "SkillImporter",
@@ -38,12 +56,19 @@ __all__ = [
     "SkillTool",
     "TOOL_TRANSLATION",
     "ToolTranslator",
+    "UnapprovedSkillError",
     "WorkflowSkillLearner",
     "build_dependency_graph",
     "compute_capability_union",
+    "compute_composite_capabilities",
+    "create_composite_manifest",
     "discover_skills",
+    "is_skill_approved_and_active",
     "load_skill",
     "load_skill_directory",
     "load_skill_markdown",
+    "validate_composite_skill",
     "validate_dependencies",
+    "validate_parameter_flow",
 ]
+

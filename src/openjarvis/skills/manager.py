@@ -32,15 +32,17 @@ class SkillManager:
 
     def __init__(
         self,
-        bus: EventBus,
+        bus: Optional[EventBus] = None,
         *,
+        tool_executor: Optional[ToolExecutor] = None,
         capability_policy: Optional[Any] = None,
         overlay_dir: Optional[Path] = None,
     ) -> None:
         self._bus = bus
         self._capability_policy = capability_policy
         self._skills: Dict[str, SkillManifest] = {}
-        self._tool_executor: Optional[ToolExecutor] = None
+        self._tool_executor: Optional[ToolExecutor] = tool_executor
+
         if overlay_dir is None:
             # Try to read from config first; fall back to the default
             # ~/.openjarvis/learning/skills/ if config can't be loaded.
@@ -61,11 +63,20 @@ class SkillManager:
                 overlay_dir = get_config_dir() / "learning" / "skills"
         self._overlay_dir = Path(overlay_dir).expanduser()
 
+    def register(self, manifest: SkillManifest) -> None:
+        """Register a skill manifest directly into the manager."""
+        self._skills[manifest.name] = manifest
+
+    def get(self, name: str) -> Optional[SkillManifest]:
+        """Retrieve a skill manifest by name, or None if not found."""
+        return self._skills.get(name)
+
     # ------------------------------------------------------------------
     # Discovery
     # ------------------------------------------------------------------
 
     def discover(self, paths: Optional[List[Path]] = None) -> None:
+
         """Scan directories in order and register skills.
 
         First-seen name wins (workspace path listed first = highest precedence).
@@ -196,7 +207,11 @@ class SkillManager:
             if manifest.disable_model_invocation:
                 continue
             real_executor = executor or _NullToolExecutor()
-            skill_exec = SkillExecutor(real_executor, bus=self._bus)
+            skill_exec = SkillExecutor(
+                real_executor,
+                bus=self._bus,
+                skill_manager=self,
+            )
 
             # Wire sub-skill resolver so nested skill_name steps can delegate back
             skill_exec.set_skill_resolver(self._make_resolver())
@@ -206,19 +221,35 @@ class SkillManager:
 
         return tools
 
-    def _make_resolver(self):
-        """Return a resolver callback that delegates sub-skill execution."""
+    def _make_resolver(
+        self,
+        allowed_capabilities: Optional[Set[str]] = None,
+        max_depth: int = 5,
+    ):
+        """Return a resolver callback that delegates sub-skill execution with safety and cycle checks."""
 
-        def _resolver(name: str, context: Dict[str, Any]) -> SkillResult:
+        def _resolver(
+            name: str,
+            context: Dict[str, Any],
+            call_stack: Optional[List[str]] = None,
+        ) -> SkillResult:
             manifest = self.resolve(name)
             skill_exec = SkillExecutor(
                 self._tool_executor or _NullToolExecutor(),
                 bus=self._bus,
+                allowed_capabilities=allowed_capabilities,
+                skill_manager=self,
+                max_depth=max_depth,
             )
             skill_exec.set_skill_resolver(_resolver)
-            return skill_exec.run(manifest, initial_context=context)
+            return skill_exec.run(
+                manifest,
+                initial_context=context,
+                call_stack=call_stack,
+            )
 
         return _resolver
+
 
     # ------------------------------------------------------------------
     # Catalog
@@ -367,6 +398,10 @@ class SkillManager:
         self,
         name: str,
         context: Optional[Dict[str, Any]] = None,
+        *,
+        allowed_capabilities: Optional[Set[str]] = None,
+        max_depth: int = 5,
+        call_stack: Optional[List[str]] = None,
     ) -> SkillResult:
         """Resolve and execute a skill by name.
 
@@ -376,6 +411,12 @@ class SkillManager:
             Skill name to execute.
         context:
             Initial context dict passed to the executor.
+        allowed_capabilities:
+            Optional set of capability strings allowed for this execution.
+        max_depth:
+            Maximum recursion depth for composite skills.
+        call_stack:
+            Optional call stack tracking active ancestor skills.
 
         Returns
         -------
@@ -385,9 +426,49 @@ class SkillManager:
         executor = SkillExecutor(
             self._tool_executor or _NullToolExecutor(),
             bus=self._bus,
+            allowed_capabilities=allowed_capabilities,
+            skill_manager=self,
+            max_depth=max_depth,
         )
-        executor.set_skill_resolver(self._make_resolver())
-        return executor.run(manifest, initial_context=context)
+        executor.set_skill_resolver(
+            self._make_resolver(
+                allowed_capabilities=allowed_capabilities,
+                max_depth=max_depth,
+            )
+        )
+        return executor.run(
+            manifest,
+            initial_context=context,
+            call_stack=call_stack,
+        )
+
+    def validate_composite(
+        self,
+        manifest_or_name: SkillManifest | str,
+        max_depth: int = 5,
+    ) -> List[str]:
+        """Validate a composite skill's dependencies, child approval status, cycles, and depth."""
+        from openjarvis.skills.composition import validate_composite_skill
+
+        manifest = (
+            self.resolve(manifest_or_name)
+            if isinstance(manifest_or_name, str)
+            else manifest_or_name
+        )
+        return validate_composite_skill(manifest, self, max_depth=max_depth)
+
+    def get_ledger(self) -> Optional[Any]:
+        """Return the SkillLedger associated with this manager's storage."""
+        if not hasattr(self, "_ledger_instance") or self._ledger_instance is None:
+            try:
+                from openjarvis.skills.ledger import SkillLedger
+
+                skills_dir = getattr(self, "_skills_dir", None) or Path("./skills")
+                self._ledger_instance = SkillLedger(skills_dir=skills_dir)
+            except Exception:
+                self._ledger_instance = None
+        return self._ledger_instance
+
 
     # ------------------------------------------------------------------
     # Configuration

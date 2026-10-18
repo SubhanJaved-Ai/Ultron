@@ -193,3 +193,148 @@ class TestMCPRoutes:
         # Delete nonexistent -> 404
         del_missing = client.delete("/api/mcp/servers/to-delete")
         assert del_missing.status_code == 404
+
+    def test_validate_rejects_ssrf_and_metadata(self, client: TestClient):
+        """Security: reject cloud metadata and link-local addresses for SSRF prevention."""
+        ssrf_targets = [
+            "http://169.254.169.254/latest/meta-data/",
+            "http://metadata.google.internal/computeMetadata/v1/",
+            "http://100.100.100.200/latest/meta-data/",
+            "http://169.254.10.20/mcp",
+            "http://metadata.internal/mcp",
+        ]
+        for url in ssrf_targets:
+            payload = {"name": "ssrf-test", "url": url}
+            res = client.post("/api/mcp/servers/validate", json=payload)
+            assert res.status_code == 200
+            data = res.json()
+            assert data["valid"] is False
+            assert any(
+                "cloud metadata" in err or "link-local" in err
+                for err in data["errors"]
+            ), f"Failed to reject SSRF target: {url}"
+
+    def test_validate_rejects_restricted_ports(self, client: TestClient):
+        """Security: reject well-known dangerous ports for SSRF port scanning prevention."""
+        blocked_ports = [21, 22, 23, 25, 445, 3389, 6379]
+        for port in blocked_ports:
+            payload = {"name": f"port-{port}", "url": f"http://127.0.0.1:{port}/mcp"}
+            res = client.post("/api/mcp/servers/validate", json=payload)
+            assert res.status_code == 200
+            data = res.json()
+            assert data["valid"] is False
+            assert any(f"Port {port} is restricted" in err for err in data["errors"])
+
+    def test_validate_rejects_dangerous_command_binaries(self, client: TestClient):
+        """Security: reject dangerous system shells and utilities from stdio transport."""
+        dangerous_commands = [
+            "cmd.exe",
+            "powershell",
+            "bash",
+            "sh",
+            "curl",
+            "wget",
+            "rm",
+            "del",
+        ]
+        for cmd in dangerous_commands:
+            payload = {"name": f"cmd-test", "command": cmd, "args": ["--help"]}
+            res = client.post("/api/mcp/servers/validate", json=payload)
+            assert res.status_code == 200
+            data = res.json()
+            assert data["valid"] is False
+            assert any("Execution of dangerous system command" in err for err in data["errors"])
+
+    def test_test_server_sanitizes_credentials_in_errors(self, client: TestClient):
+        """Security: ensure sensitive tokens and passwords in URLs are scrubbed from test errors."""
+        payload = {
+            "name": "sanitized-err",
+            "url": "http://admin:super_secret_pw@127.0.0.1:59998/mcp",
+            "token": "sensitive_bearer_token_xyz987",
+        }
+        res = client.post("/api/mcp/servers/test", json=payload)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["connected"] is False
+        assert "super_secret_pw" not in data["error"]
+        assert "sensitive_bearer_token_xyz987" not in data["error"]
+
+    def test_mock_mcp_server_protocol_endpoints(self, client: TestClient):
+        """Verify the deterministic mock MCP endpoint satisfies JSON-RPC 2.0 MCP protocol."""
+        # 1. Initialize
+        init_res = client.post(
+            "/api/mcp/mock-server",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": "2025-03-26"},
+            },
+        )
+        assert init_res.status_code == 200
+        init_data = init_res.json()
+        assert init_data["id"] == 1
+        assert init_data["result"]["protocolVersion"] == "2025-03-26"
+        assert init_data["result"]["serverInfo"]["name"] == "ultron-mock-mcp"
+
+        # 2. Initialized notification
+        notif_res = client.post(
+            "/api/mcp/mock-server",
+            json={
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+            },
+        )
+        assert notif_res.status_code == 200
+
+        # 3. Tools list
+        tools_res = client.post(
+            "/api/mcp/mock-server",
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/list",
+                "params": {},
+            },
+        )
+        assert tools_res.status_code == 200
+        tools_data = tools_res.json()
+        assert tools_data["id"] == 2
+        tools = tools_data["result"]["tools"]
+        assert len(tools) == 1
+        assert tools[0]["name"] == "system_diagnostics"
+
+    def test_authorization_non_admin_forbidden_in_multi_user(self):
+        """Security: untrusted/non-admin users cannot configure or test MCP servers."""
+        from openjarvis.auth.models import Role, User
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.requests import Request
+
+        app = create_app()
+
+        # Add mock middleware that simulates an authenticated non-admin user
+        class NonAdminMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request: Request, call_next):
+                request.state.user = User(id="user2", username="regular_user", role=Role.USER.value)
+                return await call_next(request)
+
+        app.add_middleware(NonAdminMiddleware)
+
+        with TestClient(app) as tc:
+            # 1. POST /api/mcp/servers -> 403
+            add_res = tc.post("/api/mcp/servers", json={"name": "test-srv", "url": "https://mcp.example.com"})
+            assert add_res.status_code == 403
+            assert "Administrator privileges required" in add_res.json()["detail"]
+
+            # 2. DELETE /api/mcp/servers/xyz -> 403
+            del_res = tc.delete("/api/mcp/servers/xyz")
+            assert del_res.status_code == 403
+
+            # 3. POST /api/mcp/servers/test -> 403
+            test_res = tc.post("/api/mcp/servers/test", json={"name": "test-srv", "url": "https://mcp.example.com"})
+            assert test_res.status_code == 403
+
+            # 4. POST /api/mcp/servers/validate -> 403
+            val_res = tc.post("/api/mcp/servers/validate", json={"name": "test-srv", "url": "https://mcp.example.com"})
+            assert val_res.status_code == 403
+

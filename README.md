@@ -143,50 +143,170 @@ Ultron features a mutation ledger with atomic rollbacks:
 ### 5. CLI & Chat Commands
 
 ```bash
-jarvis                          # start interactive console (concise Ultron persona)
-jarvis serve --hologram         # start 3D Holographic web interface with voice barge-in
-jarvis ask "Run security audit" # execute single directive directly
+---
+
+## 🏗️ Architecture & System Components
+
+Ultron is structured as a modular, fail-closed system comprising five core components:
+
+```mermaid
+graph TD
+    Client[Web & Desktop Clients<br/>React + Vite / Tauri v2 / 3D Argon Hologram] --> API[FastAPI Server Engine<br/>Security Headers, AuthMiddleware, WebSockets]
+    API --> Safety[Safety Kernel & Policy Engine<br/>Sandboxing, Approval Gate, Resource Attribution]
+    API --> AgentMgr[Agent Scheduler & Orchestrator<br/>DAG Runner, Retries, Channel Bridge]
+    API --> MCP[MCP Adapter & Tool Registry<br/>StreamableHTTP / Stdio with SSRF & Shell Protection]
+    AgentMgr --> Engines[Inference Engines<br/>Gemini, OpenAI, Claude, Local Ollama]
+    AgentMgr --> Memory[Memory & Knowledge Engine<br/>Local SQLite FTS5 / Vector DB / Supabase]
 ```
 
-OpenJarvis ships with eight built-in agents across three execution modes (on-demand, scheduled, continuous):
+| Component | Technology | Responsibility |
+|-----------|------------|----------------|
+| **Core Server** | FastAPI, Uvicorn, Python 3.12 | REST & WebSocket API, session handling, authentication middleware, streaming events |
+| **Argon 3D Hologram** | Three.js / WebGL, Web Audio API | Live 3D matrix visualization, real-time voice barge-in, consciousness state FSM |
+| **Web Dashboard** | React 19, TypeScript, Tailwind CSS, Lucide | Chat interface, persistent Task Center, MCP configuration, telemetry & memory browsing |
+| **Safety Kernel** | Python Policy Guard, AST validators | Tool execution sandboxing, dangerous command blocking, emergency stop interrupt |
+| **MCP Client & Adapter** | StreamableHTTPTransport, StdioTransport | Model Context Protocol integration, dynamic tool discovery, SSRF prevention |
+| **Desktop Wrapper** | Tauri v2, Rust | Lightweight native desktop shell for Windows, macOS, and Linux |
 
-| Agent | Type | What it does |
-|-------|------|-------------|
-| `morning_digest` | Scheduled | Daily briefing from email, calendar, health, news — with TTS audio |
-| `deep_research` | On-demand | Multi-hop research with citations across web and local docs |
-| `monitor_operative` | Continuous | Long-horizon monitoring with memory, compression, and retrieval |
-| `orchestrator` | On-demand | Multi-turn reasoning with automatic tool selection |
-| `native_react` | On-demand | ReAct (Thought-Action-Observation) loop agent |
-| `operative` | Continuous | Persistent autonomous agent with state management |
-| `native_openhands` | On-demand | CodeAct — generates and executes Python code |
-| `simple` | On-demand | Single-turn chat, no tools |
+---
 
-See the [User Guide](https://open-jarvis.github.io/OpenJarvis/user-guide/morning-digest/) and [Tutorials](https://open-jarvis.github.io/OpenJarvis/tutorials/) for detailed setup instructions.
+## 💻 Prerequisites & Development Setup
 
-Full documentation — including Docker deployment, cloud engines, development setup, and tutorials — at **[open-jarvis.github.io/OpenJarvis](https://open-jarvis.github.io/OpenJarvis/)**.
+### System Prerequisites
+- **Python**: `>=3.10, <3.14` (Python 3.12 recommended).
+- **Node.js**: `>=20.0.0` (Node 22 LTS recommended) and `npm >= 10`.
+- **Rust** *(Desktop builds only)*: Stable Rust toolchain (`rustc`, `cargo`) + platform C++ build tools (MSVC on Windows, Xcode on macOS, build-essential on Linux).
+- **LLM Provider**: At least one active API key (Google Gemini, OpenAI, Anthropic, OpenRouter) or a locally running [Ollama](https://ollama.com) instance.
 
-## Community
+### Development Workflow
 
-- **GitHub:** [github.com/open-jarvis/OpenJarvis](https://github.com/open-jarvis/OpenJarvis)
-- **Discord:** [discord.gg/CMVBmDQ5Fj](https://discord.gg/CMVBmDQ5Fj)
-- **X / Twitter:** [@OpenJarvisAI](https://x.com/OpenJarvisAI)
-- **Docs:** [open-jarvis.github.io/OpenJarvis](https://open-jarvis.github.io/OpenJarvis/)
+1. **Clone and Virtual Environment**:
+   ```bash
+   git clone https://github.com/Airlucofficial/Jarvis-2.0.git
+   cd Jarvis-2.0
+   python -m venv .venv
+   # Windows:
+   .venv\Scripts\activate
+   # Linux / macOS:
+   source .venv/bin/activate
+   ```
 
-## Contributing
+2. **Install Dependencies**:
+   ```bash
+   pip install -e ".[dev,server,inference-cloud,browser]"
+   cd frontend && npm install && cd ..
+   ```
 
-We welcome contributions! See the [Contributing Guide](CONTRIBUTING.md) for incentives, contribution types, and the PR process.
+3. **Configure Environment Safely**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your preferred keys (GEMINI_API_KEY, etc.)
+   # Never commit .env or secrets to Git.
+   ```
 
-Quick start for contributors:
+4. **Running the Servers**:
+   - **Backend API & Hologram**:
+     ```bash
+     python -m openjarvis.cli serve --host 127.0.0.1 --port 8000 --hologram
+     ```
+     Access backend at `http://127.0.0.1:8000` and Hologram at `http://127.0.0.1:8000/hologram`.
+   - **Frontend Development Server**:
+     ```bash
+     cd frontend
+     npm run dev
+     ```
+     Access development frontend at `http://localhost:5173`.
+   - **Production Frontend Build**:
+     ```bash
+     cd frontend
+     npm run build
+     ```
+     Builds static assets into `src/openjarvis/server/static/` served directly by FastAPI.
+
+---
+
+## 🧪 Automated Testing & Verification
+
+Ultron includes automated test suites covering backend routes, MCP security, multi-agent orchestration, and frontend components:
 
 ```bash
-git clone https://github.com/Airlucofficial/Jarvis-2.0.git
-cd Jarvis-2.0
-uv sync --extra dev
-uv run pre-commit install
-uv run pytest tests/ -v
+# 1. MCP Configuration, Security & Route Regression Tests
+pytest tests/server/test_mcp_routes.py -v
+
+# 2. Hologram & Channel API Tests
+pytest tests/server/test_hologram.py tests/test_hologram_routes.py -v
+
+# 3. Multi-Agent & Orchestrator Integration Tests
+pytest tests/integration/test_orchestrator_integration.py -v
+
+# 4. Frontend Unit & Component Tests
+npm --prefix frontend test
+
+# 5. Frontend TypeScript Typecheck & Production Build
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
 ```
 
-Browse the [Roadmap](https://open-jarvis.github.io/OpenJarvis/development/roadmap/) for areas where help is needed. Comment **"take"** on any issue to get auto-assigned.
+---
+
+## 🛡️ Safe Model Context Protocol (MCP) Configuration
+
+Ultron integrates with external tools and agents via the Model Context Protocol (MCP). The implementation enforces strict security controls:
+
+### Security Boundaries
+- **SSRF Prevention**: Link-local addresses (`169.254.0.0/16`, `fe80::/10`) and cloud provider metadata services (`169.254.169.254`, `metadata.google.internal`, `100.100.100.200`, `fd00:ec2::254`) are strictly blocked.
+- **Port Restrictions**: Non-HTTP privileged/internal service ports (e.g. 21, 22, 23, 25, 445, 1433, 3306, 3389, 5432, 6379) are disallowed.
+- **Command Disallowlist**: Arbitrary shell execution via stdio transport is prevented by rejecting system shells and dangerous binaries (`cmd.exe`, `powershell`, `bash`, `sh`, `curl`, `wget`, `rm`, `del`).
+- **Credential Masking & Sanitization**: Authorization tokens and passwords are redacted from server listings, browser UI, and diagnostics errors (`[REDACTED]`).
+- **Authorization**: Configuration mutations and connection diagnostics require administrator privileges (`Role.ADMIN`).
+
+### Testing MCP Connections Safely
+In the web dashboard under **Settings → MCP Servers**, you can verify protocol connectivity:
+- **Deterministic Mock Server**: Set URL to `http://127.0.0.1:8000/api/mcp/mock-server`. Click **Test Connection** to verify JSON-RPC `initialize` and `tools/list` handshake with zero external dependencies.
+- **Remote HTTP Server**: Enter valid HTTPS endpoint and optional bearer token.
+- **Local Stdio Server**: Enter a dedicated tool binary (e.g. `npx`, `python`) and safe argument list.
+
+---
+
+## 🔧 Troubleshooting Guide
+
+### 1. Unavailable LLM Providers
+- **Symptom**: `AuthenticationError` or `Provider API key not configured`.
+- **Remedy**: Ensure `GEMINI_API_KEY` (or `OPENAI_API_KEY`) is set in `.env` without surrounding quotes or trailing whitespace. Alternatively, start a local [Ollama](https://ollama.com) instance on `http://127.0.0.1:11434` for 100% offline local inference.
+
+### 2. MCP Connection Failures & Timeouts
+- **Symptom**: Red `Unreachable` badge or `Failed to connect to MCP server`.
+- **Remedy**:
+  - Verify that the target server is active and reachable on the specified port.
+  - If connecting locally, ensure the target is bound to `127.0.0.1` or `localhost`.
+  - Check that the destination port is not in the restricted port list (e.g. avoid port 22, 25, 445).
+  - Cloud metadata addresses (`169.254.169.254`) are blocked by design.
+
+### 3. Optional Document Parsers & Speech Backends
+- **PDF Extraction**: If `pdfplumber` is not installed, install via `pip install ".[pdf]"`.
+- **Local Kokoro TTS**: Requires `pip install ".[voice]"`. On Linux/macOS, `espeak-ng` should be installed on PATH for out-of-dictionary phonemes. If unavailable, Ultron gracefully falls back to browser Web Speech API.
+
+---
+
+## 🖥️ Desktop Build & Verification Status
+
+| Platform | Target | Build Status | Runtime Verification Status |
+|----------|--------|--------------|-----------------------------|
+| **Windows x64** | `x86_64-pc-windows-msvc` | Verified via GitHub Actions CI (`desktop.yml`) | **PASS (Standalone Bundle)**: Self-contained portable Python 3.12 runtime and native binary packaged in `openjarvis-desktop-windows-x64`. Local build requires manual Rust toolchain installation. |
+| **Linux x64** | `x86_64-unknown-linux-gnu` | Verified via GitHub Actions CI (`ubuntu-22.04`) | **PASS (CI Runner)**: WebKit2GTK + GTK3 native build verified in CI. Not run locally on Windows host. |
+| **macOS Universal** | `universal-apple-darwin` (`aarch64` + `x86_64`) | Verified via GitHub Actions CI (`macos-14`) | **PASS (CI Runner)**: Universal binary with automated Apple notarization preflight. Not run locally on Windows host. |
+
+---
+
+## ⚠️ Known Limitations
+
+1. **Local Windows Compilation**: Building native desktop installers (`.msi` / `.exe`) directly on a local Windows machine requires installing Rust (`rustup`), Cargo, and Visual Studio C++ Build Tools. In environments without Rust installed, use the pre-built GitHub Actions standalone bundle or run the Python server with the web frontend.
+2. **Platform-Specific Shell Tasks**: Persistent DAG tasks planned by autonomous agents generate commands tailored to the target operating system. Windows hosts should use PowerShell/cmd-compatible directives (e.g. `hostname`, `dir`, `ipconfig`) rather than Linux-specific utilities (`free`, `df`).
+3. **Optional Channel Integrations**: Third-party messaging connectors (SendBlue, Telegram, Slack, Discord) require valid external provider API keys to establish live outbound webhooks. Unconfigured channels remain in inactive/standby mode.
+
+---
+
+## Community
 
 ## About
 

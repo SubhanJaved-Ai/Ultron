@@ -6,14 +6,17 @@ for Model Context Protocol (MCP) servers.
 
 from __future__ import annotations
 
+import asyncio
+import ipaddress
 import logging
+import pathlib
 import re
 import shutil
 import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from openjarvis.core.config import load_config, resolve_mcp_servers
@@ -32,6 +35,29 @@ _runtime_initialized: bool = False
 _VALID_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-\.]{1,64}$")
 # Disallowed shell injection characters in command or args
 _SHELL_INJECTION_RE = re.compile(r"[;&|`$<>\r\n]")
+
+# Dangerous binaries prohibited from stdio MCP server execution
+_DANGEROUS_BINARIES = {
+    "cmd", "cmd.exe", "powershell", "powershell.exe", "pwsh", "pwsh.exe",
+    "bash", "sh", "zsh", "csh", "tcsh", "dash", "ksh",
+    "curl", "curl.exe", "wget", "wget.exe",
+    "rm", "del", "format", "shutdown", "reboot", "taskkill", "kill",
+}
+
+# Link-local / Cloud metadata IP and host blocklist for SSRF prevention
+_METADATA_HOSTS = {
+    "169.254.169.254",
+    "metadata.google.internal",
+    "100.100.100.200",
+    "metadata.internal",
+    "fd00:ec2::254",
+}
+
+# Restricted service ports to prevent SSRF against internal non-HTTP services
+_DISALLOWED_PORTS = {
+    21, 22, 23, 25, 53, 69, 110, 135, 137, 138, 139, 143, 389, 445, 636,
+    1433, 1521, 3306, 3389, 5432, 6379, 11211,
+}
 
 
 def _mask_token(token: Optional[str]) -> str:
@@ -61,6 +87,35 @@ def _mask_server_dict(server: Dict[str, Any]) -> Dict[str, Any]:
         except Exception:
             pass
     return masked
+
+
+def sanitize_error_message(error: str, secret_hints: Optional[List[str]] = None) -> str:
+    """Scrub sensitive credentials, tokens, or URL query parameters from error strings."""
+    if not error:
+        return ""
+    sanitized = str(error)
+    if secret_hints:
+        for secret in secret_hints:
+            if secret and len(str(secret)) > 3:
+                sanitized = sanitized.replace(str(secret), "[REDACTED]")
+    # Mask Bearer tokens
+    sanitized = re.sub(r"(Bearer\s+)[A-Za-z0-9_\-\.]+", r"\1[REDACTED]", sanitized, flags=re.IGNORECASE)
+    # Mask key/token query params
+    sanitized = re.sub(r"((?:token|key|secret|password|auth)=)[^&\s]+", r"\1[REDACTED]", sanitized, flags=re.IGNORECASE)
+    # Mask userinfo in URLs
+    sanitized = re.sub(r"([a-zA-Z]+://)([^:]+):([^@]+)@", r"\1\2:[REDACTED]@", sanitized)
+    return sanitized
+
+
+def _require_admin(request: Request) -> None:
+    """Ensure caller has administrator privileges if a user context exists."""
+    user = getattr(request.state, "user", None)
+    if user is not None and hasattr(user, "is_admin"):
+        if not user.is_admin():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Administrator privileges required to manage MCP servers.",
+            )
 
 
 def _init_runtime_servers() -> None:
@@ -129,10 +184,26 @@ def validate_server_config(cfg: Dict[str, Any]) -> List[str]:
                 errors.append(f"Invalid URL scheme '{parsed.scheme}'. Only http and https are permitted.")
             if not parsed.hostname:
                 errors.append("URL must include a valid hostname.")
+            else:
+                hostname_lower = parsed.hostname.lower()
+                if hostname_lower in _METADATA_HOSTS:
+                    errors.append("Access to cloud metadata endpoints is prohibited for security.")
+                else:
+                    try:
+                        ip_obj = ipaddress.ip_address(hostname_lower)
+                        if ip_obj.is_link_local:
+                            errors.append("Access to link-local addresses is prohibited.")
+                    except ValueError:
+                        pass
+            if parsed.port and parsed.port in _DISALLOWED_PORTS:
+                errors.append(f"Port {parsed.port} is restricted for MCP connections.")
         except Exception as exc:
             errors.append(f"Malformed URL: {exc}")
 
     if command:
+        cmd_base = pathlib.Path(command.strip().split()[0] if command.strip() else "").name.lower()
+        if cmd_base in _DANGEROUS_BINARIES:
+            errors.append(f"Execution of dangerous system command or shell '{command}' is prohibited.")
         if _SHELL_INJECTION_RE.search(command):
             errors.append("Command contains forbidden shell metacharacters (; & | ` $ < > \\n \\r).")
         args = cfg.get("args") or []
@@ -147,7 +218,7 @@ def validate_server_config(cfg: Dict[str, Any]) -> List[str]:
 
 
 @mcp_router.get("/servers", response_model=List[Dict[str, Any]])
-async def list_mcp_servers() -> List[Dict[str, Any]]:
+async def list_mcp_servers(request: Request) -> List[Dict[str, Any]]:
     """List all configured MCP servers with credentials securely masked."""
     _init_runtime_servers()
     results = []
@@ -159,8 +230,9 @@ async def list_mcp_servers() -> List[Dict[str, Any]]:
 
 
 @mcp_router.post("/servers/validate", response_model=MCPValidateResponse)
-async def validate_server(server: MCPServerConfigModel) -> MCPValidateResponse:
+async def validate_server(server: MCPServerConfigModel, request: Request) -> MCPValidateResponse:
     """Validate an MCP server configuration before saving or testing."""
+    _require_admin(request)
     raw_dict = server.model_dump()
     errors = validate_server_config(raw_dict)
     if errors:
@@ -169,8 +241,9 @@ async def validate_server(server: MCPServerConfigModel) -> MCPValidateResponse:
 
 
 @mcp_router.post("/servers/test", response_model=MCPTestResponse)
-async def test_mcp_server(server: MCPServerConfigModel) -> MCPTestResponse:
+async def test_mcp_server(server: MCPServerConfigModel, request: Request) -> MCPTestResponse:
     """Safely test connection to an MCP server within a strict timeout."""
+    _require_admin(request)
     raw_dict = server.model_dump()
     errors = validate_server_config(raw_dict)
     if errors:
@@ -184,88 +257,107 @@ async def test_mcp_server(server: MCPServerConfigModel) -> MCPTestResponse:
     command = server.command
     args = server.args
     token = server.token
-    start_time = time.time()
-
-    # 1. Stdio transport test
-    if command:
-        # Check binary availability first without spawning shell
-        resolved_bin = shutil.which(command)
-        if not resolved_bin:
-            return MCPTestResponse(
-                name=server.name,
-                connected=False,
-                error=f"Command binary '{command}' not found in system PATH.",
-            )
-        try:
-            transport = StdioTransport(command=[command] + args)
-            client = MCPClient(transport)
-            client.initialize()
-            from openjarvis.tools.mcp_adapter import MCPToolProvider
-
-            provider = MCPToolProvider(client)
-            discovered = provider.discover()
-            latency = round((time.time() - start_time) * 1000, 2)
-            tool_names = [t.spec.name for t in discovered]
-            try:
-                client.close()
-            except Exception:
-                pass
-            return MCPTestResponse(
-                name=server.name,
-                connected=True,
-                latency_ms=latency,
-                discovered_tools_count=len(tool_names),
-                tools=tool_names,
-            )
-        except Exception as exc:
-            logger.warning("MCP stdio connection test failed for '%s': %s", server.name, exc)
-            return MCPTestResponse(
-                name=server.name,
-                connected=False,
-                error=str(exc),
-            )
-
-    # 2. HTTP / SSE transport test
+    secret_hints = [token] if token else []
     if url:
         try:
-            transport = StreamableHTTPTransport(url=url, token=token)
-            client = MCPClient(transport)
-            client.initialize()
-            from openjarvis.tools.mcp_adapter import MCPToolProvider
+            parsed = urlparse(url)
+            if parsed.password:
+                secret_hints.append(parsed.password)
+        except Exception:
+            pass
 
-            provider = MCPToolProvider(client)
-            discovered = provider.discover()
-            latency = round((time.time() - start_time) * 1000, 2)
-            tool_names = [t.spec.name for t in discovered]
+    start_time = time.time()
+
+    def _execute_test() -> MCPTestResponse:
+        # 1. Stdio transport test
+        if command:
+            resolved_bin = shutil.which(command)
+            if not resolved_bin:
+                return MCPTestResponse(
+                    name=server.name,
+                    connected=False,
+                    error=f"Command binary '{command}' not found in system PATH.",
+                )
             try:
-                client.close()
-            except Exception:
-                pass
-            return MCPTestResponse(
-                name=server.name,
-                connected=True,
-                latency_ms=latency,
-                discovered_tools_count=len(tool_names),
-                tools=tool_names,
-            )
-        except Exception as exc:
-            logger.warning("MCP HTTP connection test failed for '%s': %s", server.name, exc)
-            return MCPTestResponse(
-                name=server.name,
-                connected=False,
-                error=f"HTTP connection failed: {exc}",
-            )
+                transport = StdioTransport(command=[command] + args, response_timeout=10.0)
+                client = MCPClient(transport)
+                client.initialize()
+                from openjarvis.tools.mcp_adapter import MCPToolProvider
 
-    return MCPTestResponse(
-        name=server.name,
-        connected=False,
-        error="Unknown transport configuration.",
-    )
+                provider = MCPToolProvider(client)
+                discovered = provider.discover()
+                latency = round((time.time() - start_time) * 1000, 2)
+                tool_names = [t.spec.name for t in discovered]
+                try:
+                    client.close()
+                except Exception:
+                    pass
+                return MCPTestResponse(
+                    name=server.name,
+                    connected=True,
+                    latency_ms=latency,
+                    discovered_tools_count=len(tool_names),
+                    tools=tool_names,
+                )
+            except Exception as exc:
+                sanitized = sanitize_error_message(str(exc), secret_hints=secret_hints)
+                logger.warning("MCP stdio connection test failed for '%s': %s", server.name, sanitized)
+                return MCPTestResponse(
+                    name=server.name,
+                    connected=False,
+                    error=sanitized,
+                )
+
+        # 2. HTTP / SSE transport test
+        if url:
+            try:
+                transport = StreamableHTTPTransport(
+                    url=url,
+                    token=token,
+                    connect_timeout=5.0,
+                    request_timeout=10.0,
+                )
+                client = MCPClient(transport)
+                client.initialize()
+                from openjarvis.tools.mcp_adapter import MCPToolProvider
+
+                provider = MCPToolProvider(client)
+                discovered = provider.discover()
+                latency = round((time.time() - start_time) * 1000, 2)
+                tool_names = [t.spec.name for t in discovered]
+                try:
+                    client.close()
+                except Exception:
+                    pass
+                return MCPTestResponse(
+                    name=server.name,
+                    connected=True,
+                    latency_ms=latency,
+                    discovered_tools_count=len(tool_names),
+                    tools=tool_names,
+                )
+            except Exception as exc:
+                sanitized = sanitize_error_message(f"HTTP connection failed: {exc}", secret_hints=secret_hints)
+                logger.warning("MCP HTTP connection test failed for '%s': %s", server.name, sanitized)
+                return MCPTestResponse(
+                    name=server.name,
+                    connected=False,
+                    error=sanitized,
+                )
+
+        return MCPTestResponse(
+            name=server.name,
+            connected=False,
+            error="Unknown transport configuration.",
+        )
+
+    return await asyncio.to_thread(_execute_test)
 
 
 @mcp_router.post("/servers", status_code=status.HTTP_201_CREATED, response_model=Dict[str, Any])
-async def add_or_update_mcp_server(server: MCPServerConfigModel) -> Dict[str, Any]:
+async def add_or_update_mcp_server(server: MCPServerConfigModel, request: Request) -> Dict[str, Any]:
     """Register or update an MCP server configuration."""
+    _require_admin(request)
     _init_runtime_servers()
     raw_dict = server.model_dump()
     errors = validate_server_config(raw_dict)
@@ -292,8 +384,9 @@ async def add_or_update_mcp_server(server: MCPServerConfigModel) -> Dict[str, An
 
 
 @mcp_router.delete("/servers/{server_name}", response_model=Dict[str, Any])
-async def delete_mcp_server(server_name: str) -> Dict[str, Any]:
+async def delete_mcp_server(server_name: str, request: Request) -> Dict[str, Any]:
     """Remove an MCP server from configuration."""
+    _require_admin(request)
     _init_runtime_servers()
     global _runtime_mcp_servers
     initial_len = len(_runtime_mcp_servers)
@@ -304,6 +397,64 @@ async def delete_mcp_server(server_name: str) -> Dict[str, Any]:
             detail=f"MCP server '{server_name}' not found.",
         )
     return {"name": server_name, "status": "deleted"}
+
+
+@mcp_router.post("/mock-server")
+async def mock_mcp_server_endpoint(request: Request) -> Dict[str, Any]:
+    """Deterministic local MCP server for isolated testing and browser verification.
+
+    Responds to standard JSON-RPC 2.0 initialize, notifications/initialized, and tools/list.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    method = body.get("method")
+    msg_id = body.get("id")
+
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "result": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {"tools": {}},
+                "serverInfo": {
+                    "name": "ultron-mock-mcp",
+                    "version": "1.0.0",
+                },
+            },
+        }
+    elif method == "notifications/initialized":
+        return {
+            "jsonrpc": "2.0",
+            "result": {},
+        }
+    elif method == "tools/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "result": {
+                "tools": [
+                    {
+                        "name": "system_diagnostics",
+                        "description": "Deterministic test tool for MCP protocol verification",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "check": {"type": "string"},
+                            },
+                        },
+                    }
+                ]
+            },
+        }
+    else:
+        return {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "result": {},
+        }
 
 
 def reset_runtime_mcp_servers() -> None:

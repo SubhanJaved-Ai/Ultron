@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # Protected tags indicating a skill must never be overwritten by automated task learning
 PROTECTED_SKILL_TAGS = frozenset({"builtin", "system", "trusted", "core"})
-PROTECTED_AUTHORS = frozenset({"system", "openjarvis", "openjarvis (built-in)", "admin"})
+PROTECTED_AUTHORS = frozenset({"system", "openjarvis", "openjarvis (built-in)"})
 
 
 class SkillApprovalStatus:
@@ -334,17 +334,27 @@ class WorkflowSkillLearner:
         Disabled skills always return False.
         """
         # Disabled skills are not approved for execution or discovery
-        if manifest.metadata and manifest.metadata.get("disabled") is True:
+        meta = manifest.metadata or {}
+        if meta.get("disabled") is True:
+            return False
+
+        # Explicit pending review, draft, or rejected skills are never approved
+        if meta.get("approval_status") in (
+            SkillApprovalStatus.PENDING_REVIEW,
+            SkillApprovalStatus.DRAFT,
+            SkillApprovalStatus.REJECTED,
+        ):
+            return False
+        if meta.get("approved") is False:
             return False
 
         # 1. System/core skills are approved by default
-        if manifest.author.lower() in PROTECTED_AUTHORS:
+        if (manifest.author or "").lower() in PROTECTED_AUTHORS:
             return True
         if bool(set(manifest.tags or ()) & PROTECTED_SKILL_TAGS):
             return True
 
         # 2. Check metadata approval status
-        meta = manifest.metadata or {}
         if meta.get("approved") is True and meta.get("approval_status") == SkillApprovalStatus.APPROVED:
             return True
 

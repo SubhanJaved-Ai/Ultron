@@ -269,13 +269,14 @@ class PersistentTaskRunner:
                                 success=False,
                             )
                         # Validate health before reuse
-                        is_healthy, issues = self.workflow_skill_learner.validate_skill_health(manifest)
-                        if not is_healthy:
-                            return ToolResult(
-                                tool_name=target_skill,
-                                content=f"Refusing to execute outdated/unhealthy skill '{target_skill}': {'; '.join(issues)}",
-                                success=False,
-                            )
+                        if self.workflow_skill_learner is not None:
+                            is_healthy, issues = self.workflow_skill_learner.validate_skill_health(manifest)
+                            if not is_healthy:
+                                return ToolResult(
+                                    tool_name=target_skill,
+                                    content=f"Refusing to execute outdated/unhealthy skill '{target_skill}': {'; '.join(issues)}",
+                                    success=False,
+                                )
                         # If composite skill, validate before execution
                         if any(s.skill_name for s in manifest.steps):
                             from openjarvis.skills.composition import (
@@ -294,7 +295,24 @@ class PersistentTaskRunner:
                                 )
                         res = self.skill_manager.execute(target_skill, context=kwargs)
 
-                        output_str = getattr(res, "output", "") or getattr(res, "content", "") or str(res)
+                        output_str = getattr(res, "output", "") or getattr(res, "content", "")
+                        if not output_str and hasattr(res, "step_results") and res.step_results:
+                            if not getattr(res, "success", True):
+                                for sr in res.step_results:
+                                    if not sr.success:
+                                        output_str = sr.content
+                                        break
+                            else:
+                                final_step = manifest.steps[-1] if manifest.steps else None
+                                if final_step and final_step.output_key and final_step.output_key in getattr(res, "context", {}):
+                                    output_str = res.context[final_step.output_key]
+                                else:
+                                    output_str = res.step_results[-1].content
+                        if not output_str and hasattr(res, "context") and res.context:
+                            output_str = str(list(res.context.values())[-1])
+                        if not output_str:
+                            output_str = str(res)
+
                         success_val = getattr(res, "success", True)
                         return ToolResult(
                             tool_name=target_skill,

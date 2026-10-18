@@ -29,9 +29,7 @@ MAX_COMPOSITION_DEPTH: int = 5
 
 # Protected tags and authors for system/core skills
 PROTECTED_SKILL_TAGS = frozenset({"builtin", "system", "trusted", "core"})
-PROTECTED_AUTHORS = frozenset(
-    {"system", "openjarvis", "openjarvis (built-in)", "admin"}
-)
+PROTECTED_AUTHORS = frozenset({"system", "openjarvis", "openjarvis (built-in)"})
 
 _PLACEHOLDER_RE = re.compile(r"\{+([a-zA-Z0-9_]+)\}+")
 
@@ -90,22 +88,22 @@ def is_skill_approved_and_active(manifest: SkillManifest) -> Tuple[bool, str]:
         reason = meta.get("disabled_reason") or "Skill is disabled by operator."
         return False, f"Skill '{manifest.name}' is disabled: {reason}"
 
-
-    # 2. Check approval status
-    if is_protected:
-        # Core / system skills are inherently approved
-        return True, "Core / system skill"
-
+    # 2. Check explicit unapproved / pending review status
     approval_status = meta.get("approval_status")
     approved = meta.get("approved") is True
 
     if not approved or approval_status != "approved":
-        status_name = approval_status or "pending_review"
-        return (
-            False,
-            f"Skill '{manifest.name}' is not approved (status: '{status_name}'). "
-            "Learned skills cannot be executed in composition until explicitly approved.",
-        )
+        if not is_protected or approval_status in ("pending_review", "draft", "rejected") or meta.get("approved") is False:
+            status_name = approval_status or "pending_review"
+            return (
+                False,
+                f"Skill '{manifest.name}' is not approved (status: '{status_name}'). "
+                "Learned skills cannot be executed in composition until explicitly approved.",
+            )
+
+    # 3. Core / system skills are inherently approved
+    if is_protected:
+        return True, "Core / system skill"
 
     return True, "Approved and active"
 

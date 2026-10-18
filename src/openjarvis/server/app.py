@@ -28,6 +28,7 @@ from openjarvis.server.routes import router
 from openjarvis.server.safety_routes import safety_router
 from openjarvis.server.task_routes import task_router
 from openjarvis.server.memory_skills_routes import memory_skills_router
+from openjarvis.server.mcp_routes import mcp_router
 from openjarvis.server.upload_router import router as upload_router
 
 logger = logging.getLogger(__name__)
@@ -592,6 +593,8 @@ def create_app(
     app.include_router(task_router)
     # Memory & Skills Control Center
     app.include_router(memory_skills_router)
+    # Model Context Protocol (MCP) Management
+    app.include_router(mcp_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

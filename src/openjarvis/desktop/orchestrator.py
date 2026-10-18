@@ -42,17 +42,20 @@ class DesktopSafetyGuardrails:
 
     @classmethod
     def check_deletion(cls, text: str, target: str = "") -> Tuple[bool, str]:
-        """Check directive or target deletion with Central Safety Kernel."""
+        """Check directive or target deletion with Central Safety Kernel. Fails closed."""
         target_str = f"{text} {target}".lower()
         if not any(re.search(pat, target_str) for pat in cls.FORBIDDEN_DELETE_PATTERNS):
             return True, ""
-        from openjarvis.security.kernel import ActionEffect, get_safety_kernel
+        try:
+            from openjarvis.security.kernel import ActionEffect, get_safety_kernel
 
-        kernel = get_safety_kernel()
-        decision = kernel.evaluate("delete", target=target or text)
-        if decision.effect in (ActionEffect.BLOCK, ActionEffect.ASK, ActionEffect.ASK_WITH_CODE):
-            return False, decision.reason
-        return True, ""
+            kernel = get_safety_kernel()
+            decision = kernel.evaluate("delete", target=target or text)
+            if decision.effect in (ActionEffect.BLOCK, ActionEffect.ASK, ActionEffect.ASK_WITH_CODE):
+                return False, f"Zero-Data-Loss Safety Policy Enforced: {decision.reason}"
+            return True, ""
+        except Exception as exc:
+            return False, f"Zero-Data-Loss Safety Policy: Safety verification failed: {exc}"
 
     @classmethod
     def check_url_safety(cls, url: str) -> Tuple[bool, str]:

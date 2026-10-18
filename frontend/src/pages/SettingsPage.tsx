@@ -17,6 +17,9 @@ import {
   Search,
   Brain,
   RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Plus,
 } from 'lucide-react';
 import { useAppStore, type ThemeMode } from '../lib/store';
 import {
@@ -31,9 +34,16 @@ import {
   fetchToolCredentialStatus,
   saveToolCredentials,
   deleteToolCredential,
+  fetchMCPServers,
+  testMCPServer,
+  validateMCPServer,
+  saveMCPServer,
+  deleteMCPServer,
   isTauri,
   type InferenceSource,
   type MemoryStats,
+  type MCPServerInfo,
+  type MCPTestResult,
 } from '../lib/api';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
@@ -284,6 +294,299 @@ const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'dark', label: 'Dark', icon: Moon },
   { value: 'system', label: 'System', icon: Monitor },
 ];
+
+function MCPServersSection() {
+  const [servers, setServers] = useState<MCPServerInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [testResults, setTestResults] = useState<Record<string, MCPTestResult>>({});
+  const [testing, setTesting] = useState<Record<string, boolean>>({});
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newTransport, setNewTransport] = useState<'http' | 'stdio'>('http');
+  const [newUrl, setNewUrl] = useState('');
+  const [newToken, setNewToken] = useState('');
+  const [newCommand, setNewCommand] = useState('');
+  const [newArgs, setNewArgs] = useState('');
+  const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const loadServers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchMCPServers();
+      setServers(data);
+    } catch {
+      setServers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadServers();
+  }, [loadServers]);
+
+  const handleTest = async (server: MCPServerInfo) => {
+    setTesting((prev) => ({ ...prev, [server.name]: true }));
+    try {
+      const res = await testMCPServer(server);
+      setTestResults((prev) => ({ ...prev, [server.name]: res }));
+    } catch (err: any) {
+      setTestResults((prev) => ({
+        ...prev,
+        [server.name]: {
+          name: server.name,
+          connected: false,
+          discovered_tools_count: 0,
+          tools: [],
+          error: err?.message || 'Connection failed',
+        },
+      }));
+    } finally {
+      setTesting((prev) => ({ ...prev, [server.name]: false }));
+    }
+  };
+
+  const handleDelete = async (name: string) => {
+    try {
+      await deleteMCPServer(name);
+      await loadServers();
+    } catch {}
+  };
+
+  const handleAddServer = async () => {
+    setFormErrors([]);
+    const payload: Partial<MCPServerInfo> = {
+      name: newName.trim(),
+      transport: newTransport,
+      enabled: true,
+    };
+    if (newTransport === 'http') {
+      payload.url = newUrl.trim();
+      if (newToken.trim()) payload.token = newToken.trim();
+    } else {
+      payload.command = newCommand.trim();
+      payload.args = newArgs.trim() ? newArgs.trim().split(/\s+/) : [];
+    }
+
+    try {
+      setSaving(true);
+      const val = await validateMCPServer(payload);
+      if (!val.valid) {
+        setFormErrors(val.errors);
+        return;
+      }
+      await saveMCPServer(payload);
+      setNewName('');
+      setNewUrl('');
+      setNewToken('');
+      setNewCommand('');
+      setNewArgs('');
+      setShowAdd(false);
+      await loadServers();
+    } catch (err: any) {
+      setFormErrors([err?.message || 'Failed to save server']);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Section title="MCP Servers (Model Context Protocol)">
+      <div className="text-xs mb-3" style={{ color: 'var(--color-text-tertiary)' }}>
+        Connect local or remote MCP servers to expand Ultron's tools and context.
+      </div>
+      {loading ? (
+        <div className="text-xs py-2" style={{ color: 'var(--color-text-tertiary)' }}>Loading MCP servers...</div>
+      ) : servers.length === 0 ? (
+        <div className="text-xs py-2" style={{ color: 'var(--color-text-tertiary)' }}>No MCP servers configured yet.</div>
+      ) : (
+        <div className="space-y-3 mb-4">
+          {servers.map((s) => {
+            const tr = testResults[s.name];
+            const isTesting = testing[s.name];
+            return (
+              <div
+                key={s.name}
+                className="p-3 rounded-lg flex flex-col gap-2"
+                style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-xs" style={{ color: 'var(--color-text)' }}>{s.name}</span>
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono uppercase"
+                      style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
+                    >
+                      {s.transport}
+                    </span>
+                    {tr && (
+                      <span
+                        className="flex items-center gap-1 text-[11px] font-medium"
+                        style={{ color: tr.connected ? 'var(--color-success)' : 'var(--color-error)' }}
+                      >
+                        {tr.connected ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                        {tr.connected ? `Connected (${tr.latency_ms ?? 0}ms - ${tr.discovered_tools_count} tools)` : 'Unreachable'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleTest(s)}
+                      disabled={isTesting}
+                      className="px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                      style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                    >
+                      {isTesting ? 'Testing...' : 'Test Connection'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(s.name)}
+                      className="p-1 rounded text-xs transition-colors cursor-pointer"
+                      style={{ color: 'var(--color-text-tertiary)' }}
+                      title="Remove server"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+                <div className="text-[11px] font-mono break-all" style={{ color: 'var(--color-text-tertiary)' }}>
+                  {s.url ? s.url : `${s.command || ''} ${(s.args || []).join(' ')}`}
+                </div>
+                {tr && !tr.connected && tr.error && (
+                  <div className="text-[11px] mt-1 p-1.5 rounded" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-error)' }}>
+                    {tr.error}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showAdd ? (
+        <div className="p-3.5 rounded-lg space-y-3" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+          <div className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>Add New MCP Server</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] mb-1" style={{ color: 'var(--color-text-secondary)' }}>Server Name</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. github-mcp"
+                className="w-full text-xs px-2.5 py-1.5 rounded"
+                style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] mb-1" style={{ color: 'var(--color-text-secondary)' }}>Transport</label>
+              <select
+                value={newTransport}
+                onChange={(e) => setNewTransport(e.target.value as 'http' | 'stdio')}
+                className="w-full text-xs px-2.5 py-1.5 rounded"
+                style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+              >
+                <option value="http">HTTP / SSE</option>
+                <option value="stdio">Local Stdio (Subprocess)</option>
+              </select>
+            </div>
+          </div>
+
+          {newTransport === 'http' ? (
+            <div className="space-y-2">
+              <div>
+                <label className="block text-[11px] mb-1" style={{ color: 'var(--color-text-secondary)' }}>Server URL</label>
+                <input
+                  type="text"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="https://api.example.com/mcp"
+                  className="w-full text-xs px-2.5 py-1.5 rounded"
+                  style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] mb-1" style={{ color: 'var(--color-text-secondary)' }}>Bearer Token (Optional)</label>
+                <input
+                  type="password"
+                  value={newToken}
+                  onChange={(e) => setNewToken(e.target.value)}
+                  placeholder="sk-..."
+                  className="w-full text-xs px-2.5 py-1.5 rounded"
+                  style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div>
+                <label className="block text-[11px] mb-1" style={{ color: 'var(--color-text-secondary)' }}>Executable Command</label>
+                <input
+                  type="text"
+                  value={newCommand}
+                  onChange={(e) => setNewCommand(e.target.value)}
+                  placeholder="e.g. python or npx"
+                  className="w-full text-xs px-2.5 py-1.5 rounded"
+                  style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] mb-1" style={{ color: 'var(--color-text-secondary)' }}>Arguments (Space-separated)</label>
+                <input
+                  type="text"
+                  value={newArgs}
+                  onChange={(e) => setNewArgs(e.target.value)}
+                  placeholder="-m mcp_server_filesystem"
+                  className="w-full text-xs px-2.5 py-1.5 rounded"
+                  style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                />
+              </div>
+            </div>
+          )}
+
+          {formErrors.length > 0 && (
+            <div className="p-2 rounded text-xs space-y-0.5" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-error)' }}>
+              {formErrors.map((err, idx) => (
+                <div key={idx}>• {err}</div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => { setShowAdd(false); setFormErrors([]); }}
+              className="px-3 py-1.5 rounded text-xs transition-colors cursor-pointer"
+              style={{ background: 'transparent', color: 'var(--color-text-secondary)' }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleAddServer}
+              disabled={saving}
+              className="px-3.5 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer"
+              style={{ background: 'var(--color-accent)', color: 'white' }}
+            >
+              {saving ? 'Validating...' : 'Validate & Save'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+          style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+        >
+          <Plus size={13} /> Add MCP Server
+        </button>
+      )}
+    </Section>
+  );
+}
 
 export function SettingsPage() {
   const settings = useAppStore((s) => s.settings);
@@ -892,6 +1195,9 @@ export function SettingsPage() {
               </div>
             )}
           </Section>
+
+          {/* Model Context Protocol (MCP) */}
+          <MCPServersSection />
 
           {/* Data */}
           <Section title="Data">

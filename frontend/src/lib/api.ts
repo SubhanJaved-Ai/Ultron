@@ -1719,6 +1719,88 @@ export async function dismissMaintenanceSuggestion(
   }
   return res.json();
 }
+export interface MCPServerInfo {
+  name: string;
+  transport: 'http' | 'stdio';
+  url?: string;
+  command?: string;
+  args?: string[];
+  token?: string;
+  enabled: boolean;
+  include_tools?: string[];
+  exclude_tools?: string[];
+}
 
+export interface MCPTestResult {
+  name: string;
+  connected: boolean;
+  latency_ms?: number;
+  discovered_tools_count: number;
+  tools: string[];
+  error?: string;
+}
 
+export async function fetchMCPServers(): Promise<MCPServerInfo[]> {
+  const res = await apiFetch('/api/mcp/servers');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch MCP servers: ${res.status}`);
+  }
+  return res.json();
+}
 
+export async function validateMCPServer(
+  server: Partial<MCPServerInfo>,
+): Promise<{ valid: boolean; server?: Record<string, any>; errors: string[] }> {
+  const res = await apiFetch('/api/mcp/servers/validate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(server),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Validation failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function testMCPServer(
+  server: Partial<MCPServerInfo>,
+): Promise<MCPTestResult> {
+  const res = await apiFetch('/api/mcp/servers/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(server),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Connection test failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function saveMCPServer(
+  server: Partial<MCPServerInfo>,
+): Promise<MCPServerInfo> {
+  const res = await apiFetch('/api/mcp/servers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(server),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to save MCP server: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteMCPServer(serverName: string): Promise<{ name: string; status: string }> {
+  const res = await apiFetch(`/api/mcp/servers/${encodeURIComponent(serverName)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to delete MCP server: ${res.status}`);
+  }
+  return res.json();
+}

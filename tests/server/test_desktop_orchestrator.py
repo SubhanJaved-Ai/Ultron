@@ -82,6 +82,79 @@ class TestDesktopSafetyGuardrails:
         assert not unsafe
         assert "blocked" in msg.lower()
 
+    def test_ordinary_non_deletion_directives_not_incorrectly_gated(self):
+        """1. Ordinary non-deletion directives are not incorrectly routed through destructive-deletion authorization."""
+        safe, msg = DesktopSafetyGuardrails.check_deletion("open spotify and play jazz music")
+        assert safe
+        assert msg == ""
+
+        safe2, msg2 = DesktopSafetyGuardrails.check_deletion("browse to google.com and find recipes")
+        assert safe2
+        assert msg2 == ""
+
+        safe3, msg3 = DesktopSafetyGuardrails.check_deletion("show me system statistics and memory usage")
+        assert safe3
+        assert msg3 == ""
+
+    def test_actual_deletion_requests_remain_protected(self):
+        """2. Actual deletion requests remain protected by the required safety checks."""
+        for kw in ["delete", "remove", "erase", "destroy", "del", "rm", "unlink", "format", "drop", "killall"]:
+            safe, msg = DesktopSafetyGuardrails.check_deletion(f"{kw} user records now")
+            assert not safe, f"Keyword '{kw}' must be caught by deletion guardrail"
+            assert len(msg) > 0
+
+    def test_unauthorized_destructive_actions_gated_by_kernel_effects(self):
+        """3. Unauthorized destructive actions are still rejected or gated correctly across ASK, ASK_WITH_CODE, BLOCK."""
+        from openjarvis.security.kernel import ActionEffect, RiskLevel, SafetyDecision
+
+        with patch("openjarvis.security.kernel.get_safety_kernel") as mock_get_kernel:
+            kernel_mock = MagicMock()
+            mock_get_kernel.return_value = kernel_mock
+
+            # BLOCK effect
+            kernel_mock.evaluate.return_value = SafetyDecision(
+                effect=ActionEffect.BLOCK,
+                risk_level=RiskLevel.HIGH,
+                reason="Direct deletion of files is blocked by risk policy.",
+                action_type="delete",
+                target="important_document.txt",
+            )
+            safe_block, msg_block = DesktopSafetyGuardrails.check_deletion("rm important_document.txt")
+            assert not safe_block
+            assert "blocked" in msg_block.lower()
+
+            # ASK effect
+            kernel_mock.evaluate.return_value = SafetyDecision(
+                effect=ActionEffect.ASK,
+                risk_level=RiskLevel.HIGH,
+                reason="Confirmation required before deleting resource.",
+                action_type="delete",
+                target="database table",
+            )
+            safe_ask, msg_ask = DesktopSafetyGuardrails.check_deletion("delete database table")
+            assert not safe_ask
+            assert "confirmation required" in msg_ask.lower()
+
+            # ASK_WITH_CODE effect
+            kernel_mock.evaluate.return_value = SafetyDecision(
+                effect=ActionEffect.ASK_WITH_CODE,
+                risk_level=RiskLevel.HIGH,
+                reason="Safety code required for deletion authorization.",
+                action_type="delete",
+                target="system backup",
+            )
+            safe_code, msg_code = DesktopSafetyGuardrails.check_deletion("erase system backup")
+            assert not safe_code
+            assert "safety code" in msg_code.lower()
+
+    def test_safety_kernel_errors_fail_closed(self):
+        """4. Errors and missing context do not silently authorize destructive actions."""
+        with patch("openjarvis.security.kernel.get_safety_kernel") as mock_get_kernel:
+            mock_get_kernel.side_effect = RuntimeError("Safety kernel database unreachable")
+            safe, msg = DesktopSafetyGuardrails.check_deletion("format drive C:")
+            assert not safe
+            assert "Safety verification failed" in msg
+
 
 class TestDesktopOrchestrator:
     @patch("subprocess.Popen")

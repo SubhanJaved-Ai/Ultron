@@ -678,6 +678,57 @@ class TestTaskRunnerBranchingIntegration:
             runner.validate_plan(plan_steps, owner_id="alice")
         assert "shell:execute" in str(exc.value)
 
+    def test_branching_nested_skill_approval_cannot_be_bypassed(self, tmp_path: Path):
+        """Verifies that approval gating cannot be bypassed via nested skills or alternative branch paths."""
+        mock_exec = BranchingMockToolExecutor()
+        mgr = SkillManager(tool_executor=mock_exec)
+
+        child_safe = _make_skill("child_safe", [SkillStep(tool_name="echo")], approved=True)
+        child_unapproved = _make_skill("child_unapproved", [SkillStep(tool_name="echo")], approved=False)
+        mgr.register(child_safe)
+        mgr.register(child_unapproved)
+
+        # Nested composite skill containing unapproved child in else branch
+        nested_composite = SkillManifest(
+            name="nested_composite",
+            steps=[
+                SkillStep(
+                    skill_name="child_safe",
+                    condition="{opt} == 'safe'",
+                    else_skill_name="child_unapproved",
+                )
+            ],
+            metadata={"approved": True, "approval_status": "approved"},
+        )
+        mgr.register(nested_composite)
+
+        # Top-level composite pointing to nested_composite
+        top_composite = SkillManifest(
+            name="top_composite",
+            steps=[
+                SkillStep(skill_name="nested_composite")
+            ],
+            metadata={"approved": True, "approval_status": "approved"},
+        )
+        mgr.register(top_composite)
+
+        learner = WorkflowSkillLearner(skill_manager=mgr, skills_dir=tmp_path / "skills")
+        runner = PersistentTaskRunner(skill_manager=mgr)
+        runner.workflow_skill_learner = learner
+
+        plan_steps = [
+            TaskStep(
+                step_id="step_nested",
+                task_id="task_nested",
+                step_index=0,
+                title="Execute Nested Composite",
+                tool_name="top_composite",
+            )
+        ]
+        with pytest.raises(TaskPlanPermissionError) as exc:
+            runner.validate_plan(plan_steps)
+        assert "unapproved" in str(exc.value).lower()
+
 
 # ===========================================================================
 # 5. FastAPI Route Endpoints Tests

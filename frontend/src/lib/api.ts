@@ -1,4 +1,18 @@
-import type { ModelInfo, SavingsData, ServerInfo } from '../types';
+import type {
+  ModelInfo,
+  SavingsData,
+  ServerInfo,
+  TaskRecord,
+  TaskStep,
+  TaskStatus,
+  StepStatus,
+  MemoryFact,
+  MemoryFactsResponse,
+  LearnedSkill,
+  LearnedSkillsResponse,
+  MaintenanceSuggestion,
+  MaintenanceScanResponse,
+} from '../types';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './supabase';
 import { serializeToolCallArguments } from './tool-call';
 
@@ -1251,3 +1265,427 @@ export async function setInferenceSource(
 export const stageInferenceSource = (
   src: InferenceSource & { apiKey?: string },
 ): Promise<void> => setInferenceSource(src, { pending: true });
+
+// ---------------------------------------------------------------------------
+// Persistent Task Runner APIs
+// ---------------------------------------------------------------------------
+
+export async function fetchTasks(status?: string, limit: number = 50): Promise<TaskRecord[]> {
+  const params = new URLSearchParams();
+  if (status && status !== 'all') params.set('status', status);
+  if (limit) params.set('limit', limit.toString());
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+  const res = await apiFetch(`/api/tasks${queryString}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch tasks: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.tasks || [];
+}
+
+export async function fetchTask(taskId: string): Promise<TaskRecord> {
+  const res = await apiFetch(`/api/tasks/${taskId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch task: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.task;
+}
+
+export async function createTask(
+  prompt: string,
+  steps?: any[],
+  metadata?: Record<string, any>,
+  autoRun: boolean = true,
+): Promise<TaskRecord> {
+  const res = await apiFetch(`/api/tasks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, steps, metadata, auto_run: autoRun }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to create task: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.task;
+}
+
+export async function pauseTask(taskId: string): Promise<void> {
+  const res = await apiFetch(`/api/tasks/${taskId}/pause`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to pause task: ${res.status}`);
+  }
+}
+
+export async function resumeTask(taskId: string): Promise<TaskRecord> {
+  const res = await apiFetch(`/api/tasks/${taskId}/resume`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to resume task: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.task;
+}
+
+export async function cancelTask(taskId: string): Promise<void> {
+  const res = await apiFetch(`/api/tasks/${taskId}/cancel`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to cancel task: ${res.status}`);
+  }
+}
+
+export interface ApproveTaskStepPayload {
+  step_id?: string;
+  safety_code?: string;
+  token?: string;
+  resolution?: string;
+  confirm_duplicate_risk?: boolean;
+  tool_args?: Record<string, any>;
+}
+
+export async function approveTaskStep(
+  taskId: string,
+  payload: ApproveTaskStepPayload = {},
+): Promise<void> {
+  const res = await apiFetch(`/api/tasks/${taskId}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to approve step: ${res.status}`);
+  }
+}
+
+export interface SubmitStepInputPayload {
+  step_id?: string;
+  tool_args: Record<string, any>;
+}
+
+export async function submitStepInput(
+  taskId: string,
+  payload: SubmitStepInputPayload,
+): Promise<{
+  status: string;
+  task_id?: string;
+  step_id?: string;
+  requires_approval?: boolean;
+  requires_code?: boolean;
+  resumed?: boolean;
+  decision?: Record<string, any>;
+}> {
+  const res = await apiFetch(`/api/tasks/${taskId}/input`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to submit step input: ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface RejectTaskStepPayload {
+  step_id?: string;
+  reason?: string;
+}
+
+export async function rejectTaskStep(
+  taskId: string,
+  payload: RejectTaskStepPayload = {},
+): Promise<void> {
+  const res = await apiFetch(`/api/tasks/${taskId}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to reject step: ${res.status}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Memory & Skills Control Center API Endpoints
+// ---------------------------------------------------------------------------
+
+export interface FetchMemoryFactsParams {
+  q?: string;
+  category?: string;
+  project?: string;
+  trust?: string;
+  verified?: boolean;
+  source_type?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function fetchMemoryFacts(
+  params: FetchMemoryFactsParams = {},
+): Promise<MemoryFactsResponse> {
+  const query = new URLSearchParams();
+  if (params.q) query.set('q', params.q);
+  if (params.category && params.category !== 'all') query.set('category', params.category);
+  if (params.project && params.project !== 'all') query.set('project', params.project);
+  if (params.trust && params.trust !== 'all') query.set('trust', params.trust);
+  if (params.verified !== undefined) query.set('verified', String(params.verified));
+  if (params.source_type && params.source_type !== 'all') query.set('source_type', params.source_type);
+  if (params.limit) query.set('limit', String(params.limit));
+  if (params.offset) query.set('offset', String(params.offset));
+
+  const qs = query.toString();
+  const path = `/api/memory/facts${qs ? `?${qs}` : ''}`;
+  const res = await apiFetch(path);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch memory facts: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function fetchMemoryFact(memoryId: string): Promise<MemoryFact> {
+  const res = await apiFetch(`/api/memory/facts/${memoryId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch memory '${memoryId}': ${res.status}`);
+  }
+  const data = await res.json();
+  return data.memory;
+}
+
+export interface CreateMemoryFactPayload {
+  text: string;
+  category?: string;
+  project?: string;
+  source?: string;
+  source_type?: string;
+  trust?: 'trusted' | 'auto' | 'untrusted';
+  verified?: boolean;
+  metadata?: Record<string, any>;
+}
+
+export async function createMemoryFact(
+  payload: CreateMemoryFactPayload,
+): Promise<MemoryFact> {
+  const res = await apiFetch('/api/memory/facts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to create memory fact: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.memory;
+}
+
+export interface UpdateMemoryFactPayload {
+  text?: string;
+  category?: string;
+  project?: string;
+  trust?: string;
+  verified?: boolean;
+  source_type?: string;
+  metadata?: Record<string, any>;
+}
+
+export async function updateMemoryFact(
+  memoryId: string,
+  payload: UpdateMemoryFactPayload,
+): Promise<MemoryFact> {
+  const res = await apiFetch(`/api/memory/facts/${memoryId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to update memory '${memoryId}': ${res.status}`);
+  }
+  const data = await res.json();
+  return data.memory;
+}
+
+export async function deleteMemoryFact(memoryId: string): Promise<void> {
+  const res = await apiFetch(`/api/memory/facts/${memoryId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to delete memory '${memoryId}': ${res.status}`);
+  }
+}
+
+export interface FetchLearnedSkillsParams {
+  status?: string;
+  q?: string;
+}
+
+export async function fetchLearnedSkills(
+  params: FetchLearnedSkillsParams = {},
+): Promise<LearnedSkillsResponse> {
+  const query = new URLSearchParams();
+  if (params.status && params.status !== 'all') query.set('status', params.status);
+  if (params.q) query.set('q', params.q);
+
+  const qs = query.toString();
+  const path = `/api/skills/learned${qs ? `?${qs}` : ''}`;
+  const res = await apiFetch(path);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch learned skills: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function fetchLearnedSkillDetail(skillName: string): Promise<LearnedSkill> {
+  const res = await apiFetch(`/api/skills/learned/${skillName}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch skill '${skillName}': ${res.status}`);
+  }
+  const data = await res.json();
+  return data.skill;
+}
+
+export async function approveLearnedSkill(skillName: string): Promise<LearnedSkill> {
+  const res = await apiFetch(`/api/skills/learned/${skillName}/approve`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to approve skill '${skillName}': ${res.status}`);
+  }
+  const data = await res.json();
+  return data.skill;
+}
+
+export async function rejectLearnedSkill(
+  skillName: string,
+  reason?: string,
+): Promise<LearnedSkill> {
+  const res = await apiFetch(`/api/skills/learned/${skillName}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to reject skill '${skillName}': ${res.status}`);
+  }
+  const data = await res.json();
+  return data.skill;
+}
+
+export async function disableLearnedSkill(
+  skillName: string,
+  reason?: string,
+): Promise<LearnedSkill> {
+  const res = await apiFetch(`/api/skills/learned/${skillName}/disable`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to disable skill '${skillName}': ${res.status}`);
+  }
+  const data = await res.json();
+  return data.skill;
+}
+
+export async function enableLearnedSkill(skillName: string): Promise<LearnedSkill> {
+  const res = await apiFetch(`/api/skills/learned/${skillName}/enable`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to enable skill '${skillName}': ${res.status}`);
+  }
+  const data = await res.json();
+  return data.skill;
+}
+
+// ---------------------------------------------------------------------------
+// Memory Maintenance & Consolidation Endpoints
+// ---------------------------------------------------------------------------
+
+export async function scanMemoryMaintenance(project?: string): Promise<MaintenanceScanResponse> {
+  const query = new URLSearchParams();
+  if (project && project !== 'all') query.set('project', project);
+  const qs = query.toString();
+  const res = await apiFetch(`/api/memory/maintenance/scan${qs ? `?${qs}` : ''}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Maintenance scan failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface FetchMaintenanceSuggestionsParams {
+  project?: string;
+  issue_type?: string;
+  status?: string;
+}
+
+export async function fetchMaintenanceSuggestions(
+  params: FetchMaintenanceSuggestionsParams = {},
+): Promise<MaintenanceScanResponse> {
+  const query = new URLSearchParams();
+  if (params.project && params.project !== 'all') query.set('project', params.project);
+  if (params.issue_type && params.issue_type !== 'all') query.set('issue_type', params.issue_type);
+  if (params.status && params.status !== 'all') query.set('status', params.status);
+
+  const qs = query.toString();
+  const res = await apiFetch(`/api/memory/maintenance/suggestions${qs ? `?${qs}` : ''}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch maintenance suggestions: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function approveMaintenanceSuggestion(
+  suggestionId: string,
+  payload?: { custom_text?: string; target_trust?: string },
+): Promise<any> {
+  const res = await apiFetch(`/api/memory/maintenance/suggestions/${suggestionId}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to approve suggestion: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function dismissMaintenanceSuggestion(
+  suggestionId: string,
+  payload?: { reason?: string },
+): Promise<any> {
+  const res = await apiFetch(`/api/memory/maintenance/suggestions/${suggestionId}/dismiss`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to dismiss suggestion: ${res.status}`);
+  }
+  return res.json();
+}
+
+
+

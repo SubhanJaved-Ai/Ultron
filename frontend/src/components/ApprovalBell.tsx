@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bell, CheckCircle, ChevronDown, ChevronUp, Clock, XCircle } from 'lucide-react';
+import { AlertTriangle, Bell, CheckCircle, ChevronDown, ChevronUp, Clock, XCircle } from 'lucide-react';
 import { approveAction, denyAction, fetchPendingApprovals } from '../lib/api';
 import type { PendingApproval } from '../lib/api';
 
@@ -25,6 +25,7 @@ export function ApprovalBell() {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [processing, setProcessing] = useState<Record<string, boolean>>({});
+  const [confirmedDuplicateRisk, setConfirmedDuplicateRisk] = useState<Record<string, boolean>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -193,6 +194,45 @@ export function ApprovalBell() {
                       {action.description}
                     </p>
 
+                    {/* Duplicate Action / Force Retry Warning */}
+                    {(Boolean(action.payload?.duplicate_action_risk) ||
+                      Boolean(action.payload?.force_retry_warning) ||
+                      Boolean(action.payload?.uncertain_external_action)) && (
+                      <div
+                        className="mb-2.5 p-2 rounded-lg text-[11px] leading-relaxed flex flex-col gap-1"
+                        style={{
+                          background: 'color-mix(in srgb, var(--color-warning) 12%, transparent)',
+                          border: '1px solid color-mix(in srgb, var(--color-warning) 25%, transparent)',
+                          color: 'var(--color-warning)',
+                        }}
+                      >
+                        <span className="font-semibold flex items-center gap-1">
+                          <AlertTriangle size={12} /> Force-Retry Warning: Duplicate Side Effects
+                        </span>
+                        <span style={{ color: 'var(--color-text)' }}>
+                          {String(
+                            action.payload?.duplicate_action_risk ||
+                            action.payload?.force_retry_warning ||
+                            'Retrying may repeat an external action and cause duplicate messages, requests, or other side effects.'
+                          )}
+                        </span>
+                        <label className="flex items-center gap-2 cursor-pointer mt-1 pt-1 border-t border-[var(--color-border)] text-[10px]">
+                          <input
+                            type="checkbox"
+                            checked={!!confirmedDuplicateRisk[action.id]}
+                            onChange={e =>
+                              setConfirmedDuplicateRisk(prev => ({
+                                ...prev,
+                                [action.id]: e.target.checked,
+                              }))
+                            }
+                            className="rounded cursor-pointer"
+                          />
+                          <span className="font-medium">Confirm operator authorization of duplicate risk</span>
+                        </label>
+                      </div>
+                    )}
+
                     {/* Expandable payload */}
                     {hasPayload && (
                       <button
@@ -224,34 +264,46 @@ export function ApprovalBell() {
                     )}
 
                     {/* Approve / Deny */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleApprove(action.id)}
-                        disabled={isLoading}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity cursor-pointer disabled:opacity-40"
-                        style={{
-                          background: 'color-mix(in srgb, var(--color-success) 12%, transparent)',
-                          color: 'var(--color-success)',
-                          border: '1px solid color-mix(in srgb, var(--color-success) 22%, transparent)',
-                        }}
-                      >
-                        <CheckCircle size={12} />
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleDeny(action.id)}
-                        disabled={isLoading}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity cursor-pointer disabled:opacity-40"
-                        style={{
-                          background: 'color-mix(in srgb, var(--color-error) 12%, transparent)',
-                          color: 'var(--color-error)',
-                          border: '1px solid color-mix(in srgb, var(--color-error) 22%, transparent)',
-                        }}
-                      >
-                        <XCircle size={12} />
-                        Deny
-                      </button>
-                    </div>
+                    {(() => {
+                      const hasDupRisk = Boolean(
+                        action.payload?.duplicate_action_risk ||
+                        action.payload?.force_retry_warning ||
+                        action.payload?.uncertain_external_action
+                      );
+                      const isBlockedByConfirm = hasDupRisk && !confirmedDuplicateRisk[action.id];
+
+                      return (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleApprove(action.id)}
+                            disabled={isLoading || isBlockedByConfirm}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity cursor-pointer disabled:opacity-40"
+                            title={isBlockedByConfirm ? "Operator confirmation of duplicate risk required" : "Approve action"}
+                            style={{
+                              background: 'color-mix(in srgb, var(--color-success) 12%, transparent)',
+                              color: 'var(--color-success)',
+                              border: '1px solid color-mix(in srgb, var(--color-success) 22%, transparent)',
+                            }}
+                          >
+                            <CheckCircle size={12} />
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleDeny(action.id)}
+                            disabled={isLoading}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity cursor-pointer disabled:opacity-40"
+                            style={{
+                              background: 'color-mix(in srgb, var(--color-error) 12%, transparent)',
+                              color: 'var(--color-error)',
+                              border: '1px solid color-mix(in srgb, var(--color-error) 22%, transparent)',
+                            }}
+                          >
+                            <XCircle size={12} />
+                            Deny
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })

@@ -19,6 +19,8 @@ import {
   Database,
   DollarSign,
   Orbit,
+  ListTodo,
+  Brain,
 } from 'lucide-react';
 import { ConversationList } from './ConversationList';
 import { useAppStore } from '../../lib/store';
@@ -100,6 +102,8 @@ export function Sidebar() {
 
   const navItems = [
     { path: '/', icon: MessageSquare, label: 'Chat' },
+    { path: '/tasks', icon: ListTodo, label: 'Tasks' },
+    { path: '/memory-skills', icon: Brain, label: 'Memory & Skills' },
     { path: '/hologram', icon: Orbit, label: '3D Hologram' },
     { path: '/dashboard', icon: BarChart3, label: 'Dashboard' },
     { path: '/data-sources', icon: Database, label: 'Data Sources' },

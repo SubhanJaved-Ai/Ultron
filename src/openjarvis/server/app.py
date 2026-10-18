@@ -26,6 +26,8 @@ from openjarvis.server.node_routes import node_router
 from openjarvis.server.research_router import router as research_router
 from openjarvis.server.routes import router
 from openjarvis.server.safety_routes import safety_router
+from openjarvis.server.task_routes import task_router
+from openjarvis.server.memory_skills_routes import memory_skills_router
 from openjarvis.server.upload_router import router as upload_router
 
 logger = logging.getLogger(__name__)
@@ -369,6 +371,29 @@ def create_app(
         or os.environ.get("OPENJARVIS_MULTI_USER", "").strip().lower()
         in ("1", "true", "yes")
     )
+    # Initialize Persistent Task Runner
+    try:
+        from openjarvis.tasks.runner import PersistentTaskRunner
+
+        mem_store = getattr(memory_service, "_store", None)
+        if mem_store is None:
+            try:
+                from openjarvis.memory.store import create_fact_store
+
+                mem_store = create_fact_store()
+            except Exception:
+                mem_store = None
+
+        app.state.task_runner = PersistentTaskRunner(
+            bus=bus,
+            agent=agent,
+            capability_policy=capability_policy,
+            auto_recover=True,
+            memory_store=mem_store,
+        )
+    except Exception as exc:
+        logger.debug("PersistentTaskRunner init skipped: %s", exc)
+        app.state.task_runner = None
 
     @app.on_event("shutdown")
     async def _shutdown_managed_runtime() -> None:
@@ -563,6 +588,10 @@ def create_app(
     app.include_router(safety_router)
     # Global Emergency Stop — TSK-P5-01
     app.include_router(cancellation_router)
+    # Persistent Task Runner
+    app.include_router(task_router)
+    # Memory & Skills Control Center
+    app.include_router(memory_skills_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

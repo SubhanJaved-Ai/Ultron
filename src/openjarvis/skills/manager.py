@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from openjarvis.core.events import EventBus
 from openjarvis.core.paths import get_config_dir
@@ -457,18 +457,6 @@ class SkillManager:
         )
         return validate_composite_skill(manifest, self, max_depth=max_depth)
 
-    def get_ledger(self) -> Optional[Any]:
-        """Return the SkillLedger associated with this manager's storage."""
-        if not hasattr(self, "_ledger_instance") or self._ledger_instance is None:
-            try:
-                from openjarvis.skills.ledger import SkillLedger
-
-                skills_dir = getattr(self, "_skills_dir", None) or Path("./skills")
-                self._ledger_instance = SkillLedger(skills_dir=skills_dir)
-            except Exception:
-                self._ledger_instance = None
-        return self._ledger_instance
-
 
     # ------------------------------------------------------------------
     # Configuration
@@ -536,12 +524,22 @@ class SkillManager:
         self._skills.pop(name, None)
         return paths
 
-    def get_ledger(self, skills_dir: Optional[Path] = None) -> Any:
+    def get_ledger(self, skills_dir: Optional[Path] = None) -> Optional[Any]:
         """Return the SkillLedger instance for managing skill mutations and rollbacks."""
-        from openjarvis.skills.ledger import SkillLedger
+        if skills_dir is not None:
+            from openjarvis.skills.ledger import SkillLedger
 
-        target_dir = skills_dir or (get_config_dir() / "skills")
-        return SkillLedger(skills_dir=target_dir)
+            return SkillLedger(skills_dir=skills_dir)
+
+        if not hasattr(self, "_ledger_instance") or self._ledger_instance is None:
+            try:
+                from openjarvis.skills.ledger import SkillLedger
+
+                target_dir = getattr(self, "_skills_dir", None) or (get_config_dir() / "skills")
+                self._ledger_instance = SkillLedger(skills_dir=target_dir)
+            except Exception:
+                self._ledger_instance = None
+        return self._ledger_instance
 
     def patch_skill(
         self,

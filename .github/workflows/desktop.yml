@@ -12,6 +12,11 @@ on:
       - '.github/workflows/desktop.yml'
   workflow_dispatch:
     inputs:
+      build_only:
+        description: 'Validate packaging builds only without publishing release artifacts'
+        required: false
+        default: false
+        type: boolean
       tag:
         description: 'Tag to build (e.g. v1.0.2.dev500). If set, autotag dispatches use this. github.ref still controls the checkout.'
         required: false
@@ -229,7 +234,7 @@ jobs:
   # `desktop-latest` channel the installed app polls is never cleaned here.)
   clean-release:
     needs: [validate, validate-windows]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !inputs.build_only
     runs-on: ubuntu-latest
     steps:
       - name: Delete old assets from desktop-edge
@@ -266,7 +271,7 @@ jobs:
 
   build-and-release:
     needs: [validate, validate-windows, clean-release]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !inputs.build_only
     outputs:
       tag: ${{ steps.release-info.outputs.tag }}
       tauri_version: ${{ steps.release-info.outputs.tauri_version }}
@@ -480,10 +485,10 @@ jobs:
             # base comes from the latest plain release tag (vX.Y.Z), matching
             # autotag.yml. .dev/.rc/desktop-* tags are excluded.
             LATEST_RELEASE=$(git tag --list 'v[0-9]*' --merged HEAD \
-              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
             if [[ -z "$LATEST_RELEASE" ]]; then
-              echo "::error::No release tag (vX.Y.Z) reachable from HEAD"
-              exit 1
+              echo "No vX.Y.Z release tag reachable from HEAD; using v0.1.0 as baseline"
+              LATEST_RELEASE="v0.1.0"
             fi
             BASE="${LATEST_RELEASE#v}"
             MAJOR=$(echo "$BASE" | cut -d. -f1)

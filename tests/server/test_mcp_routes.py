@@ -238,7 +238,7 @@ class TestMCPRoutes:
             "del",
         ]
         for cmd in dangerous_commands:
-            payload = {"name": f"cmd-test", "command": cmd, "args": ["--help"]}
+            payload = {"name": "cmd-test", "command": cmd, "args": ["--help"]}
             res = client.post("/api/mcp/servers/validate", json=payload)
             assert res.status_code == 200
             data = res.json()
@@ -334,9 +334,10 @@ class TestMCPRoutes:
     def test_authorization_non_admin_forbidden_in_multi_user(self, monkeypatch: pytest.MonkeyPatch):
         """Security: untrusted/non-admin users cannot configure or test MCP servers, nor access mock server."""
         monkeypatch.setenv("OPENJARVIS_ENABLE_MCP_MOCK_SERVER", "true")
-        from openjarvis.auth.models import Role, User
         from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.requests import Request
+
+        from openjarvis.auth.models import Role, User
 
         app = create_app()
 

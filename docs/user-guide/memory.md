@@ -366,3 +366,31 @@ print(f"Backend: {stats['backend']}, Documents: {stats.get('count', 'N/A')}")
 # Clean up
 j.close()
 ```
+
+---
+
+## Memory Consolidation & Maintenance (Control Center)
+
+Ultron provides an on-demand memory maintenance and consolidation engine accessible via the web Control Center at `/memory-skills` (Maintenance tab) and the REST API.
+
+### Key Capabilities
+
+1. **Deterministic Duplicate Detection:** Groups identical or near-duplicate facts using normalized token overlap and Jaccard similarity ($\ge 0.60$) within the same project scope. Proposes safe deduplication or merge.
+2. **Contradictory Fact Detection:** Identifies semantic contradictions between assertions (e.g., affirmative vs. negative statements on identical topics or conflicting runtime ports/versions). Proposes manual review or superseding.
+3. **Outdated Fact Identification:** Detects superseded configurations, version increments, or obsolete project metadata. Proposes superseding the stale fact with the newest assertion.
+4. **Human-in-the-Loop Authorization:** Zero automated deletions or mutations. All proposed actions (`merge`, `supersede`, `delete`, `mark_for_review`) require operator review and explicit approval or dismissal with reason tracking.
+5. **Security & Quarantine Invariants:**
+   - **Strict Project Isolation:** Memories are strictly scoped by `project_id`. Scan and merge operations cannot bridge across projects.
+   - **Quarantine Protection:** Untrusted or quarantined memories can never be promoted to trusted status through consolidation or merging.
+   - **Secret Scrubbing:** Any merged statement edited by an operator is automatically scrubbed for credentials and API keys before saving.
+   - **Audit Provenance:** All approval and dismissal actions record timestamp, operator identity, original source provenance, and reason.
+
+### REST API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/memory/maintenance/scan` | Initiates an on-demand scan across all or project-specific memories. |
+| `GET` | `/api/memory/maintenance/suggestions` | Retrieves pending maintenance suggestions with optional filters (`issue_type`, `status`, `project_id`). |
+| `GET` | `/api/memory/maintenance/suggestions/{id}` | Fetches details and memory snapshots for a specific suggestion. |
+| `POST` | `/api/memory/maintenance/suggestions/{id}/approve` | Approves a suggestion (with optional custom merged statement). |
+| `POST` | `/api/memory/maintenance/suggestions/{id}/dismiss` | Dismisses a suggestion with an operator reason. |

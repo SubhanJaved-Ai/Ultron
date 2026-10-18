@@ -22,6 +22,14 @@ from openjarvis.memory.store import (
     load_configured_facts,
 )
 
+from openjarvis.memory.maintenance import (
+    MaintenanceIssueType,
+    MaintenanceSuggestion,
+    MemoryMaintenanceManager,
+    ProposedAction,
+    SuggestionStatus,
+)
+
 __all__ = [
     "Fact",
     "FactStore",
@@ -32,4 +40,9 @@ __all__ = [
     "create_fact_store",
     "load_configured_facts",
     "publish_completed_exchange",
+    "MemoryMaintenanceManager",
+    "MaintenanceSuggestion",
+    "MaintenanceIssueType",
+    "ProposedAction",
+    "SuggestionStatus",
 ]

@@ -15,6 +15,7 @@ from openjarvis.skills.loader import (
     load_skill_directory,
     load_skill_markdown,
 )
+from openjarvis.skills.learning import SkillApprovalStatus, WorkflowSkillLearner
 from openjarvis.skills.manager import SkillManager
 from openjarvis.skills.parser import SkillParseError, SkillParser
 from openjarvis.skills.tool_adapter import SkillTool
@@ -25,6 +26,7 @@ __all__ = [
     "DependencyCycleError",
     "DepthExceededError",
     "ImportResult",
+    "SkillApprovalStatus",
     "SkillExecutor",
     "SkillImporter",
     "SkillManager",
@@ -36,6 +38,7 @@ __all__ = [
     "SkillTool",
     "TOOL_TRANSLATION",
     "ToolTranslator",
+    "WorkflowSkillLearner",
     "build_dependency_graph",
     "compute_capability_union",
     "discover_skills",

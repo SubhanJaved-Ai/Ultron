@@ -22,6 +22,7 @@ from openjarvis.learning.routing.router import (
     HeuristicRouter,
     build_routing_context,
 )
+from openjarvis.learning.experience import ExperienceLearner
 from openjarvis.learning.training.data import TrainingDataMiner
 from openjarvis.learning.training.lora import HAS_TORCH, LoRATrainer, LoRATrainingConfig
 
@@ -70,6 +71,7 @@ def ensure_registered() -> None:
 __all__ = [
     "AgentConfigEvolver",
     "ComplexityQueryAnalyzer",
+    "ExperienceLearner",
     "HAS_TORCH",
     "HeuristicRewardFunction",
     "HeuristicRouter",

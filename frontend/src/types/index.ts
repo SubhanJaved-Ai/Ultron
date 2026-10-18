@@ -364,8 +364,36 @@ export interface LearnedSkill {
   steps: SkillStepInfo[];
   health: SkillHealthInfo;
   validation: SkillValidationInfo;
+  is_composite?: boolean;
   metadata: Record<string, any>;
   audit_history?: SkillLedgerRecord[];
+}
+
+export interface CreateCompositeSkillStep {
+  tool_name?: string;
+  skill_name?: string;
+  arguments_template?: string;
+  output_key?: string;
+}
+
+export interface CreateCompositeSkillRequest {
+  name: string;
+  description?: string;
+  steps: CreateCompositeSkillStep[];
+  require_approval?: boolean;
+  tags?: string[];
+}
+
+export interface ValidateCompositeSkillResponse {
+  valid: boolean;
+  errors: string[];
+  required_capabilities: string[];
+  dependencies: string[];
+}
+
+export interface CreateCompositeSkillResponse {
+  status: string;
+  skill: LearnedSkill;
 }
 
 export interface LearnedSkillsResponse {

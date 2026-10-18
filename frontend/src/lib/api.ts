@@ -12,6 +12,9 @@ import type {
   LearnedSkillsResponse,
   MaintenanceSuggestion,
   MaintenanceScanResponse,
+  CreateCompositeSkillRequest,
+  ValidateCompositeSkillResponse,
+  CreateCompositeSkillResponse,
 } from '../types';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './supabase';
 import { serializeToolCallArguments } from './tool-call';
@@ -1612,6 +1615,36 @@ export async function enableLearnedSkill(skillName: string): Promise<LearnedSkil
   }
   const data = await res.json();
   return data.skill;
+}
+
+export async function validateCompositeSkill(
+  payload: CreateCompositeSkillRequest,
+): Promise<ValidateCompositeSkillResponse> {
+  const res = await apiFetch('/api/skills/composite/validate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Validation request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function createCompositeSkill(
+  payload: CreateCompositeSkillRequest,
+): Promise<CreateCompositeSkillResponse> {
+  const res = await apiFetch('/api/skills/composite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to create composite skill: ${res.status}`);
+  }
+  return res.json();
 }
 
 // ---------------------------------------------------------------------------

@@ -30,6 +30,8 @@ import {
   Copy,
   Wrench,
   Activity,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -43,6 +45,8 @@ import {
   rejectLearnedSkill,
   disableLearnedSkill,
   enableLearnedSkill,
+  validateCompositeSkill,
+  createCompositeSkill,
   scanMemoryMaintenance,
   fetchMaintenanceSuggestions,
   approveMaintenanceSuggestion,
@@ -56,6 +60,9 @@ import type {
   SkillLedgerRecord,
   MaintenanceSuggestion,
   MaintenanceScanResponse,
+  CreateCompositeSkillStep,
+  CreateCompositeSkillRequest,
+  ValidateCompositeSkillResponse,
 } from '../types';
 
 export function MemoryTrustBadge({ trust }: { trust: string }) {
@@ -188,11 +195,25 @@ export function StepDAGPipeline({
       {steps.map((st, i) => (
         <div key={i} className="p-3 rounded-lg border border-slate-800 bg-slate-900/70 flex flex-col gap-1.5 text-xs">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-sky-300 flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">
+            <span className="font-semibold flex items-center gap-1.5">
+              <span
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  st.skill_name ? 'bg-purple-500/20 text-purple-400' : 'bg-sky-500/20 text-sky-400'
+                }`}
+              >
                 {i + 1}
               </span>
-              Tool: <code className="text-slate-100">{st.tool_name || st.skill_name}</code>
+              {st.skill_name ? (
+                <>
+                  <span className="text-purple-300">Sub-Skill:</span>{' '}
+                  <code className="text-purple-200">{st.skill_name}</code>
+                </>
+              ) : (
+                <>
+                  <span className="text-sky-300">Tool:</span>{' '}
+                  <code className="text-slate-100">{st.tool_name}</code>
+                </>
+              )}
             </span>
             {st.output_key && (
               <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">
@@ -313,6 +334,702 @@ export function ProposedActionBadge({ action }: { action: string }) {
   );
 }
 
+export function SkillCompositionValidationBanner({
+  validationResult,
+}: {
+  validationResult: ValidateCompositeSkillResponse;
+}) {
+  return (
+    <div
+      className={`p-3 rounded-xl border flex flex-col gap-2 ${
+        validationResult.valid
+          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+          : 'bg-rose-500/10 border-rose-500/40 text-rose-300'
+      }`}
+    >
+      <div className="flex items-center justify-between text-xs font-bold">
+        <span className="flex items-center gap-1.5">
+          {validationResult.valid ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+          <span>{validationResult.valid ? 'Validation Passed' : 'Validation Failed'}</span>
+        </span>
+        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-black/40">
+          {validationResult.valid ? 'Safe to Submit' : 'Action Required'}
+        </span>
+      </div>
+
+      {validationResult.valid ? (
+        <div className="flex flex-col gap-1.5 text-xs">
+          <p className="text-[11px] text-slate-300">
+            Cycle detection confirmed no circular dependencies, recursion depth is within limits, and all child skills are approved.
+          </p>
+          {validationResult.required_capabilities.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 mt-1">
+              <span className="text-[10px] text-slate-400">Aggregated Capabilities:</span>
+              {validationResult.required_capabilities.map((cap) => (
+                <span
+                  key={cap}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                >
+                  {cap}
+                </span>
+              ))}
+            </div>
+          )}
+          {validationResult.dependencies.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-[10px] text-slate-400">Skill Dependencies:</span>
+              {validationResult.dependencies.map((dep) => (
+                <span
+                  key={dep}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                >
+                  {dep}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1 text-[11px]">
+          <span>Execution and creation are blocked due to validation issues:</span>
+          <ul className="list-disc list-inside space-y-0.5 font-mono text-[10.5px]">
+            {validationResult.errors.map((err, i) => (
+              <li key={i}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SkillCompositionDraftCard({
+  skill,
+  onReset,
+  onClose,
+}: {
+  skill: LearnedSkill;
+  onReset?: () => void;
+  onClose?: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between border-b pb-3 border-slate-800">
+        <div className="flex items-center gap-2">
+          <Layers className="text-purple-400" size={20} />
+          <h2 className="text-base font-bold text-slate-100">Skill Composer</h2>
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            aria-label="Close Composer"
+            className="text-slate-400 hover:text-slate-200 cursor-pointer"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+          <CheckCircle2 size={18} />
+          <span>Composite Skill Draft Created Successfully</span>
+        </div>
+        <p className="text-xs text-slate-300">
+          Workflow <code className="text-white font-mono bg-slate-900 px-1.5 py-0.5 rounded">{skill.name}</code> has been registered with {skill.steps_count} workflow steps.
+        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-xs text-slate-400">Current Status:</span>
+          <SkillStatusBadge status={skill.approval_status} />
+        </div>
+        {skill.required_capabilities && skill.required_capabilities.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            <span className="text-[11px] text-slate-400">Inherited Capabilities:</span>
+            {skill.required_capabilities.map((cap) => (
+              <span
+                key={cap}
+                className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30"
+              >
+                {cap}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs mt-2">
+          <ShieldAlert size={16} className="shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold">Security &amp; Authorization Policy:</span> Newly composed skills are placed into <code className="text-amber-200 font-mono">pending_review</code> status. Execution is prohibited until an operator authorizes the skill in the Learned Skills review queue.
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 pt-2">
+        {onReset && (
+          <button
+            onClick={onReset}
+            className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium cursor-pointer"
+          >
+            Compose Another Skill
+          </button>
+        )}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium cursor-pointer"
+          >
+            Done
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export interface SkillComposerProps {
+  availableSkills: LearnedSkill[];
+  onSkillCreated?: (skill: LearnedSkill) => void;
+  onClose?: () => void;
+}
+
+export function SkillComposer({
+  availableSkills,
+  onSkillCreated,
+  onClose,
+}: SkillComposerProps) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [tags, setTags] = useState('composition, workflow');
+  const [requireApproval, setRequireApproval] = useState(true);
+  const [steps, setSteps] = useState<CreateCompositeSkillStep[]>([
+    {
+      skill_name: '',
+      arguments_template: '{}',
+      output_key: 'step1_out',
+    },
+  ]);
+
+  const [validationResult, setValidationResult] = useState<ValidateCompositeSkillResponse | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [createdSkill, setCreatedSkill] = useState<LearnedSkill | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const approvedSkills = useMemo(
+    () => availableSkills.filter((s) => s.approval_status === 'approved' && !s.disabled),
+    [availableSkills],
+  );
+
+  const otherSkills = useMemo(
+    () => availableSkills.filter((s) => s.approval_status !== 'approved' || s.disabled),
+    [availableSkills],
+  );
+
+  const getPrecedingOutputs = (stepIdx: number) => {
+    const outputs: string[] = [];
+    for (let i = 0; i < stepIdx; i++) {
+      const st = steps[i];
+      if (st?.output_key && st.output_key.trim()) {
+        outputs.push(st.output_key.trim());
+      }
+    }
+    return outputs;
+  };
+
+  const handleSelectSkill = (idx: number, skillName: string) => {
+    setValidationResult(null);
+    setValidationError(null);
+    const updated = [...steps];
+    const existing = updated[idx];
+    if (!existing) return;
+    updated[idx] = {
+      ...existing,
+      skill_name: skillName,
+      arguments_template:
+        existing.arguments_template && existing.arguments_template !== '{}'
+          ? existing.arguments_template
+          : '{}',
+    };
+    setSteps(updated);
+  };
+
+  const handleAddStep = () => {
+    setValidationResult(null);
+    setValidationError(null);
+    setSteps([
+      ...steps,
+      {
+        skill_name: '',
+        arguments_template: '{}',
+        output_key: `step${steps.length + 1}_out`,
+      },
+    ]);
+  };
+
+  const handleRemoveStep = (idx: number) => {
+    if (steps.length <= 1) {
+      toast.error('A composite skill requires at least one workflow step.');
+      return;
+    }
+    setValidationResult(null);
+    setValidationError(null);
+    setSteps(steps.filter((_, i) => i !== idx));
+  };
+
+  const handleMoveUp = (idx: number) => {
+    if (idx === 0) return;
+    setValidationResult(null);
+    setValidationError(null);
+    const updated = [...steps];
+    const prev = updated[idx - 1];
+    const curr = updated[idx];
+    if (prev && curr) {
+      updated[idx - 1] = curr;
+      updated[idx] = prev;
+      setSteps(updated);
+    }
+  };
+
+  const handleMoveDown = (idx: number) => {
+    if (idx >= steps.length - 1) return;
+    setValidationResult(null);
+    setValidationError(null);
+    const updated = [...steps];
+    const curr = updated[idx];
+    const next = updated[idx + 1];
+    if (curr && next) {
+      updated[idx] = next;
+      updated[idx + 1] = curr;
+      setSteps(updated);
+    }
+  };
+
+  const handleTemplateChange = (idx: number, val: string) => {
+    setValidationResult(null);
+    setValidationError(null);
+    const updated = [...steps];
+    const existing = updated[idx];
+    if (!existing) return;
+    updated[idx] = { ...existing, arguments_template: val };
+    setSteps(updated);
+  };
+
+  const handleOutputKeyChange = (idx: number, val: string) => {
+    setValidationResult(null);
+    setValidationError(null);
+    const updated = [...steps];
+    const existing = updated[idx];
+    if (!existing) return;
+    updated[idx] = { ...existing, output_key: val };
+    setSteps(updated);
+  };
+
+  const handleInsertToken = (stepIdx: number, token: string) => {
+    setValidationResult(null);
+    setValidationError(null);
+    const current = steps[stepIdx]?.arguments_template || '{}';
+    let nextVal = current;
+    if (current.trim() === '{}') {
+      nextVal = `{\n  "input": "{${token}}"\n}`;
+    } else {
+      nextVal = current + ` "{${token}}"`;
+    }
+    handleTemplateChange(stepIdx, nextVal);
+  };
+
+  const runValidation = async (): Promise<ValidateCompositeSkillResponse | null> => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setValidationError('Skill name is required.');
+      return null;
+    }
+    if (steps.length === 0) {
+      setValidationError('At least one workflow step is required.');
+      return null;
+    }
+    const hasEmpty = steps.some((s) => !s.skill_name || !s.skill_name.trim());
+    if (hasEmpty) {
+      setValidationError('All workflow steps must select a child skill.');
+      return null;
+    }
+
+    setValidating(true);
+    setValidationError(null);
+    try {
+      const parsedTags = tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const res = await validateCompositeSkill({
+        name: trimmedName,
+        description: description.trim(),
+        steps,
+        require_approval: requireApproval,
+        tags: parsedTags,
+      });
+      setValidationResult(res);
+      if (!res.valid) {
+        setValidationError(res.errors.join('; '));
+      }
+      return res;
+    } catch (err: any) {
+      const msg = err.message || 'Validation request failed';
+      setValidationError(msg);
+      setValidationResult({
+        valid: false,
+        errors: [msg],
+        required_capabilities: [],
+        dependencies: [],
+      });
+      return null;
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    const valRes = await runValidation();
+    if (!valRes || !valRes.valid) {
+      toast.error('Resolve validation errors before creating the composite skill.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const parsedTags = tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const res = await createCompositeSkill({
+        name: name.trim(),
+        description: description.trim(),
+        steps,
+        require_approval: true, // Always enforce approval requirement on newly created composite skills
+        tags: parsedTags,
+      });
+      setCreatedSkill(res.skill);
+      toast.success(`Composite skill '${res.skill.name}' created in pending review status.`);
+      if (onSkillCreated) {
+        onSkillCreated(res.skill);
+      }
+    } catch (err: any) {
+      const msg = err.message || 'Failed to create composite skill';
+      toast.error(msg);
+      setValidationError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (createdSkill) {
+    return (
+      <SkillCompositionDraftCard
+        skill={createdSkill}
+        onReset={() => {
+          setCreatedSkill(null);
+          setName('');
+          setDescription('');
+          setSteps([{ skill_name: '', arguments_template: '{}', output_key: 'step1_out' }]);
+          setValidationResult(null);
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b pb-3 border-slate-800">
+        <div>
+          <div className="flex items-center gap-2">
+            <Layers className="text-purple-400" size={20} />
+            <h2 className="text-base font-bold text-slate-100">Skill Composer</h2>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              Safe Composition
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Combine multiple approved skills into a larger reusable workflow.
+          </p>
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            aria-label="Close Composer"
+            className="text-slate-400 hover:text-slate-200 cursor-pointer"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {/* Form Fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div className="flex flex-col gap-1.5">
+          <label className="font-semibold text-slate-200">
+            Composite Skill Name *
+          </label>
+          <input
+            type="text"
+            aria-label="Composite Skill Name"
+            placeholder="e.g. repo_audit_and_cleanup"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setValidationResult(null);
+            }}
+            className="p-2.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-100 outline-none text-xs font-mono"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="font-semibold text-slate-200">Tags</label>
+          <input
+            type="text"
+            aria-label="Skill Tags"
+            placeholder="e.g. security, audit, composite"
+            value={tags}
+            onChange={(e) => {
+              setTags(e.target.value);
+              setValidationResult(null);
+            }}
+            className="p-2.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-100 outline-none text-xs"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <label className="font-semibold text-slate-200">Description</label>
+          <textarea
+            aria-label="Composite Skill Description"
+            placeholder="Describe what this composite workflow accomplishes..."
+            value={description}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setValidationResult(null);
+            }}
+            rows={2}
+            className="p-2.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-100 outline-none text-xs resize-none"
+          />
+        </div>
+      </div>
+
+      {/* Steps Pipeline Builder */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+            <Sparkles size={14} className="text-purple-400" />
+            <span>Workflow Steps Pipeline ({steps.length} Step{steps.length !== 1 ? 's' : ''})</span>
+          </h3>
+          <button
+            onClick={handleAddStep}
+            aria-label="Add Step"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-colors cursor-pointer"
+          >
+            <Plus size={12} />
+            <span>Add Step</span>
+          </button>
+        </div>
+
+        {/* Step Cards List */}
+        <div className="flex flex-col gap-3 max-h-[42vh] overflow-y-auto pr-1">
+          {steps.map((st, idx) => {
+            const preceding = getPrecedingOutputs(idx);
+            return (
+              <div
+                key={idx}
+                data-testid={`composite-step-${idx}`}
+                className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 flex flex-col gap-2.5 text-xs"
+              >
+                {/* Step Top Bar */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-1 mr-2">
+                    <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center text-[10px] font-bold">
+                      {idx + 1}
+                    </span>
+                    <select
+                      aria-label={`Step ${idx + 1} Child Skill`}
+                      value={st.skill_name || ''}
+                      onChange={(e) => handleSelectSkill(idx, e.target.value)}
+                      className="p-1.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-100 text-xs font-mono flex-1 outline-none"
+                    >
+                      <option value="">-- Select Child Skill --</option>
+                      {approvedSkills.length > 0 && (
+                        <optgroup label="Approved Skills (Ready for Composition)">
+                          {approvedSkills.map((sk) => (
+                            <option key={sk.name} value={sk.name}>
+                              {sk.name} (v{sk.version})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {otherSkills.length > 0 && (
+                        <optgroup label="Unapproved or Disabled (Will Block Execution)">
+                          {otherSkills.map((sk) => (
+                            <option key={sk.name} value={sk.name}>
+                              {sk.name} {sk.disabled ? '[Disabled]' : `[${sk.approval_status}]`}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Reorder and Delete controls */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleMoveUp(idx)}
+                      disabled={idx === 0}
+                      aria-label={`Move Step ${idx + 1} Up`}
+                      className="p-1 rounded hover:bg-slate-800 text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      title="Move Step Up"
+                    >
+                      <ArrowUp size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleMoveDown(idx)}
+                      disabled={idx === steps.length - 1}
+                      aria-label={`Move Step ${idx + 1} Down`}
+                      className="p-1 rounded hover:bg-slate-800 text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      title="Move Step Down"
+                    >
+                      <ArrowDown size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveStep(idx)}
+                      disabled={steps.length <= 1}
+                      aria-label={`Remove Step ${idx + 1}`}
+                      className="p-1 rounded hover:bg-rose-500/20 text-rose-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      title="Remove Step"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Step Configuration Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {/* Arguments Template */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-slate-300">
+                        Arguments Template (JSON)
+                      </span>
+                    </div>
+                    <textarea
+                      aria-label={`Step ${idx + 1} Arguments Template`}
+                      value={st.arguments_template || '{}'}
+                      onChange={(e) => handleTemplateChange(idx, e.target.value)}
+                      rows={2}
+                      className="p-2 rounded bg-black/50 border border-slate-800 text-[11px] font-mono text-slate-200 outline-none resize-none"
+                      placeholder='{"param": "{input_val}"}'
+                    />
+                    {preceding.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                        <span className="text-[10px] text-slate-400">Insert Output:</span>
+                        {preceding.map((outKey) => (
+                          <button
+                            key={outKey}
+                            type="button"
+                            onClick={() => handleInsertToken(idx, outKey)}
+                            aria-label={`Insert {${outKey}} into Step ${idx + 1}`}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 cursor-pointer"
+                            title={`Insert reference {${outKey}}`}
+                          >
+                            &#123;{outKey}&#125;
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Output Key */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-medium text-slate-300">
+                      Output Key (Optional)
+                    </span>
+                    <input
+                      type="text"
+                      aria-label={`Step ${idx + 1} Output Key`}
+                      placeholder={`e.g. step${idx + 1}_out`}
+                      value={st.output_key || ''}
+                      onChange={(e) => handleOutputKeyChange(idx, e.target.value)}
+                      className="p-2 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-200 outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400">
+                      Exports output into workflow context for subsequent steps.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Validation Result Feedback Box */}
+      {validationResult && (
+        <SkillCompositionValidationBanner validationResult={validationResult} />
+      )}
+
+      {/* Validation Error banner if non-JSON error or client validation error */}
+      {validationError && !validationResult && (
+        <div className="p-3 rounded-xl border bg-rose-500/10 border-rose-500/40 text-rose-300 flex items-center gap-2 text-xs">
+          <AlertTriangle size={16} className="shrink-0" />
+          <span>{validationError}</span>
+        </div>
+      )}
+
+      {/* Security & Action Footer */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800 text-xs">
+        <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+          <ShieldCheck size={14} className="text-purple-400 shrink-0" />
+          <span>Transitive capabilities &amp; SafetyKernel checks will be enforced.</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Close Composer"
+              className="px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 text-xs transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
+
+          <button
+            onClick={runValidation}
+            disabled={validating}
+            aria-label="Validate Workflow"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors cursor-pointer"
+          >
+            {validating ? (
+              <RefreshCw size={13} className="animate-spin text-purple-400" />
+            ) : (
+              <CheckCircle2 size={13} className="text-purple-400" />
+            )}
+            <span>{validating ? 'Validating...' : 'Validate Workflow'}</span>
+          </button>
+
+          <button
+            onClick={handleCreate}
+            disabled={submitting || validating || validationResult?.valid === false}
+            aria-label="Create Composite Skill"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+          >
+            {submitting ? (
+              <RefreshCw size={13} className="animate-spin" />
+            ) : (
+              <Plus size={13} />
+            )}
+            <span>{submitting ? 'Creating...' : 'Create Composite Skill'}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MemorySkillsPage() {
   const [activeTab, setActiveTab] = useState<'memories' | 'skills' | 'maintenance'>('memories');
 
@@ -380,6 +1097,7 @@ export function MemorySkillsPage() {
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'disable' | 'enable' | null>(null);
   const [actionReason, setActionReason] = useState<string>('');
   const [submittingAction, setSubmittingAction] = useState<boolean>(false);
+  const [composerOpen, setComposerOpen] = useState<boolean>(false);
 
   // ---------------------------------------------------------------------------
   // Maintenance State
@@ -1297,15 +2015,26 @@ export function MemorySkillsPage() {
                 </div>
               </div>
 
-              <button
-                onClick={loadSkills}
-                disabled={skillsLoading}
-                className="p-1.5 rounded-lg border text-xs hover:bg-slate-800 transition-colors cursor-pointer"
-                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                title="Refresh Skills"
-              >
-                <RefreshCw size={14} className={skillsLoading ? 'animate-spin' : ''} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setComposerOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                  title="Compose New Skill Workflow"
+                >
+                  <Plus size={14} />
+                  <span>Compose Skill</span>
+                </button>
+
+                <button
+                  onClick={loadSkills}
+                  disabled={skillsLoading}
+                  className="p-1.5 rounded-lg border text-xs hover:bg-slate-800 transition-colors cursor-pointer"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                  title="Refresh Skills"
+                >
+                  <RefreshCw size={14} className={skillsLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
             </div>
 
             {/* Skills Cards Grid */}
@@ -1361,6 +2090,14 @@ export function MemorySkillsPage() {
                               disabled={isDisabled}
                               disabledReason={s.disabled_reason}
                             />
+
+                            {/* Composite Flag */}
+                            {(s.is_composite || s.steps?.some((st) => !!st.skill_name)) && (
+                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">
+                                <Layers size={10} />
+                                <span>Composite</span>
+                              </span>
+                            )}
 
                             {/* System Protected Flag */}
                             {s.is_protected && (
@@ -2285,6 +3022,12 @@ export function MemorySkillsPage() {
                   <span className="text-xs font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
                     v{detailSkill.version}
                   </span>
+                  {(detailSkill.is_composite || detailSkill.steps?.some((st) => !!st.skill_name)) && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">
+                      <Layers size={10} />
+                      <span>Composite Workflow</span>
+                    </span>
+                  )}
                   {detailSkill.is_protected && (
                     <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700">
                       <Lock size={10} />
@@ -2654,6 +3397,26 @@ export function MemorySkillsPage() {
                 <span>Confirm Dismissal</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODAL: SKILL COMPOSER                                               */}
+      {/* =================================================================== */}
+      {composerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div
+            className="w-full max-w-3xl max-h-[90vh] rounded-2xl border p-6 shadow-2xl flex flex-col gap-4 overflow-y-auto animate-in fade-in zoom-in-95 duration-150"
+            style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
+          >
+            <SkillComposer
+              availableSkills={skills}
+              onSkillCreated={() => {
+                loadSkills();
+              }}
+              onClose={() => setComposerOpen(false)}
+            />
           </div>
         </div>
       )}

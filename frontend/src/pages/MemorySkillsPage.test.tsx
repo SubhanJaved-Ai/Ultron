@@ -8,9 +8,12 @@ import {
   SkillAuditLedger,
   MaintenanceIssueBadge,
   ProposedActionBadge,
+  SkillComposer,
+  SkillCompositionValidationBanner,
+  SkillCompositionDraftCard,
   MemorySkillsPage,
 } from './MemorySkillsPage';
-import type { SkillLedgerRecord } from '../types';
+import type { SkillLedgerRecord, LearnedSkill, ValidateCompositeSkillResponse } from '../types';
 
 // Mock the API calls so MemorySkillsPage mounts cleanly in static markup
 vi.mock('../lib/api', () => ({
@@ -101,6 +104,30 @@ vi.mock('../lib/api', () => ({
   rejectLearnedSkill: vi.fn(),
   disableLearnedSkill: vi.fn(),
   enableLearnedSkill: vi.fn(),
+  validateCompositeSkill: vi.fn().mockResolvedValue({
+    valid: true,
+    errors: [],
+    required_capabilities: ['filesystem.read', 'filesystem.write'],
+    dependencies: ['code_search_and_replace'],
+  }),
+  createCompositeSkill: vi.fn().mockResolvedValue({
+    status: 'created',
+    skill: {
+      name: 'test_composite_pipeline',
+      version: '1.0.0',
+      description: 'A test composite workflow',
+      approval_status: 'pending_review',
+      is_protected: false,
+      is_composite: true,
+      steps_count: 2,
+      required_capabilities: ['filesystem.read', 'filesystem.write'],
+      health: { execution_count: 0, consecutive_failures: 0, outdated: false },
+      validation: { is_valid: true, errors: [] },
+      steps: [
+        { skill_name: 'code_search_and_replace', arguments_template: '{}', output_key: 'step1_out' },
+      ],
+    },
+  }),
   scanMemoryMaintenance: vi.fn().mockResolvedValue({
     status: 'success',
     suggestions: [],
@@ -283,6 +310,26 @@ describe('Memory & Skills Control Center Components', () => {
       expect(html).toContain('pytest_runner');
       expect(html).toContain('output: test_res');
     });
+
+    it('distinguishes sub-skills from tools with distinct labels and styling', () => {
+      const steps = [
+        {
+          tool_name: 'filesystem_read',
+          output_key: 'file_data',
+        },
+        {
+          skill_name: 'code_search_and_replace',
+          arguments_template: '{"query": "{file_data}"}',
+          output_key: 'replace_data',
+        },
+      ];
+      const html = renderToStaticMarkup(<StepDAGPipeline steps={steps} />);
+      expect(html).toContain('Tool:');
+      expect(html).toContain('filesystem_read');
+      expect(html).toContain('Sub-Skill:');
+      expect(html).toContain('code_search_and_replace');
+      expect(html).toContain('output: replace_data');
+    });
   });
 
   describe('SkillAuditLedger', () => {
@@ -362,6 +409,209 @@ describe('Memory & Skills Control Center Components', () => {
       expect(html).toContain('RETIRE');
       expect(html).toContain('bg-rose-500/15');
       expect(html).toContain('text-rose-300');
+    });
+  });
+
+  describe('SkillComposer', () => {
+    const mockAvailableSkills: LearnedSkill[] = [
+      {
+        name: 'code_search_and_replace',
+        version: '1.0.0',
+        description: 'Searches codebase and applies atomic regex replace',
+        approval_status: 'approved',
+        author: 'agent',
+        tags: ['coding'],
+        required_capabilities: ['filesystem.read', 'filesystem.write'],
+        depends: [],
+        user_invocable: true,
+        disable_model_invocation: false,
+        approved: true,
+        disabled: false,
+        is_protected: false,
+        steps_count: 2,
+        health: { is_healthy: true, issues: [], execution_count: 10, consecutive_failures: 0, outdated: false },
+        validation: { is_valid: true, errors: [] },
+        metadata: {},
+        steps: [{ tool_name: 'filesystem_read', arguments_template: '{}', output_key: 'file_data' }],
+      },
+      {
+        name: 'cloud_deploy_pipeline',
+        version: '2.0.0',
+        description: 'Pushes container to cluster',
+        approval_status: 'approved',
+        author: 'agent',
+        tags: ['cloud'],
+        required_capabilities: ['cloud.deploy'],
+        depends: [],
+        user_invocable: true,
+        disable_model_invocation: false,
+        approved: true,
+        disabled: true,
+        disabled_reason: 'Undergoing canary maintenance',
+        is_protected: false,
+        steps_count: 3,
+        health: { is_healthy: true, issues: [], execution_count: 14, consecutive_failures: 0, outdated: false },
+        validation: { is_valid: true, errors: [] },
+        metadata: {},
+        steps: [],
+      },
+      {
+        name: 'unapproved_draft_tool',
+        version: '0.1.0',
+        description: 'Experimental untrusted script',
+        approval_status: 'pending_review',
+        author: 'agent',
+        tags: ['experimental'],
+        required_capabilities: ['shell.exec'],
+        depends: [],
+        user_invocable: false,
+        disable_model_invocation: false,
+        approved: false,
+        disabled: false,
+        is_protected: false,
+        steps_count: 1,
+        health: { is_healthy: true, issues: [], execution_count: 0, consecutive_failures: 0, outdated: false },
+        validation: { is_valid: false, errors: ['Requires operator authorization'] },
+        metadata: {},
+        steps: [],
+      },
+    ];
+
+    it('renders composer header, safety badge, and metadata inputs', () => {
+      const html = renderToStaticMarkup(
+        <SkillComposer availableSkills={mockAvailableSkills} onClose={vi.fn()} />,
+      );
+      expect(html).toContain('Skill Composer');
+      expect(html).toContain('Safe Composition');
+      expect(html).toContain('Composite Skill Name *');
+      expect(html).toContain('Tags');
+      expect(html).toContain('Description');
+      expect(html).toContain('Workflow Steps Pipeline (1 Step)');
+      expect(html).toContain('Validate Workflow');
+      expect(html).toContain('Create Composite Skill');
+    });
+
+    it('groups child skills into approved vs unapproved/disabled optgroups', () => {
+      const html = renderToStaticMarkup(
+        <SkillComposer availableSkills={mockAvailableSkills} />,
+      );
+      expect(html).toContain('Approved Skills (Ready for Composition)');
+      expect(html).toContain('code_search_and_replace (v1.0.0)');
+      expect(html).toContain('Unapproved or Disabled (Will Block Execution)');
+      expect(html).toContain('cloud_deploy_pipeline [Disabled]');
+      expect(html).toContain('unapproved_draft_tool [pending_review]');
+    });
+
+    it('renders step parameter mapping controls and reorder buttons', () => {
+      const html = renderToStaticMarkup(
+        <SkillComposer availableSkills={mockAvailableSkills} />,
+      );
+      expect(html).toContain('Arguments Template (JSON)');
+      expect(html).toContain('Output Key (Optional)');
+      expect(html).toContain('Exports output into workflow context for subsequent steps.');
+      expect(html).toContain('aria-label="Move Step 1 Up"');
+      expect(html).toContain('aria-label="Move Step 1 Down"');
+      expect(html).toContain('aria-label="Remove Step 1"');
+    });
+
+    it('renders security note enforcing capability policy and authorization requirements', () => {
+      const html = renderToStaticMarkup(
+        <SkillComposer availableSkills={mockAvailableSkills} />,
+      );
+      expect(html).toContain('Transitive capabilities &amp; SafetyKernel checks will be enforced.');
+    });
+  });
+
+  describe('SkillCompositionValidationBanner', () => {
+    it('renders Validation Passed banner with capabilities and dependencies when valid', () => {
+      const validRes: ValidateCompositeSkillResponse = {
+        valid: true,
+        errors: [],
+        required_capabilities: ['code:execute', 'filesystem:write'],
+        dependencies: ['code_search_and_replace', 'git_diff_inspector'],
+      };
+      const html = renderToStaticMarkup(
+        <SkillCompositionValidationBanner validationResult={validRes} />,
+      );
+      expect(html).toContain('Validation Passed');
+      expect(html).toContain('Safe to Submit');
+      expect(html).toContain('Cycle detection confirmed no circular dependencies');
+      expect(html).toContain('Aggregated Capabilities:');
+      expect(html).toContain('code:execute');
+      expect(html).toContain('filesystem:write');
+      expect(html).toContain('Skill Dependencies:');
+      expect(html).toContain('code_search_and_replace');
+      expect(html).toContain('git_diff_inspector');
+      expect(html).not.toContain('Validation Failed');
+    });
+
+    it('renders Validation Failed banner with clear error messages when invalid', () => {
+      const invalidRes: ValidateCompositeSkillResponse = {
+        valid: false,
+        errors: [
+          'Circular dependency detected in composition chain: skill_a -> skill_b -> skill_a',
+          'Recursion depth exceeded limit (5)',
+          'Child skill "unapproved_draft_tool" is not approved (status: pending_review)',
+        ],
+        required_capabilities: [],
+        dependencies: [],
+      };
+      const html = renderToStaticMarkup(
+        <SkillCompositionValidationBanner validationResult={invalidRes} />,
+      );
+      expect(html).toContain('Validation Failed');
+      expect(html).toContain('Action Required');
+      expect(html).toContain('Execution and creation are blocked due to validation issues:');
+      expect(html).toContain('Circular dependency detected in composition chain: skill_a -&gt; skill_b -&gt; skill_a');
+      expect(html).toContain('Recursion depth exceeded limit (5)');
+      expect(html).toContain('Child skill &quot;unapproved_draft_tool&quot; is not approved');
+      expect(html).not.toContain('Validation Passed');
+    });
+  });
+
+  describe('SkillCompositionDraftCard', () => {
+    it('renders draft created state with pending review badge, capabilities, and security policy', () => {
+      const createdDraft: LearnedSkill = {
+        name: 'repo_audit_and_cleanup_workflow',
+        version: '1.0.0',
+        description: 'Comprehensive audit workflow',
+        approval_status: 'pending_review',
+        author: 'operator',
+        tags: ['security', 'audit'],
+        required_capabilities: ['code:execute', 'filesystem:read'],
+        depends: ['code_search_and_replace'],
+        user_invocable: true,
+        disable_model_invocation: false,
+        approved: false,
+        disabled: false,
+        is_protected: false,
+        is_composite: true,
+        steps_count: 3,
+        health: { is_healthy: true, issues: [], execution_count: 0, consecutive_failures: 0, outdated: false },
+        validation: { is_valid: true, errors: [] },
+        metadata: {},
+        steps: [],
+      };
+
+      const html = renderToStaticMarkup(
+        <SkillCompositionDraftCard
+          skill={createdDraft}
+          onReset={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+
+      expect(html).toContain('Composite Skill Draft Created Successfully');
+      expect(html).toContain('repo_audit_and_cleanup_workflow');
+      expect(html).toContain('registered with 3 workflow steps');
+      expect(html).toContain('PENDING REVIEW');
+      expect(html).toContain('Inherited Capabilities:');
+      expect(html).toContain('code:execute');
+      expect(html).toContain('filesystem:read');
+      expect(html).toContain('Security &amp; Authorization Policy:');
+      expect(html).toContain('Execution is prohibited until an operator authorizes the skill');
+      expect(html).toContain('Compose Another Skill');
+      expect(html).toContain('Done');
     });
   });
 

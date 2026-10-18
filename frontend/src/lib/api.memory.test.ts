@@ -63,3 +63,76 @@ describe('getMemoryStats', () => {
     ]);
   });
 });
+
+describe('validateCompositeSkill', () => {
+  it('calls POST /api/skills/composite/validate and returns validation result', async () => {
+    fetchMock.mockResolvedValue(new Response(
+      JSON.stringify({
+        valid: true,
+        errors: [],
+        required_capabilities: ['code:execute'],
+        dependencies: ['test_child'],
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    ));
+    const { validateCompositeSkill } = await import('./api');
+    const res = await validateCompositeSkill({
+      name: 'test_composite',
+      steps: [{ skill_name: 'test_child', arguments_template: '{}', output_key: 'out' }],
+    });
+    expect(res.valid).toBe(true);
+    expect(res.required_capabilities).toEqual(['code:execute']);
+    expect(res.dependencies).toEqual(['test_child']);
+  });
+
+  it('throws descriptive error on validation API failure', async () => {
+    fetchMock.mockResolvedValue(new Response(
+      JSON.stringify({ detail: 'Circular dependency detected' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    ));
+    const { validateCompositeSkill } = await import('./api');
+    await expect(validateCompositeSkill({
+      name: 'test_composite',
+      steps: [{ skill_name: 'test_child' }],
+    })).rejects.toThrow('Circular dependency detected');
+  });
+});
+
+describe('createCompositeSkill', () => {
+  it('calls POST /api/skills/composite and returns created skill in pending status', async () => {
+    fetchMock.mockResolvedValue(new Response(
+      JSON.stringify({
+        status: 'created',
+        skill: {
+          name: 'test_composite',
+          approval_status: 'pending_review',
+          steps_count: 1,
+          is_composite: true,
+          required_capabilities: ['code:execute'],
+        },
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    ));
+    const { createCompositeSkill } = await import('./api');
+    const res = await createCompositeSkill({
+      name: 'test_composite',
+      steps: [{ skill_name: 'test_child' }],
+      require_approval: true,
+    });
+    expect(res.status).toBe('created');
+    expect(res.skill.approval_status).toBe('pending_review');
+    expect(res.skill.is_composite).toBe(true);
+  });
+
+  it('throws descriptive error on creation API failure', async () => {
+    fetchMock.mockResolvedValue(new Response(
+      JSON.stringify({ detail: 'Child skill not found or unapproved' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    ));
+    const { createCompositeSkill } = await import('./api');
+    await expect(createCompositeSkill({
+      name: 'test_composite',
+      steps: [{ skill_name: 'missing_child' }],
+    })).rejects.toThrow('Child skill not found or unapproved');
+  });
+});

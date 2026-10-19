@@ -2,23 +2,10 @@ import { useEffect, useRef } from 'react';
 import type { ParticleCoreProps, ParticleVariant, ParticleState } from './particle-avatar.types';
 
 interface ParticleNode {
-  // Coordinates for the 3 morph targets
-  neutralX: number;
-  neutralY: number;
-  neutralZ: number;
-
-  mascX: number;
-  mascY: number;
-  mascZ: number;
-
-  femX: number;
-  femY: number;
-  femZ: number;
-
-  // Real-time animation coordinates
-  x: number;
-  y: number;
-  z: number;
+  // Canonical Electron base coordinates (Neural cortical sphere)
+  baseX: number;
+  baseY: number;
+  baseZ: number;
 
   size: number;
   phase: number;
@@ -32,7 +19,7 @@ function createParticleMatrix(): ParticleNode[] {
   const particles: ParticleNode[] = [];
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
-    // 1. Neutral Neural Orb target (Sphere with cortical brain fold undulations)
+    // Canonical Electron Neural Orb (Sphere with cortical brain fold undulations)
     const u = Math.random();
     const v = Math.random();
     const theta = u * 2.0 * Math.PI;
@@ -43,83 +30,14 @@ function createParticleMatrix(): ParticleNode[] {
       0.04 * Math.cos(theta * 5.0 + phi * 3.0);
     const rFinal = rBase + corticalDisplace;
 
-    const neutralX = rFinal * Math.sin(phi) * Math.cos(theta);
-    const neutralY = rFinal * Math.cos(phi);
-    const neutralZ = rFinal * Math.sin(phi) * Math.sin(theta);
-
-    // 2. Masculine Cranial Silhouette target
-    // Head + defined jawline + broad shoulder tapering
-    let mascX = 0;
-    let mascY = 0;
-    let mascZ = 0;
-
-    if (i < PARTICLE_COUNT * 0.65) {
-      // Head & Face
-      const hPhi = Math.random() * Math.PI;
-      const hTheta = Math.random() * Math.PI * 2.0;
-      const hY = Math.cos(hPhi);
-      // Shape broader jaw
-      const jawFactor = hY < 0 ? 0.75 + 0.15 * Math.cos(hTheta * 2.0) : 0.85;
-      mascX = 0.44 * Math.sin(hPhi) * Math.cos(hTheta) * jawFactor;
-      mascY = 0.58 * hY + 0.22;
-      mascZ = 0.44 * Math.sin(hPhi) * Math.sin(hTheta) * 0.9;
-    } else {
-      // Shoulders / Chest base
-      const sFrac = (i - PARTICLE_COUNT * 0.65) / (PARTICLE_COUNT * 0.35);
-      const angle = sFrac * Math.PI * 2.0;
-      const shoulderWidth = 0.82 + 0.18 * Math.random();
-      mascX = Math.cos(angle) * shoulderWidth * (0.8 + 0.2 * Math.random());
-      mascY = -0.42 - 0.28 * Math.random();
-      mascZ = Math.sin(angle) * 0.42;
-    }
-
-    // 3. Feminine Cranial Silhouette target
-    // Delicate oval cranial face + tapered jaw + flowing particle hair streams
-    let femX = 0;
-    let femY = 0;
-    let femZ = 0;
-
-    if (i < PARTICLE_COUNT * 0.5) {
-      // Tapered Head & Face
-      const fPhi = Math.random() * Math.PI;
-      const fTheta = Math.random() * Math.PI * 2.0;
-      const fY = Math.cos(fPhi);
-      const taper = fY < 0 ? 0.55 + 0.25 * (fY + 1.0) : 0.8;
-      femX = 0.38 * Math.sin(fPhi) * Math.cos(fTheta) * taper;
-      femY = 0.54 * fY + 0.24;
-      femZ = 0.38 * Math.sin(fPhi) * Math.sin(fTheta) * 0.85;
-    } else if (i < PARTICLE_COUNT * 0.8) {
-      // Flowing Hair Streams draping down sides
-      const side = i % 2 === 0 ? 1 : -1;
-      const progress = (i - PARTICLE_COUNT * 0.5) / (PARTICLE_COUNT * 0.3);
-      const hairY = 0.45 - progress * 0.95;
-      const wave = Math.sin(progress * Math.PI * 2.5) * 0.08;
-      femX = (0.42 + progress * 0.22 + wave) * side;
-      femY = hairY;
-      femZ = 0.12 * Math.cos(progress * Math.PI * 2) - 0.05;
-    } else {
-      // Slender shoulders
-      const sFrac = (i - PARTICLE_COUNT * 0.8) / (PARTICLE_COUNT * 0.2);
-      const angle = sFrac * Math.PI * 2.0;
-      femX = Math.cos(angle) * 0.65;
-      femY = -0.45 - 0.2 * Math.random();
-      femZ = Math.sin(angle) * 0.32;
-    }
+    const baseX = rFinal * Math.sin(phi) * Math.cos(theta);
+    const baseY = rFinal * Math.cos(phi);
+    const baseZ = rFinal * Math.sin(phi) * Math.sin(theta);
 
     particles.push({
-      neutralX,
-      neutralY,
-      neutralZ,
-      mascX,
-      mascY,
-      mascZ,
-      femX,
-      femY,
-      femZ,
-      // Start at neutral
-      x: neutralX,
-      y: neutralY,
-      z: neutralZ,
+      baseX,
+      baseY,
+      baseZ,
       size: 1.0 + Math.random() * 1.8,
       phase: Math.random() * Math.PI * 2.0,
       speed: 0.8 + Math.random() * 0.6,
@@ -312,11 +230,10 @@ export function UltronParticleCore({
       ctx.fill();
 
       // =====================================================================
-      // 3. 3D Particle Matrix & Geometry Morphing
+      // 3. 3D Particle Matrix (Canonical Electron Orb)
       // =====================================================================
       const particles = particlesRef.current;
       const breathe = Math.sin(time * 0.003) * pulseAmplitude;
-      const morphSpeed = 0.08; // Smooth morph interpolation per frame
 
       // Pre-sort particles by rotated Z depth for accurate volumetric shading
       const renderNodes: {
@@ -330,31 +247,11 @@ export function UltronParticleCore({
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
-        // Target coords based on selected variant
-        let targetX = p.neutralX;
-        let targetY = p.neutralY;
-        let targetZ = p.neutralZ;
-
-        if (variant === 'masculine') {
-          targetX = p.mascX;
-          targetY = p.mascY;
-          targetZ = p.mascZ;
-        } else if (variant === 'feminine') {
-          targetX = p.femX;
-          targetY = p.femY;
-          targetZ = p.femZ;
-        }
-
-        // Smoothly interpolate current particle position towards target position
-        p.x += (targetX - p.x) * morphSpeed;
-        p.y += (targetY - p.y) * morphSpeed;
-        p.z += (targetZ - p.z) * morphSpeed;
-
-        // Apply breathing & audio resonance
+        // Apply breathing & audio resonance to canonical Electron base coordinates
         const rScale = 1.0 + breathe + audioWobble * Math.sin(p.phase + time * 0.008);
-        const curX = p.x * rScale;
-        const curY = p.y * rScale;
-        const curZ = p.z * rScale;
+        const curX = p.baseX * rScale;
+        const curY = p.baseY * rScale;
+        const curZ = p.baseZ * rScale;
 
         // Y-axis 3D rotation
         const rotX = curX * cosR - curZ * sinR;
@@ -421,7 +318,7 @@ export function UltronParticleCore({
       <canvas
         ref={canvasRef}
         style={{ width: '100%', height: '100%', display: 'block' }}
-        title={`Ultron Particle Core — ${variant} presentation, state: ${state}`}
+        title={`Ultron Electron — canonical particle core, state: ${state}`}
       />
     </div>
   );

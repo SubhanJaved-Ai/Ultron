@@ -36,7 +36,7 @@ async def serve_hologram() -> HTMLResponse:
 
 
 @hologram_router.get("/api/tts")
-async def get_speech_audio(text: str = ""):
+async def get_speech_audio(text: str = "", voice_gender: str = "", lang: str = ""):
     """Stream synthesized speech audio (ElevenLabs or Windows SAPI) to the browser/hologram."""
     import asyncio
     import logging
@@ -49,6 +49,22 @@ async def get_speech_audio(text: str = ""):
         raise HTTPException(status_code=400, detail="Query text required")
 
     logger = logging.getLogger("openjarvis.server.hologram.tts")
+
+    from openjarvis.speech.router import detect_language
+
+    resolved_lang = (lang or "").strip().lower() or detect_language(query_text)
+
+    # Resolve voice gender preference if not explicitly provided
+    resolved_gender = (voice_gender or "").strip().lower()
+    if not resolved_gender:
+        try:
+            from openjarvis.core.user_preferences import get_personalization_preferences
+
+            resolved_gender = get_personalization_preferences().get(
+                "voice_gender", "masculine"
+            )
+        except Exception:
+            resolved_gender = "masculine"
 
     # 1. Check if user configured ElevenLabs as preferred voice provider
     try:
@@ -93,6 +109,7 @@ async def get_speech_audio(text: str = ""):
                             "Content-Length": str(len(res.audio)),
                             "X-Voice-Provider": "elevenlabs",
                             "X-Voice-Id": res.voice_id,
+                            "X-Voice-Language": resolved_lang,
                         },
                     )
     except Exception as exc:
@@ -101,21 +118,29 @@ async def get_speech_audio(text: str = ""):
             exc,
         )
 
-    # 2. Local fallback: Native Windows SAPI
+    # 2. Local fallback: Native Windows SAPI (David for masculine, Zira for feminine)
     from openjarvis.server.tts_engine import synthesize_wav
 
-    wav_bytes = await asyncio.to_thread(synthesize_wav, query_text)
+    wav_bytes = await asyncio.to_thread(
+        synthesize_wav, query_text, voice_gender=resolved_gender
+    )
     if not wav_bytes:
         raise HTTPException(status_code=500, detail="TTS synthesis unavailable")
+
+    sapi_headers = {
+        "Cache-Control": "public, max-age=3600",
+        "Content-Length": str(len(wav_bytes)),
+        "X-Voice-Provider": "windows_sapi",
+        "X-Voice-Gender": resolved_gender,
+        "X-Voice-Language": resolved_lang,
+    }
+    if resolved_lang in ("ur", "hi"):
+        sapi_headers["X-Voice-Notice"] = "windows_sapi_english_only"
 
     return Response(
         content=wav_bytes,
         media_type="audio/wav",
-        headers={
-            "Cache-Control": "public, max-age=3600",
-            "Content-Length": str(len(wav_bytes)),
-            "X-Voice-Provider": "windows_sapi",
-        },
+        headers=sapi_headers,
     )
 
 

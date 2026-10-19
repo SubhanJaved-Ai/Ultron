@@ -71,6 +71,14 @@ class VoicePreviewRequest(BaseModel):
     provider: Optional[str] = "system"
     voice_id: Optional[str] = None
     language: Optional[str] = "en"
+    voice_gender: Optional[str] = None
+    text: Optional[str] = None
+
+
+class VoiceResolveRequest(BaseModel):
+    language: Optional[str] = "en"
+    voice_gender: Optional[str] = "masculine"
+    provider: Optional[str] = "system"
     text: Optional[str] = None
 
 
@@ -78,6 +86,8 @@ class PersonalizationRequest(BaseModel):
     user_name: Optional[str] = None
     phone_number: Optional[str] = None
     presentation: Optional[str] = None
+    voice_presentation: Optional[str] = None
+    voice_gender: Optional[str] = None
     persona: Optional[str] = None
     language: Optional[str] = None
     onboarding_completed: Optional[bool] = None
@@ -1276,94 +1286,53 @@ async def tts_health(request: Request):
     }
 
 
+@speech_router.get("/capabilities")
+async def get_speech_capabilities_endpoint():
+    """Retrieve verified multilingual TTS engine capabilities, licensing, hardware specs, and voice catalog."""
+    from openjarvis.speech.router import tts_router
+
+    caps = tts_router.get_capabilities()
+    return {
+        "capabilities": {k: v.to_dict() for k, v in caps.items()},
+    }
+
+
+@speech_router.post("/resolve")
+async def resolve_voice_endpoint(body: VoiceResolveRequest):
+    """Resolve best compatible TTS engine and voice according to language and voice gender preferences."""
+    from openjarvis.speech.router import tts_router
+
+    if body.text:
+        return tts_router.detect_and_resolve(
+            text=body.text,
+            default_language=body.language or "en",
+            voice_gender=body.voice_gender or "masculine",
+            preferred_provider=body.provider or "system",
+        )
+    return tts_router.resolve_engine_and_voice(
+        language=body.language or "en",
+        voice_gender=body.voice_gender or "masculine",
+        preferred_provider=body.provider or "system",
+    )
+
+
 @speech_router.get("/voice-settings")
 async def get_voice_settings_endpoint():
-    """Retrieve current voice provider configuration with masked credentials and provider capabilities."""
-    import os
+    """Retrieve current voice provider configuration with masked credentials and verified provider capabilities."""
     from openjarvis.core.user_preferences import (
-        get_elevenlabs_api_key,
         get_personalization_preferences,
         get_voice_preferences,
     )
+    from openjarvis.speech.router import tts_router
 
     prefs = get_voice_preferences()
-    has_el_key = bool(get_elevenlabs_api_key())
-    has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
     personalization = get_personalization_preferences()
-
-    kokoro_avail = False
-    try:
-        from openjarvis.core.registry import TTSRegistry
-        kokoro_avail = TTSRegistry.contains("kokoro")
-    except Exception:
-        pass
+    caps = tts_router.get_capabilities()
 
     return {
         **prefs,
         "personalization": personalization,
-        "available_providers": [
-            {
-                "id": "system",
-                "name": "System / Browser Voice (Local)",
-                "free": True,
-                "requires_key": False,
-                "available": True,
-                "supported_languages": ["en"],
-                "cost_notice": "100% Free & private. Uses local operating system voices.",
-                "voices": [
-                    {"id": "default", "name": "System Default", "gender": "neutral", "lang": "en"},
-                    {"id": "david", "name": "Microsoft David", "gender": "masculine", "lang": "en-US"},
-                    {"id": "zira", "name": "Microsoft Zira", "gender": "feminine", "lang": "en-US"},
-                ],
-            },
-            {
-                "id": "kokoro",
-                "name": "Kokoro Local Neural TTS",
-                "free": True,
-                "requires_key": False,
-                "available": kokoro_avail,
-                "supported_languages": ["en"],
-                "cost_notice": "Free local neural TTS engine.",
-                "voices": [
-                    {"id": "bm_george", "name": "George (British Male)", "gender": "masculine", "lang": "en-GB"},
-                    {"id": "bf_emma", "name": "Emma (British Female)", "gender": "feminine", "lang": "en-GB"},
-                    {"id": "am_adam", "name": "Adam (American Male)", "gender": "masculine", "lang": "en-US"},
-                    {"id": "af_bella", "name": "Bella (American Female)", "gender": "feminine", "lang": "en-US"},
-                ],
-            },
-            {
-                "id": "elevenlabs",
-                "name": "ElevenLabs Multilingual",
-                "free": False,
-                "requires_key": True,
-                "available": has_el_key,
-                "supported_languages": ["en", "ur"],
-                "cost_notice": "Paid cloud API. Consumes character credits on your ElevenLabs plan.",
-                "voices": [
-                    {"id": "JBFqnCBsd6RMkjVDRZzb", "name": "Jarvis (Composed British)", "gender": "masculine", "lang": "en"},
-                    {"id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel (Warm & Composed)", "gender": "feminine", "lang": "en"},
-                    {"id": "EXAVITQu4vr4xnSDxMaL", "name": "Bella (Articulate)", "gender": "feminine", "lang": "en"},
-                    {"id": "ErXwobaYiN019PkySvjV", "name": "Antoni (Deep & Calm)", "gender": "masculine", "lang": "en"},
-                ],
-            },
-            {
-                "id": "openai_tts",
-                "name": "OpenAI Speech (TTS-1)",
-                "free": False,
-                "requires_key": True,
-                "available": has_openai_key,
-                "supported_languages": ["en", "ur"],
-                "cost_notice": "Paid cloud API. Billed per character to your OpenAI account.",
-                "voices": [
-                    {"id": "onyx", "name": "Onyx (Deep Masculine)", "gender": "masculine", "lang": "en"},
-                    {"id": "echo", "name": "Echo (Warm Masculine)", "gender": "masculine", "lang": "en"},
-                    {"id": "shimmer", "name": "Shimmer (Expressive Feminine)", "gender": "feminine", "lang": "en"},
-                    {"id": "alloy", "name": "Alloy (Neutral / Balanced)", "gender": "neutral", "lang": "en"},
-                    {"id": "nova", "name": "Nova (Energetic Feminine)", "gender": "feminine", "lang": "en"},
-                    {"id": "fable", "name": "Fable (British Narrative)", "gender": "masculine", "lang": "en"},
-                ],
-            },
-        ],
+        "available_providers": [cap.to_dict() for cap in caps.values()],
     }
 
 
@@ -1563,12 +1532,18 @@ async def preview_elevenlabs_voice(body: ElevenLabsPreviewRequest):
 async def preview_voice_endpoint(request: Request, body: VoicePreviewRequest):
     """Generate a lightweight preview utterance using the specified or active TTS provider."""
     from openjarvis.core.user_preferences import get_elevenlabs_api_key
+    from openjarvis.speech.router import tts_router
+
+    provider = (body.provider or "system").lower().strip()
+    lang = (body.language or "en").lower().strip()
+    voice_gender = (body.voice_gender or "masculine").lower().strip()
 
     sample_en = "Greetings, I am Ultron. All primary systems are fully operational."
     sample_ur = "السلام علیکم، میں الٹران ہوں۔ میں آپ کی مدد کے لیے تیار ہوں۔"
-    preview_text = body.text or (sample_ur if body.language == "ur" else sample_en)
+    sample_hi = "नमस्ते, मैं अल्ट्रॉन हूँ। सभी प्रणालियाँ पूरी तरह से चालू हैं।"
+    preview_text = body.text or (sample_ur if lang == "ur" else sample_hi if lang == "hi" else sample_en)
 
-    provider = body.provider or "system"
+    # 1. ElevenLabs cloud route
     if provider == "elevenlabs":
         api_key = get_elevenlabs_api_key()
         if not api_key:
@@ -1582,21 +1557,61 @@ async def preview_voice_endpoint(request: Request, body: VoicePreviewRequest):
             )
         )
 
+    # 2. Check capability routing for provider & language
+    resolution = tts_router.resolve_engine_and_voice(
+        language=lang,
+        voice_gender=voice_gender,
+        preferred_provider=provider,
+    )
+
+    if resolution["status"] == "unsupported_by_engine":
+        return {
+            "status": "unsupported_by_engine",
+            "text": preview_text,
+            "provider": provider,
+            "language": lang,
+            "voice_gender": voice_gender,
+            "message": resolution["message"],
+        }
+
+    # 3. Native Windows SAPI local engine (David for masculine, Zira for feminine)
+    if provider == "system" and lang.startswith("en"):
+        from openjarvis.server.tts_engine import synthesize_wav
+
+        wav_bytes = await asyncio.to_thread(
+            synthesize_wav, preview_text, voice_gender=voice_gender
+        )
+        if wav_bytes:
+            return Response(
+                content=wav_bytes,
+                media_type="audio/wav",
+                headers={
+                    "Cache-Control": "public, max-age=3600",
+                    "Content-Length": str(len(wav_bytes)),
+                    "X-Voice-Provider": "windows_sapi",
+                    "X-Voice-Gender": voice_gender,
+                    "X-Voice-Id": resolution.get("voice_id", "default"),
+                },
+            )
+
+    # 4. Try any registered backend (e.g. Kokoro, etc.)
     backend = await _resolve_tts_backend(request)
     if backend is None:
         return {
             "status": "client_synthesis",
             "text": preview_text,
             "provider": provider,
-            "voice_id": body.voice_id or "default",
-            "language": body.language or "en",
+            "voice_id": body.voice_id or resolution.get("voice_id", "default"),
+            "language": lang,
+            "voice_gender": voice_gender,
+            "message": resolution.get("message", "Synthesized via local client audio."),
         }
 
     try:
         result = await asyncio.to_thread(
             backend.synthesize,
             preview_text,
-            voice_id=body.voice_id or "",
+            voice_id=body.voice_id or resolution.get("voice_id", ""),
             speed=1.0,
             output_format="wav",
         )
@@ -1605,7 +1620,7 @@ async def preview_voice_endpoint(request: Request, body: VoicePreviewRequest):
             content=result.audio,
             media_type=media_type,
             headers={
-                "X-Voice-Id": result.voice_id or (body.voice_id or ""),
+                "X-Voice-Id": result.voice_id or (body.voice_id or resolution.get("voice_id", "")),
                 "X-Voice-Provider": getattr(backend, "backend_id", provider),
             },
         )
@@ -1615,8 +1630,10 @@ async def preview_voice_endpoint(request: Request, body: VoicePreviewRequest):
             "status": "client_synthesis",
             "text": preview_text,
             "provider": provider,
-            "voice_id": body.voice_id or "default",
-            "language": body.language or "en",
+            "voice_id": body.voice_id or resolution.get("voice_id", "default"),
+            "language": lang,
+            "voice_gender": voice_gender,
+            "message": f"Local synthesis fallback: {exc}",
         }
 
 

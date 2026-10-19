@@ -40,9 +40,9 @@ def test_personalization_updates_and_sync():
         {
             "user_name": "Tony Stark",
             "phone_number": "+14155552671",
-            "presentation": "masculine",
+            "voice_gender": "masculine",
             "persona": "bro",
-            "language": "en",
+            "language": "hi",
             "sound_enabled": False,
             "sound_volume": 0.8,
             "onboarding_completed": True,
@@ -50,11 +50,27 @@ def test_personalization_updates_and_sync():
     )
     assert updated["user_name"] == "Tony Stark"
     assert updated["phone_number"] == "+14155552671"
-    assert updated["presentation"] == "masculine"
+    # Canonical Electron hologram remains neutral visual identity
+    assert updated["presentation"] == "neutral"
+    assert updated["voice_gender"] == "masculine"
+    assert updated["voice_presentation"] == "masculine"
     assert updated["persona"] == "bro"
+    assert updated["language"] == "hi"
     assert updated["sound_enabled"] is False
     assert updated["sound_volume"] == 0.8
     assert updated["onboarding_completed"] is True
+
+
+def test_personalization_legacy_presentation_migration():
+    """Legacy presentation field safely maps to voice_gender without changing canonical Electron hologram."""
+    updated = set_personalization_preferences(
+        {
+            "presentation": "feminine",
+        }
+    )
+    assert updated["presentation"] == "neutral"
+    assert updated["voice_gender"] == "feminine"
+    assert updated["voice_presentation"] == "feminine"
 
 
 def test_personalization_invalid_persona_rejected():
@@ -63,8 +79,8 @@ def test_personalization_invalid_persona_rejected():
 
 
 def test_personalization_invalid_presentation_rejected():
-    with pytest.raises(ValueError, match="Invalid presentation"):
-        set_personalization_preferences({"presentation": "alien"})
+    with pytest.raises(ValueError, match="Invalid voice gender"):
+        set_personalization_preferences({"voice_gender": "alien"})
 
 
 def test_personalization_invalid_language_rejected():
@@ -93,7 +109,7 @@ def test_personalization_api_routes():
         "/v1/personalization",
         json={
             "user_name": "Pepper Potts",
-            "presentation": "feminine",
+            "voice_gender": "feminine",
             "persona": "mentor",
             "language": "ur",
             "sound_enabled": True,
@@ -103,7 +119,8 @@ def test_personalization_api_routes():
     assert post_resp.status_code == 200
     updated_data = post_resp.json()
     assert updated_data["user_name"] == "Pepper Potts"
-    assert updated_data["presentation"] == "feminine"
+    assert updated_data["presentation"] == "neutral"
+    assert updated_data["voice_gender"] == "feminine"
     assert updated_data["persona"] == "mentor"
     assert updated_data["language"] == "ur"
 
@@ -143,7 +160,8 @@ def test_voice_preview_fallback():
     app = create_app()
     client = TestClient(app)
 
-    # When no local model or ElevenLabs key is configured, /v1/speech/preview returns client synthesis descriptor
+    # When native Windows SAPI is present, /v1/speech/preview returns audio/wav bytes;
+    # otherwise it safely returns client synthesis descriptor
     resp = client.post(
         "/v1/speech/preview",
         json={
@@ -153,6 +171,10 @@ def test_voice_preview_fallback():
         },
     )
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "client_synthesis"
-    assert "Greetings, I am Ultron" in data["text"]
+    if resp.headers.get("content-type") == "audio/wav":
+        assert len(resp.content) > 1000
+        assert resp.headers["X-Voice-Provider"] == "windows_sapi"
+    else:
+        data = resp.json()
+        assert data["status"] == "client_synthesis"
+        assert "Greetings, I am Ultron" in data["text"]

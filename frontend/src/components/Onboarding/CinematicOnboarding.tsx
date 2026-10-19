@@ -111,9 +111,9 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [userName, setUserName] = useState('Sir');
   const [phone, setPhone] = useState('');
-  const [presentation, setPresentation] = useState<ParticleVariant>('neutral');
+  const [voiceGender, setVoiceGender] = useState<'masculine' | 'feminine' | 'neutral'>('masculine');
   const [persona, setPersona] = useState('jarvis');
-  const [language, setLanguage] = useState<'en' | 'ur' | 'auto'>('en');
+  const [language, setLanguage] = useState<'en' | 'ur' | 'hi' | 'auto'>('en');
   const [provider, setProvider] = useState('system');
   const [selectedVoiceId, setSelectedVoiceId] = useState('default');
   const [soundEnabled, setSoundEnabled] = useState(soundEffects.isEnabled());
@@ -135,7 +135,11 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
     fetchPersonalization()
       .then((data) => {
         if (data.user_name) setUserName(data.user_name);
-        if (data.presentation) setPresentation(data.presentation);
+        if (data.voice_gender) {
+          setVoiceGender(data.voice_gender);
+        } else if (data.presentation && ['masculine', 'feminine', 'neutral'].includes(data.presentation)) {
+          setVoiceGender(data.presentation as 'masculine' | 'feminine' | 'neutral');
+        }
         if (data.persona) setPersona(data.persona);
         if (data.language) setLanguage(data.language);
         if (data.phone_number) setPhone(data.phone_number);
@@ -224,6 +228,7 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
         provider,
         voice_id: selectedVoiceId,
         language: language === 'auto' ? 'en' : language,
+        voice_gender: voiceGender,
         text: textToSpeak,
       });
 
@@ -258,11 +263,11 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
         // Free Client Synthesis via Web Speech API
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
           const utterance = new SpeechSynthesisUtterance(res.text || textToSpeak);
-          utterance.lang = language === 'ur' ? 'ur-PK' : 'en-US';
+          utterance.lang = language === 'ur' ? 'ur-PK' : language === 'hi' ? 'hi-IN' : 'en-US';
 
-          // Try to select appropriate gender voice if browser provides
+          // Select appropriate gender voice if browser provides
           const voices = window.speechSynthesis.getVoices();
-          if (presentation === 'feminine') {
+          if (voiceGender === 'feminine') {
             const female = voices.find(
               (v) =>
                 v.name.toLowerCase().includes('zira') ||
@@ -270,7 +275,7 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
                 v.name.toLowerCase().includes('susan'),
             );
             if (female) utterance.voice = female;
-          } else if (presentation === 'masculine') {
+          } else if (voiceGender === 'masculine') {
             const male = voices.find(
               (v) =>
                 v.name.toLowerCase().includes('david') ||
@@ -323,7 +328,9 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
       await updatePersonalization({
         user_name: finalName,
         phone_number: phone.trim(),
-        presentation,
+        presentation: 'neutral',
+        voice_presentation: voiceGender,
+        voice_gender: voiceGender,
         persona,
         language,
         sound_enabled: soundEnabled,
@@ -337,7 +344,8 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
     // 2. Update frontend store
     updateSettings({
       userName: finalName,
-      voicePresentation: presentation,
+      voicePresentation: voiceGender,
+      voiceGender,
       persona,
       language,
       notificationPhone: phone.trim(),
@@ -449,53 +457,25 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
               </div>
             )}
 
-            {/* ----------------- STAGE 2: VOICE PRESENTATION & PERSONA ----------------- */}
+            {/* ----------------- STAGE 2: BEHAVIORAL PERSONA CALIBRATION ----------------- */}
             {step === 2 && (
               <div className="space-y-5 animate-fade-in">
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                     <Sparkles className="text-cyan-400" size={24} />
-                    Voice Presentation & Persona
+                    Behavioral Persona Calibration
                   </h2>
                   <p className="text-sm text-slate-400 mt-1">
-                    Select your holographic particle silhouette and behavioral demeanor.
+                    Calibrate Ultron&apos;s demeanor, conversational tone, and response register.
                   </p>
-                </div>
-
-                {/* Presentation Toggle */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-2">
-                    Holographic Presentation
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['neutral', 'masculine', 'feminine'] as ParticleVariant[]).map((p) => {
-                      const isActive = presentation === p;
-                      return (
-                        <button
-                          key={p}
-                          onClick={() => {
-                            setPresentation(p);
-                            soundEffects.playClick();
-                          }}
-                          className={`py-2 px-3 rounded-xl border text-xs font-medium uppercase tracking-wider transition-all cursor-pointer ${
-                            isActive
-                              ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-500/20'
-                              : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      );
-                    })}
-                  </div>
                 </div>
 
                 {/* Persona Selection Cards */}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-2">
-                    Behavioral Calibration
+                    Select Ultron Persona Register
                   </label>
-                  <div className="grid grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
                     {PERSONA_PRESETS.map((p) => {
                       const isSelected = persona === p.id;
                       return (
@@ -531,7 +511,7 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
               </div>
             )}
 
-            {/* ----------------- STAGE 3: LANGUAGE & AUDIO PREVIEW ----------------- */}
+            {/* ----------------- STAGE 3: LANGUAGE & AUDIO SYNTHESIS ----------------- */}
             {step === 3 && (
               <div className="space-y-5 animate-fade-in">
                 <div>
@@ -540,7 +520,7 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
                     Language & Voice Engine
                   </h2>
                   <p className="text-sm text-slate-400 mt-1">
-                    Choose language preferences and test your active speech synthesis channel.
+                    Choose interaction language, select voice timbre, and test speech synthesis.
                   </p>
                 </div>
 
@@ -549,26 +529,28 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
                   <label className="block text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-2 flex items-center gap-1.5">
                     <Languages size={14} /> Spoken & Interaction Language
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <button
+                      type="button"
                       onClick={() => {
                         setLanguage('en');
                         soundEffects.playClick();
                       }}
-                      className={`py-2 px-3 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer text-center ${
                         language === 'en'
                           ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-500/20'
                           : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
                       }`}
                     >
-                      English (US / UK)
+                      English (US/UK)
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         setLanguage('ur');
                         soundEffects.playClick();
                       }}
-                      className={`py-2 px-3 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer text-center ${
                         language === 'ur'
                           ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-500/20'
                           : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
@@ -577,30 +559,80 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
                       اردو (Urdu)
                     </button>
                     <button
+                      type="button"
+                      onClick={() => {
+                        setLanguage('hi');
+                        soundEffects.playClick();
+                      }}
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer text-center ${
+                        language === 'hi'
+                          ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-500/20'
+                          : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      हिंदी (Hindi)
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         setLanguage('auto');
                         soundEffects.playClick();
                       }}
-                      className={`py-2 px-3 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer text-center ${
                         language === 'auto'
                           ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-500/20'
                           : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
                       }`}
                     >
-                      Auto-Detect (دو لسانی)
+                      Auto-Detect
                     </button>
                   </div>
                 </div>
 
+                {/* Voice Gender / Timbre Switcher */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
+                      Voice Gender / Timbre
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-mono">Speech Timbre Only</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['masculine', 'feminine', 'neutral'] as const).map((g) => {
+                      const isActive = voiceGender === g;
+                      return (
+                        <button
+                          key={g}
+                          type="button"
+                          onClick={() => {
+                            setVoiceGender(g);
+                            soundEffects.playClick();
+                          }}
+                          className={`py-2 px-3 rounded-xl border text-xs font-medium uppercase tracking-wider transition-all cursor-pointer text-center ${
+                            isActive
+                              ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-500/20'
+                              : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          {g}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Controls vocal timbre only. Ultron&apos;s hologram is always the canonical Electron core.
+                  </p>
+                </div>
+
                 {/* Free Provider vs Paid Cloud Notice */}
                 {language === 'ur' && provider === 'system' && (
-                  <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200 space-y-1">
+                  <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200 space-y-1">
                     <div className="flex items-center gap-1.5 font-semibold text-amber-300">
                       <AlertTriangle size={15} />
                       Local Urdu TTS Advisory
                     </div>
-                    <p className="leading-relaxed">
-                      Windows built-in SAPI lacks local Urdu speech models. Ultron will respond in fluent Urdu text. Spoken Urdu voice requires connecting ElevenLabs or OpenAI TTS in Settings.
+                    <p className="leading-relaxed text-[11px]">
+                      Windows SAPI lacks built-in Urdu voice models. Ultron will respond in fluent Urdu text. Spoken Urdu voice is routed via local Piper (if installed) or connected cloud neural TTS.
                     </p>
                   </div>
                 )}
@@ -629,7 +661,7 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-xs uppercase tracking-wider text-cyan-400 font-mono">
-                        Channel Preview: {activePersonaObj.name}
+                        Channel Preview: {activePersonaObj.name} ({voiceGender})
                       </span>
                       <p className="text-xs text-slate-300 mt-0.5 line-clamp-1 italic">
                         &quot;{language === 'ur' ? activePersonaObj.sampleUr : activePersonaObj.sampleEn}&quot;
@@ -675,11 +707,11 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
             )}
           </div>
 
-          {/* Right Column: Dynamic Holographic Particle Avatar Core (5 cols) */}
+          {/* Right Column: Canonical Holographic Particle Avatar Core (5 cols) */}
           <div className="md:col-span-5 flex flex-col items-center justify-center p-4">
             <div className="relative flex items-center justify-center">
               <UltronParticleCore
-                variant={presentation}
+                variant="neutral"
                 state={avatarState}
                 size={340}
                 showReticle={true}
@@ -688,7 +720,7 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
 
             <div className="mt-2 text-center">
               <div className="text-xs font-mono tracking-wider text-cyan-400">
-                ACTIVE SILHOUETTE: {presentation.toUpperCase()}
+                CANONICAL ELECTRON CORE
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5">
                 State: {avatarState} • Synaptic Nexus Synchronized

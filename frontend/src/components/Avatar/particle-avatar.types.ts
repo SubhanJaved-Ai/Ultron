@@ -1,8 +1,9 @@
-export type ParticleVariant = 'neutral' | 'masculine' | 'feminine';
+export type ParticleVariant = 'neutral';
 export type ParticleState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
 
 export interface ParticleCoreProps {
-  variant: ParticleVariant;
+  /** Variant is kept for backwards compatibility but Ultron is always the canonical Electron */
+  variant?: ParticleVariant | string;
   state?: ParticleState;
   size?: number;
   className?: string;

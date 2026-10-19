@@ -16,43 +16,40 @@ describe('UltronParticleCore', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders canvas element with proper dimensions and title', () => {
+  it('renders canvas element with proper dimensions and canonical Electron title', () => {
     const html = renderToStaticMarkup(
       <UltronParticleCore variant="neutral" state="idle" size={320} />
     );
 
     expect(html).toContain('<canvas');
     expect(html).toContain('320px');
-    expect(html).toContain('neutral presentation');
-    expect(html).toContain('state: idle');
+    expect(html).toContain('Ultron Electron — canonical particle core, state: idle');
   });
 
-  it('renders masculine presentation variant correctly', () => {
+  it('renders thinking state on canonical Electron correctly', () => {
     const html = renderToStaticMarkup(
-      <UltronParticleCore variant="masculine" state="thinking" size={400} />
+      <UltronParticleCore state="thinking" size={400} />
     );
 
     expect(html).toContain('<canvas');
-    expect(html).toContain('masculine presentation');
-    expect(html).toContain('state: thinking');
+    expect(html).toContain('Ultron Electron — canonical particle core, state: thinking');
   });
 
-  it('renders feminine presentation variant correctly', () => {
+  it('renders speaking state and safely handles legacy variant without altering canonical Electron identity', () => {
     const html = renderToStaticMarkup(
-      <UltronParticleCore variant="feminine" state="speaking" size={400} />
+      <UltronParticleCore variant="masculine" state="speaking" size={400} />
     );
 
     expect(html).toContain('<canvas');
-    expect(html).toContain('feminine presentation');
-    expect(html).toContain('state: speaking');
+    expect(html).toContain('Ultron Electron — canonical particle core, state: speaking');
   });
 
-  it('renders error state correctly', () => {
+  it('renders error state correctly on canonical Electron', () => {
     const html = renderToStaticMarkup(
-      <UltronParticleCore variant="neutral" state="error" size={280} />
+      <UltronParticleCore state="error" size={280} />
     );
 
     expect(html).toContain('<canvas');
-    expect(html).toContain('state: error');
+    expect(html).toContain('Ultron Electron — canonical particle core, state: error');
   });
 });

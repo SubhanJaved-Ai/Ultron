@@ -17,8 +17,13 @@ logger = logging.getLogger("openjarvis.server.tts")
 _AUDIO_CACHE: dict[str, bytes] = {}
 
 
-def synthesize_wav(text: str) -> bytes | None:
-    """Synthesize text to WAV audio bytes using native Windows SAPI."""
+def synthesize_wav(text: str, voice_gender: str = "masculine") -> bytes | None:
+    """Synthesize text to WAV audio bytes using native Windows SAPI.
+
+    Args:
+        text: Spoken text content.
+        voice_gender: Voice timbre preference ('masculine', 'feminine', or 'neutral').
+    """
     clean = (
         re.sub(r"[*_#`~]", "", text)
         .replace("—", ", ")
@@ -41,8 +46,10 @@ def synthesize_wav(text: str) -> bytes | None:
                 break
         clean = trimmed or clean[:200].rsplit(" ", 1)[0] + "."
 
-    if clean in _AUDIO_CACHE:
-        return _AUDIO_CACHE[clean]
+    gender_key = str(voice_gender or "masculine").lower().strip()
+    cache_key = f"{gender_key}:{clean}"
+    if cache_key in _AUDIO_CACHE:
+        return _AUDIO_CACHE[cache_key]
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
         wav_path = tf.name
@@ -51,12 +58,24 @@ def synthesize_wav(text: str) -> bytes | None:
     vbs_clean = clean.replace('"', '""')
     vbs_file = wav_path + ".vbs"
 
+    is_female = gender_key == "feminine"
+    vbs_voice_filter = (
+        'InStr(LCase(v.GetDescription), "zira") > 0 Or InStr(LCase(v.GetDescription), "female") > 0'
+        if is_female
+        else 'InStr(LCase(v.GetDescription), "david") > 0 Or (InStr(LCase(v.GetDescription), "male") > 0 And InStr(LCase(v.GetDescription), "female") = 0)'
+    )
+    ps_gender_enum = (
+        "[System.Speech.Synthesis.VoiceGender]::Female"
+        if is_female
+        else "[System.Speech.Synthesis.VoiceGender]::Male"
+    )
+
     # Primary Engine: Native Windows SAPI via cscript (zero external dependencies)
     try:
         with open(vbs_file, "w", encoding="utf-8") as f:
             f.write(f'''Set voice = CreateObject("SAPI.SpVoice")
 For Each v In voice.GetVoices
-    If InStr(LCase(v.GetDescription), "david") > 0 Or (InStr(LCase(v.GetDescription), "male") > 0 And InStr(LCase(v.GetDescription), "female") = 0) Then
+    If {vbs_voice_filter} Then
         Set voice.Voice = v
         Exit For
     End If
@@ -78,7 +97,7 @@ stream.Close
         if os.path.exists(wav_path) and os.path.getsize(wav_path) > 1000:
             with open(wav_path, "rb") as f:
                 data = f.read()
-            _AUDIO_CACHE[clean] = data
+            _AUDIO_CACHE[cache_key] = data
             return data
     except Exception as exc:
         logger.debug("cscript SAPI attempt failed: %s, falling back to powershell", exc)
@@ -89,7 +108,7 @@ stream.Close
         with open(ps_file, "w", encoding="utf-8") as f:
             f.write(f"""Add-Type -AssemblyName System.Speech
 $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
-try {{ $synth.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::Male) }} catch {{}}
+try {{ $synth.SelectVoiceByHints({ps_gender_enum}) }} catch {{}}
 $synth.Rate = 1
 $synth.Volume = 100
 $synth.SetOutputToWaveFile('{wav_path}')
@@ -114,7 +133,7 @@ $synth.Dispose()
         if os.path.exists(wav_path) and os.path.getsize(wav_path) > 1000:
             with open(wav_path, "rb") as f:
                 data = f.read()
-            _AUDIO_CACHE[clean] = data
+            _AUDIO_CACHE[cache_key] = data
             return data
     except Exception as exc:
         logger.warning("TTS generation failed for '%s': %s", clean[:30], exc)

@@ -76,6 +76,8 @@ def _resolve_api_key(env_path: Optional[Path] = None) -> str:
 def build_system_prompt(
     user_address: str = "",
     personality: dict[str, float] | None = None,
+    persona: str | None = None,
+    language: str | None = None,
 ) -> str:
     """Build the genius-level Ultron system prompt with dynamic personality.
 
@@ -84,7 +86,7 @@ def build_system_prompt(
         personality: Dict with keys 'formality', 'verbosity', 'warmth', each
             in [0.0, 1.0].  If None, the stored personality is loaded.
         persona: Optional persona preset ID (e.g. 'jarvis', 'mentor', 'bro', 'listener').
-        language: Optional language code ('en', 'ur', 'auto').
+        language: Optional language code ('en', 'ur', 'hi', 'auto').
     """
     if personality is None:
         personality = get_personality()
@@ -118,17 +120,27 @@ def build_system_prompt(
         language_clause = (
             "Urdu Language Support: Urdu (اردو) is the operator's preferred language. "
             "You are completely fluent in understanding and generating articulate Urdu. "
-            "When the user queries in Urdu or requests Urdu, respond directly in clear, natural Urdu script. "
+            "When the user queries in Urdu or requests Urdu (e.g. 'مجھے اردو میں جواب دو'), respond directly in clear, natural Urdu script. "
+            "When the user addresses you in English, respond in English unless requested otherwise."
+        )
+    elif language == "hi":
+        language_clause = (
+            "Hindi Language Support: Hindi (हिंदी) is the operator's preferred language. "
+            "You are completely fluent in understanding and generating articulate Hindi. "
+            "When the user queries in Hindi or requests Hindi (e.g. 'हिंदी में जवाब دو' / 'हिंदी में उत्तर दें'), respond directly in clear Devanagari Hindi script. "
             "When the user addresses you in English, respond in English unless requested otherwise."
         )
     elif language == "auto":
         language_clause = (
             "Multilingual Support: Automatically detect and match the language of the user's directive, "
-            "with full native support for both English and Urdu (اردو)."
+            "with full native support for English, Urdu (اردو), and Hindi (हिंदी). "
+            "If the user explicitly requests a language (e.g. 'مجھے اردو میں جواب دو', 'हिंदी में जवाब دو', 'answer in English'), "
+            "strictly honor that request in that language's native script."
         )
     else:
         language_clause = (
-            "Language Register: English is the primary working language. Maintain flawless command of both English and regional terminology."
+            "Language Register: English is the primary working language. Maintain flawless command of both English and regional terminology. "
+            "If the user explicitly asks for Urdu or Hindi, adapt immediately and respond in their requested language."
         )
 
     formality = float(personality.get("formality", 0.5))

@@ -571,10 +571,11 @@ export interface PersonalizationPreferences {
   user_name: string;
   phone_number?: string;
   notification_phone?: string;
-  presentation: 'masculine' | 'feminine' | 'neutral';
-  voice_presentation?: 'masculine' | 'feminine' | 'neutral';
+  presentation?: 'masculine' | 'feminine' | 'neutral' | string;
+  voice_presentation?: 'masculine' | 'feminine' | 'neutral' | string;
+  voice_gender?: 'masculine' | 'feminine' | 'neutral';
   persona: string;
-  language: 'en' | 'ur' | 'auto';
+  language: 'en' | 'ur' | 'hi' | 'auto';
   sound_enabled: boolean;
   sound_volume: number;
   sound_effects?: {
@@ -641,6 +642,7 @@ export async function previewVoiceUtterance(opts: {
   provider?: string;
   voice_id?: string;
   language?: string;
+  voice_gender?: string;
   text?: string;
 }): Promise<VoicePreviewResult> {
   const res = await apiFetch('/v1/speech/preview', {

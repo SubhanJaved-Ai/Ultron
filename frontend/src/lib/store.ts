@@ -152,9 +152,10 @@ interface Settings {
   voiceAutoplay: boolean;
   // Personalization & Cyber Experience
   userName: string;
-  voicePresentation: 'masculine' | 'feminine' | 'neutral';
+  voicePresentation?: 'masculine' | 'feminine' | 'neutral' | string;
+  voiceGender?: 'masculine' | 'feminine' | 'neutral';
   persona: string;
-  language: 'en' | 'ur' | 'auto';
+  language: 'en' | 'ur' | 'hi' | 'auto';
   notificationPhone: string;
   soundEnabled: boolean;
   soundVolume: number;
@@ -176,6 +177,7 @@ function loadSettings(): Settings {
     voiceAutoplay: false,
     userName: 'Sir',
     voicePresentation: 'neutral',
+    voiceGender: 'masculine',
     persona: 'jarvis',
     language: 'en',
     notificationPhone: '',

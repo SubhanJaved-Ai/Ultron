@@ -607,7 +607,10 @@ DEFAULT_PERSONA = "jarvis"
 VALID_PRESENTATIONS = ("masculine", "feminine", "neutral")
 DEFAULT_PRESENTATION = "neutral"
 
-VALID_LANGUAGES = ("en", "ur", "auto")
+VALID_VOICE_GENDERS = ("masculine", "feminine", "neutral")
+DEFAULT_VOICE_GENDER = "masculine"
+
+VALID_LANGUAGES = ("en", "ur", "hi", "auto")
 DEFAULT_LANGUAGE = "en"
 
 _PHONE_RE = re.compile(r"^[\+]?[0-9\s\-\(\)]{0,24}$")
@@ -627,6 +630,15 @@ def _validate_presentation(val: object) -> str:
     if clean not in VALID_PRESENTATIONS:
         raise ValueError(
             f"Invalid presentation '{val}'. Must be one of: {', '.join(VALID_PRESENTATIONS)}"
+        )
+    return clean
+
+
+def _validate_voice_gender(val: object) -> str:
+    clean = str(val or "").strip().lower()
+    if clean not in VALID_VOICE_GENDERS:
+        raise ValueError(
+            f"Invalid voice gender '{val}'. Must be one of: {', '.join(VALID_VOICE_GENDERS)}"
         )
     return clean
 
@@ -658,13 +670,18 @@ def get_personalization_preferences(user_id: str | None = None) -> dict:
     if persona not in VALID_PERSONAS:
         persona = DEFAULT_PERSONA
 
-    presentation = (
-        pers_data.get("presentation")
+    # Voice output gender / timbre preference
+    voice_gender = (
+        pers_data.get("voice_gender")
         or pers_data.get("voice_presentation")
-        or DEFAULT_PRESENTATION
+        or (pers_data.get("presentation") if pers_data.get("presentation") in VALID_VOICE_GENDERS else None)
+        or DEFAULT_VOICE_GENDER
     )
-    if presentation not in VALID_PRESENTATIONS:
-        presentation = DEFAULT_PRESENTATION
+    if voice_gender not in VALID_VOICE_GENDERS:
+        voice_gender = DEFAULT_VOICE_GENDER
+
+    # Ultron's visual hologram is always the single canonical Electron core
+    presentation = DEFAULT_PRESENTATION
 
     language = pers_data.get("language", DEFAULT_LANGUAGE)
     if language not in VALID_LANGUAGES:
@@ -696,7 +713,8 @@ def get_personalization_preferences(user_id: str | None = None) -> dict:
         "phone_number": phone,
         "notification_phone": phone,
         "presentation": presentation,
-        "voice_presentation": presentation,
+        "voice_presentation": voice_gender,
+        "voice_gender": voice_gender,
         "persona": persona,
         "language": language,
         "sound_enabled": sound_enabled,
@@ -729,11 +747,21 @@ def set_personalization_preferences(updates: dict, user_id: str | None = None) -
     if "persona" in updates and updates["persona"] is not None:
         current["persona"] = _validate_persona(updates["persona"])
 
-    pres = updates.get("presentation") if "presentation" in updates else updates.get("voice_presentation")
-    if pres is not None:
-        validated_pres = _validate_presentation(pres)
-        current["presentation"] = validated_pres
-        current["voice_presentation"] = validated_pres
+    # Voice gender / timbre preference
+    gender_input = (
+        updates.get("voice_gender")
+        if "voice_gender" in updates
+        else updates.get("voice_presentation")
+        if "voice_presentation" in updates
+        else updates.get("presentation")
+    )
+    if gender_input is not None:
+        validated_gender = _validate_voice_gender(gender_input)
+        current["voice_gender"] = validated_gender
+        current["voice_presentation"] = validated_gender
+
+    # Ultron's visual hologram is always the canonical Electron core
+    current["presentation"] = DEFAULT_PRESENTATION
 
     if "language" in updates and updates["language"] is not None:
         current["language"] = _validate_language(updates["language"])

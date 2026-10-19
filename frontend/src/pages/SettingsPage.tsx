@@ -667,11 +667,15 @@ export function SettingsPage() {
   };
 
   const handlePresentationChange = async (p: 'masculine' | 'feminine' | 'neutral') => {
-    updateSettings({ voicePresentation: p });
+    updateSettings({ voicePresentation: p, voiceGender: p });
     showSaved();
     soundEffects.playClick();
     try {
-      await updatePersonalization({ presentation: p });
+      await updatePersonalization({
+        presentation: 'neutral',
+        voice_presentation: p,
+        voice_gender: p,
+      });
     } catch {}
   };
 
@@ -684,7 +688,7 @@ export function SettingsPage() {
     } catch {}
   };
 
-  const handleLanguageChange = async (l: 'en' | 'ur' | 'auto') => {
+  const handleLanguageChange = async (l: 'en' | 'ur' | 'hi' | 'auto') => {
     updateSettings({ language: l });
     showSaved();
     soundEffects.playClick();
@@ -1398,12 +1402,12 @@ export function SettingsPage() {
             </SettingRow>
 
             <SettingRow
-              label="Voice Presentation"
-              description="Holographic particle silhouette & acoustic presentation identity"
+              label="Voice Gender / Timbre"
+              description="Speech output voice timbre (Ultron's visual hologram is always the canonical Electron)"
             >
               <div className="flex gap-1.5 p-0.5 rounded-lg" style={{ background: 'var(--color-bg-secondary)' }}>
-                {(['neutral', 'masculine', 'feminine'] as const).map((p) => {
-                  const isActive = (settings.voicePresentation || 'neutral') === p;
+                {(['masculine', 'feminine', 'neutral'] as const).map((p) => {
+                  const isActive = (settings.voiceGender || settings.voicePresentation || 'masculine') === p;
                   return (
                     <button
                       key={p}
@@ -1428,15 +1432,15 @@ export function SettingsPage() {
             }}>
               <div>
                 <span className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>
-                  Holographic Silhouette Preview
+                  Canonical Hologram Preview
                 </span>
                 <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
-                  Visualized on the 1,100 node depth-projected particle lattice.
+                  Visualized on the 1,100 node depth-projected Electron particle lattice.
                 </p>
               </div>
               <div className="rounded-lg p-1" style={{ background: '#090d16' }}>
                 <UltronParticleCore
-                  variant={settings.voicePresentation || 'neutral'}
+                  variant="neutral"
                   state="idle"
                   size={120}
                   showReticle={false}
@@ -1468,11 +1472,11 @@ export function SettingsPage() {
 
             <SettingRow
               label="Primary Language"
-              description="Supported interaction language (full native support for English & Urdu)"
+              description="Supported interaction language (full native support for English, Urdu & Hindi)"
             >
               <select
                 value={settings.language || 'en'}
-                onChange={(e) => handleLanguageChange(e.target.value as 'en' | 'ur' | 'auto')}
+                onChange={(e) => handleLanguageChange(e.target.value as 'en' | 'ur' | 'hi' | 'auto')}
                 className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
                 style={{
                   background: 'var(--color-bg-secondary)',
@@ -1482,11 +1486,12 @@ export function SettingsPage() {
               >
                 <option value="en">English (US / UK)</option>
                 <option value="ur">اردو (Urdu)</option>
-                <option value="auto">Auto-Detect (Multilingual / دو لسانی)</option>
+                <option value="hi">हिंदी (Hindi)</option>
+                <option value="auto">Auto-Detect (Multilingual)</option>
               </select>
             </SettingRow>
 
-            {settings.language === 'ur' && (!voiceSettings || voiceSettings.provider === 'system') && (
+            {(settings.language === 'ur' || settings.language === 'hi') && (!voiceSettings || voiceSettings.provider === 'system') && (
               <div
                 className="p-3 my-1 rounded-lg text-xs leading-relaxed"
                 style={{
@@ -1495,8 +1500,8 @@ export function SettingsPage() {
                   border: '1px solid rgba(245, 158, 11, 0.3)',
                 }}
               >
-                <span className="font-semibold text-amber-500">Notice on Urdu Spoken Audio: </span>
-                Windows OS free voices synthesize English speech. Ultron generates fluent Urdu text in chat. For spoken voice output in Urdu, select ElevenLabs or OpenAI TTS below.
+                <span className="font-semibold text-amber-500">Notice on Multilingual Spoken Audio: </span>
+                Windows OS built-in SAPI voices synthesize English speech locally. Ultron generates fluent text in your selected language ({settings.language === 'ur' ? 'Urdu' : 'Hindi'}). For spoken neural voice output in Urdu or Hindi, configure ElevenLabs or OpenAI TTS below.
               </div>
             )}
 

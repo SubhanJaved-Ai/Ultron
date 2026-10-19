@@ -79,7 +79,7 @@ describe('CinematicOnboarding', () => {
     expect(html).toContain('01 IDENTITY');
     expect(html).toContain('Skip setup with default settings');
     expect(html).toContain('<canvas');
-    expect(html).toContain('Ultron Particle Core');
+    expect(html).toContain('Ultron Electron — canonical particle core');
   });
 
   it('contains all 8 defined persona presets with valid English and Urdu samples', () => {
@@ -115,12 +115,12 @@ describe('CinematicOnboarding', () => {
     expect(htmlWithoutSkip).not.toContain('Skip setup with default settings');
   });
 
-  it('includes interactive controls for cyber audio mute and reticle HUD', () => {
+  it('includes interactive controls for cyber audio mute and canonical Electron column', () => {
     const html = renderToStaticMarkup(
       <CinematicOnboarding onComplete={vi.fn()} onSkip={vi.fn()} />
     );
 
     expect(html).toContain('Mute Cyber Audio Cues');
-    expect(html).toContain('ACTIVE SILHOUETTE');
+    expect(html).toContain('CANONICAL ELECTRON CORE');
   });
 });

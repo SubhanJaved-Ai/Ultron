@@ -18,6 +18,7 @@ import { useAppStore } from './lib/store';
 import { fetchModels, fetchServerInfo, fetchSavings, submitSavings, isTauri } from './lib/api';
 import { UpdateChecker } from './components/Desktop/UpdateChecker';
 import { track, hashId } from './lib/analytics';
+import { CinematicOnboarding } from './components/Onboarding/CinematicOnboarding';
 
 export default function App() {
   const [setupDone, setSetupDone] = useState(!isTauri());
@@ -176,6 +177,22 @@ export default function App() {
   }, [commandPaletteOpen, setCommandPaletteOpen, toggleSystemPanel]);
 
 
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    const hasCompleted = localStorage.getItem('ultron-onboarding-completed');
+    if (!settings.onboardingCompleted && !hasCompleted) {
+      setShowOnboarding(true);
+    }
+  }, [settings.onboardingCompleted]);
+
+  // Listen for custom event to relaunch onboarding anytime from SettingsPage
+  useEffect(() => {
+    const handleRelaunch = () => setShowOnboarding(true);
+    window.addEventListener('ultron-relaunch-onboarding', handleRelaunch);
+    return () => window.removeEventListener('ultron-relaunch-onboarding', handleRelaunch);
+  }, []);
+
   if (!setupDone) {
     return <SetupScreen onReady={handleSetupReady} />;
   }
@@ -183,6 +200,18 @@ export default function App() {
   return (
     <>
       <UpdateChecker />
+      {showOnboarding && (
+        <CinematicOnboarding
+          onComplete={() => {
+            localStorage.setItem('ultron-onboarding-completed', 'true');
+            setShowOnboarding(false);
+          }}
+          onSkip={() => {
+            localStorage.setItem('ultron-onboarding-completed', 'true');
+            setShowOnboarding(false);
+          }}
+        />
+      )}
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
@@ -195,6 +224,17 @@ export default function App() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="memory-skills" element={<MemorySkillsPage />} />
           <Route path="hologram" element={<HologramPage />} />
+          <Route
+            path="onboarding"
+            element={
+              <CinematicOnboarding
+                onComplete={() => {
+                  localStorage.setItem('ultron-onboarding-completed', 'true');
+                  window.location.hash = '';
+                }}
+              />
+            }
+          />
         </Route>
       </Routes>
       <Toaster position="bottom-right" />

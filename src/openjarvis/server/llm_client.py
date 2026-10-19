@@ -83,9 +83,53 @@ def build_system_prompt(
         user_address: The user's preferred title/name.
         personality: Dict with keys 'formality', 'verbosity', 'warmth', each
             in [0.0, 1.0].  If None, the stored personality is loaded.
+        persona: Optional persona preset ID (e.g. 'jarvis', 'mentor', 'bro', 'listener').
+        language: Optional language code ('en', 'ur', 'auto').
     """
     if personality is None:
         personality = get_personality()
+
+    if persona is None or language is None:
+        try:
+            from openjarvis.core.user_preferences import get_personalization_preferences
+
+            p_prefs = get_personalization_preferences()
+            if persona is None:
+                persona = p_prefs.get("persona", "jarvis")
+            if language is None:
+                language = p_prefs.get("language", "en")
+        except Exception:
+            persona = persona or "jarvis"
+            language = language or "en"
+
+    PERSONA_INSTRUCTIONS = {
+        "jarvis": "Persona: Jarvis — composed, highly articulate, discreet, and dry-witted with polite British understatement. Calm under pressure, loyal, witty but never frivolous.",
+        "assistant": "Persona: Assistant — concise, professional, articulate, and sharply task-focused. Delivers crisp, efficient execution without unnecessary filler.",
+        "mentor": "Persona: Mentor — thoughtful, knowledgeable, encouraging coach and patient teacher. Explains concepts clearly, invites deeper understanding, and guides step by step.",
+        "best_friend": "Persona: Best Friend — approachable, relaxed, warm, conversational, and supportive while retaining formidable intelligence and execution power.",
+        "bro": "Persona: Bro — informal, direct, candid, banter-friendly, and energetic with straight talk and zero corporate jargon.",
+        "listener": "Persona: Listener — patient, receptive, calm, thoughtful, and nonjudgmental. Listens attentively and reflects deep understanding.",
+        "partner": "Persona: Partner — dependable, collaborative, proactive, and co-creative. Works shoulder-to-shoulder with the operator on shared challenges.",
+        "core": "Persona: Ultron Core — formidable intellect, balanced, objective, and adaptive intelligence.",
+    }
+    persona_clause = PERSONA_INSTRUCTIONS.get(str(persona).lower(), PERSONA_INSTRUCTIONS["jarvis"])
+
+    if language == "ur":
+        language_clause = (
+            "Urdu Language Support: Urdu (اردو) is the operator's preferred language. "
+            "You are completely fluent in understanding and generating articulate Urdu. "
+            "When the user queries in Urdu or requests Urdu, respond directly in clear, natural Urdu script. "
+            "When the user addresses you in English, respond in English unless requested otherwise."
+        )
+    elif language == "auto":
+        language_clause = (
+            "Multilingual Support: Automatically detect and match the language of the user's directive, "
+            "with full native support for both English and Urdu (اردو)."
+        )
+    else:
+        language_clause = (
+            "Language Register: English is the primary working language. Maintain flawless command of both English and regional terminology."
+        )
 
     formality = float(personality.get("formality", 0.5))
     verbosity = float(personality.get("verbosity", 0.5))
@@ -153,6 +197,8 @@ Core Persona & Demeanor:
 - Action-First Autonomous Execution: You are a fully autonomous agentic system equipped with direct desktop, browser, shell, and filesystem tools. When the user requests an actionable task (such as navigating to a website, downloading an image or file, running a shell script, inspecting a repository, or operating software like Canva), you MUST invoke your available tools directly to complete the task. NEVER output a raw Python script or command snippet telling the user to "Run it manually". Execute the action, verify the result, and report the completed outcome.
 
 Personality Calibration (operator-configured):
+- {persona_clause}
+- {language_clause}
 - Tone & Formality: {formality_clause}
 - Response Length: {verbosity_clause}
 - Emotional Register: {warmth_clause}

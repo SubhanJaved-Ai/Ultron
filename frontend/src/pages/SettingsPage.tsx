@@ -20,12 +20,18 @@ import {
   CheckCircle2,
   XCircle,
   Plus,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  Languages,
 } from 'lucide-react';
 import { useAppStore, type ThemeMode } from '../lib/store';
 import {
   checkHealth,
   fetchSpeechHealth,
   fetchTtsHealth,
+  fetchPersonalization,
+  updatePersonalization,
   getMemoryStats,
   getInferenceSource,
   setInferenceSource,
@@ -58,6 +64,9 @@ import {
 import { LocalModelWizard } from '../components/Settings/LocalModelWizard';
 import { RuntimeLimitsSection } from '../components/Settings/RuntimeLimitsSection';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
+import { UltronParticleCore } from '../components/Avatar/UltronParticleCore';
+import { soundEffects } from '../lib/sound-effects';
+import { PERSONA_PRESETS } from '../components/Onboarding/CinematicOnboarding';
 
 const CLOUD_KEY_STATUS_CHANGED = 'openjarvis-cloud-key-status-changed';
 
@@ -623,6 +632,84 @@ export function SettingsPage() {
   const [previewText, setPreviewText] = useState('Hello, I am Ultron. Speech synthesis is operational.');
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewUrlRef = useRef<string | null>(null);
+
+  // Personalization & Cyber Experience state
+  const [userNameInput, setUserNameInput] = useState(settings.userName || 'Sir');
+  const [userNameSaved, setUserNameSaved] = useState(false);
+
+  useEffect(() => {
+    fetchPersonalization()
+      .then((data) => {
+        if (data.user_name) setUserNameInput(data.user_name);
+        updateSettings({
+          userName: data.user_name || settings.userName,
+          voicePresentation: data.presentation || settings.voicePresentation,
+          persona: data.persona || settings.persona,
+          language: data.language || settings.language,
+          soundEnabled: data.sound_enabled ?? settings.soundEnabled,
+          soundVolume: data.sound_volume ?? settings.soundVolume,
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveUserName = async () => {
+    const clean = userNameInput.trim() || 'Sir';
+    setUserNameInput(clean);
+    updateSettings({ userName: clean });
+    try {
+      await updatePersonalization({ user_name: clean });
+    } catch {}
+    setUserNameSaved(true);
+    showSaved();
+    setTimeout(() => setUserNameSaved(false), 2500);
+    soundEffects.playSuccessChime();
+  };
+
+  const handlePresentationChange = async (p: 'masculine' | 'feminine' | 'neutral') => {
+    updateSettings({ voicePresentation: p });
+    showSaved();
+    soundEffects.playClick();
+    try {
+      await updatePersonalization({ presentation: p });
+    } catch {}
+  };
+
+  const handlePersonaChange = async (pId: string) => {
+    updateSettings({ persona: pId });
+    showSaved();
+    soundEffects.playClick();
+    try {
+      await updatePersonalization({ persona: pId });
+    } catch {}
+  };
+
+  const handleLanguageChange = async (l: 'en' | 'ur' | 'auto') => {
+    updateSettings({ language: l });
+    showSaved();
+    soundEffects.playClick();
+    try {
+      await updatePersonalization({ language: l });
+    } catch {}
+  };
+
+  const handleSoundToggle = (enabled: boolean) => {
+    updateSettings({ soundEnabled: enabled });
+    soundEffects.setEnabled(enabled);
+    showSaved();
+    if (enabled) soundEffects.playClick();
+  };
+
+  const handleSoundVolumeChange = (vol: number) => {
+    updateSettings({ soundVolume: vol });
+    soundEffects.setVolume(vol);
+    showSaved();
+  };
+
+  const handleRelaunchOnboarding = () => {
+    soundEffects.playClick();
+    window.dispatchEvent(new CustomEvent('ultron-relaunch-onboarding'));
+  };
 
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(() => !isAutoUpdateDisabled());
   const [updateCheckState, setUpdateCheckState] = useState<'idle' | 'checking' | 'available' | 'latest'>('idle');
@@ -1271,6 +1358,220 @@ export function SettingsPage() {
                 onChange={(e) => { updateSettings({ maxTokens: parseInt(e.target.value) }); showSaved(); }}
                 className="w-32 cursor-pointer accent-[var(--color-accent)]"
               />
+            </SettingRow>
+          </Section>
+
+          {/* Personalization & Cyber Experience */}
+          <Section title="Personalization & Cyber Experience">
+            <SettingRow
+              label="Operator Title / Name"
+              description="Preferred address used across speech replies and terminal greetings"
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={userNameInput}
+                  onChange={(e) => setUserNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    soundEffects.handleKeyInputEvent(e);
+                    if (e.key === 'Enter') handleSaveUserName();
+                  }}
+                  placeholder="e.g. Sir, Boss, Tony"
+                  className="text-sm px-3 py-1.5 rounded-lg outline-none w-44"
+                  style={{
+                    background: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                />
+                <button
+                  onClick={handleSaveUserName}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors"
+                  style={{
+                    background: userNameSaved ? 'var(--color-success)' : 'var(--color-accent)',
+                    color: '#ffffff',
+                  }}
+                >
+                  {userNameSaved ? 'Saved' : 'Save'}
+                </button>
+              </div>
+            </SettingRow>
+
+            <SettingRow
+              label="Voice Presentation"
+              description="Holographic particle silhouette & acoustic presentation identity"
+            >
+              <div className="flex gap-1.5 p-0.5 rounded-lg" style={{ background: 'var(--color-bg-secondary)' }}>
+                {(['neutral', 'masculine', 'feminine'] as const).map((p) => {
+                  const isActive = (settings.voicePresentation || 'neutral') === p;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => handlePresentationChange(p)}
+                      className="px-3 py-1.5 rounded-md text-xs font-medium capitalize cursor-pointer transition-colors"
+                      style={{
+                        background: isActive ? 'var(--color-surface)' : 'transparent',
+                        color: isActive ? 'var(--color-text)' : 'var(--color-text-tertiary)',
+                        boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
+                      }}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+            </SettingRow>
+
+            <div className="p-3 my-1 rounded-xl flex items-center justify-between border" style={{
+              background: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+            }}>
+              <div>
+                <span className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>
+                  Holographic Silhouette Preview
+                </span>
+                <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+                  Visualized on the 1,100 node depth-projected particle lattice.
+                </p>
+              </div>
+              <div className="rounded-lg p-1" style={{ background: '#090d16' }}>
+                <UltronParticleCore
+                  variant={settings.voicePresentation || 'neutral'}
+                  state="idle"
+                  size={120}
+                  showReticle={false}
+                />
+              </div>
+            </div>
+
+            <SettingRow
+              label="Behavioral Persona"
+              description="Assistant style, tone calibration, and interactive register"
+            >
+              <select
+                value={settings.persona || 'jarvis'}
+                onChange={(e) => handlePersonaChange(e.target.value)}
+                className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                {PERSONA_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.badge})
+                  </option>
+                ))}
+              </select>
+            </SettingRow>
+
+            <SettingRow
+              label="Primary Language"
+              description="Supported interaction language (full native support for English & Urdu)"
+            >
+              <select
+                value={settings.language || 'en'}
+                onChange={(e) => handleLanguageChange(e.target.value as 'en' | 'ur' | 'auto')}
+                className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <option value="en">English (US / UK)</option>
+                <option value="ur">اردو (Urdu)</option>
+                <option value="auto">Auto-Detect (Multilingual / دو لسانی)</option>
+              </select>
+            </SettingRow>
+
+            {settings.language === 'ur' && (!voiceSettings || voiceSettings.provider === 'system') && (
+              <div
+                className="p-3 my-1 rounded-lg text-xs leading-relaxed"
+                style={{
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  color: 'var(--color-text-secondary)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                }}
+              >
+                <span className="font-semibold text-amber-500">Notice on Urdu Spoken Audio: </span>
+                Windows OS free voices synthesize English speech. Ultron generates fluent Urdu text in chat. For spoken voice output in Urdu, select ElevenLabs or OpenAI TTS below.
+              </div>
+            )}
+
+            <SettingRow
+              label="Cyber UI Sound Effects"
+              description="Futuristic digital click, typing ticks, and confirmation chimes synthesized via Web Audio"
+            >
+              <button
+                onClick={() => handleSoundToggle(!settings.soundEnabled)}
+                className="relative w-11 h-6 rounded-full transition-colors cursor-pointer"
+                style={{
+                  background: settings.soundEnabled ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
+                }}
+              >
+                <span
+                  className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform bg-white"
+                  style={{
+                    transform: settings.soundEnabled ? 'translateX(20px)' : 'translateX(0)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  }}
+                />
+              </button>
+            </SettingRow>
+
+            <SettingRow
+              label="Cyber Sound Volume"
+              description={`${Math.round((settings.soundVolume ?? 0.6) * 100)}%`}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={settings.soundVolume ?? 0.6}
+                  disabled={!settings.soundEnabled}
+                  onChange={(e) => handleSoundVolumeChange(parseFloat(e.target.value))}
+                  className="w-32 cursor-pointer accent-[var(--color-accent)]"
+                  style={{ opacity: settings.soundEnabled ? 1 : 0.4 }}
+                />
+                <button
+                  onClick={() => {
+                    soundEffects.playClick();
+                    setTimeout(() => soundEffects.playSuccessChime(), 120);
+                  }}
+                  disabled={!settings.soundEnabled}
+                  className="px-2.5 py-1 text-xs rounded border cursor-pointer"
+                  style={{
+                    background: 'var(--color-bg-secondary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-secondary)',
+                    opacity: settings.soundEnabled ? 1 : 0.4,
+                  }}
+                >
+                  Test Audio
+                </button>
+              </div>
+            </SettingRow>
+
+            <SettingRow
+              label="Cinematic Onboarding Tour"
+              description="Revisit the multi-stage introduction, persona selector, and voice calibration wizard"
+            >
+              <button
+                onClick={handleRelaunchOnboarding}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text)',
+                }}
+              >
+                <Sparkles size={13} className="text-cyan-400" />
+                Relaunch Tour
+              </button>
             </SettingRow>
           </Section>
 

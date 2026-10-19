@@ -67,6 +67,23 @@ class ElevenLabsPreviewRequest(BaseModel):
     text: Optional[str] = "Hello, I am Ultron. Speech synthesis is operational."
 
 
+class VoicePreviewRequest(BaseModel):
+    provider: Optional[str] = "system"
+    voice_id: Optional[str] = None
+    language: Optional[str] = "en"
+    text: Optional[str] = None
+
+
+class PersonalizationRequest(BaseModel):
+    user_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    presentation: Optional[str] = None
+    persona: Optional[str] = None
+    language: Optional[str] = None
+    onboarding_completed: Optional[bool] = None
+    sound_enabled: Optional[bool] = None
+    sound_volume: Optional[float] = None
+
 
 class MemoryStoreRequest(BaseModel):
     content: str
@@ -1261,26 +1278,90 @@ async def tts_health(request: Request):
 
 @speech_router.get("/voice-settings")
 async def get_voice_settings_endpoint():
-    """Retrieve current voice provider configuration with masked credentials."""
+    """Retrieve current voice provider configuration with masked credentials and provider capabilities."""
+    import os
     from openjarvis.core.user_preferences import (
         get_elevenlabs_api_key,
+        get_personalization_preferences,
         get_voice_preferences,
     )
 
     prefs = get_voice_preferences()
     has_el_key = bool(get_elevenlabs_api_key())
+    has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
+    personalization = get_personalization_preferences()
+
+    kokoro_avail = False
+    try:
+        from openjarvis.core.registry import TTSRegistry
+        kokoro_avail = TTSRegistry.contains("kokoro")
+    except Exception:
+        pass
+
     return {
         **prefs,
+        "personalization": personalization,
         "available_providers": [
             {
                 "id": "system",
-                "name": "System Default (Windows SAPI / Local)",
+                "name": "System / Browser Voice (Local)",
+                "free": True,
+                "requires_key": False,
                 "available": True,
+                "supported_languages": ["en"],
+                "cost_notice": "100% Free & private. Uses local operating system voices.",
+                "voices": [
+                    {"id": "default", "name": "System Default", "gender": "neutral", "lang": "en"},
+                    {"id": "david", "name": "Microsoft David", "gender": "masculine", "lang": "en-US"},
+                    {"id": "zira", "name": "Microsoft Zira", "gender": "feminine", "lang": "en-US"},
+                ],
+            },
+            {
+                "id": "kokoro",
+                "name": "Kokoro Local Neural TTS",
+                "free": True,
+                "requires_key": False,
+                "available": kokoro_avail,
+                "supported_languages": ["en"],
+                "cost_notice": "Free local neural TTS engine.",
+                "voices": [
+                    {"id": "bm_george", "name": "George (British Male)", "gender": "masculine", "lang": "en-GB"},
+                    {"id": "bf_emma", "name": "Emma (British Female)", "gender": "feminine", "lang": "en-GB"},
+                    {"id": "am_adam", "name": "Adam (American Male)", "gender": "masculine", "lang": "en-US"},
+                    {"id": "af_bella", "name": "Bella (American Female)", "gender": "feminine", "lang": "en-US"},
+                ],
             },
             {
                 "id": "elevenlabs",
-                "name": "ElevenLabs",
+                "name": "ElevenLabs Multilingual",
+                "free": False,
+                "requires_key": True,
                 "available": has_el_key,
+                "supported_languages": ["en", "ur"],
+                "cost_notice": "Paid cloud API. Consumes character credits on your ElevenLabs plan.",
+                "voices": [
+                    {"id": "JBFqnCBsd6RMkjVDRZzb", "name": "Jarvis (Composed British)", "gender": "masculine", "lang": "en"},
+                    {"id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel (Warm & Composed)", "gender": "feminine", "lang": "en"},
+                    {"id": "EXAVITQu4vr4xnSDxMaL", "name": "Bella (Articulate)", "gender": "feminine", "lang": "en"},
+                    {"id": "ErXwobaYiN019PkySvjV", "name": "Antoni (Deep & Calm)", "gender": "masculine", "lang": "en"},
+                ],
+            },
+            {
+                "id": "openai_tts",
+                "name": "OpenAI Speech (TTS-1)",
+                "free": False,
+                "requires_key": True,
+                "available": has_openai_key,
+                "supported_languages": ["en", "ur"],
+                "cost_notice": "Paid cloud API. Billed per character to your OpenAI account.",
+                "voices": [
+                    {"id": "onyx", "name": "Onyx (Deep Masculine)", "gender": "masculine", "lang": "en"},
+                    {"id": "echo", "name": "Echo (Warm Masculine)", "gender": "masculine", "lang": "en"},
+                    {"id": "shimmer", "name": "Shimmer (Expressive Feminine)", "gender": "feminine", "lang": "en"},
+                    {"id": "alloy", "name": "Alloy (Neutral / Balanced)", "gender": "neutral", "lang": "en"},
+                    {"id": "nova", "name": "Nova (Energetic Feminine)", "gender": "feminine", "lang": "en"},
+                    {"id": "fable", "name": "Fable (British Narrative)", "gender": "masculine", "lang": "en"},
+                ],
             },
         ],
     }
@@ -1477,6 +1558,92 @@ async def preview_elevenlabs_voice(body: ElevenLabsPreviewRequest):
         },
     )
 
+
+@speech_router.post("/preview")
+async def preview_voice_endpoint(request: Request, body: VoicePreviewRequest):
+    """Generate a lightweight preview utterance using the specified or active TTS provider."""
+    from openjarvis.core.user_preferences import get_elevenlabs_api_key
+
+    sample_en = "Greetings, I am Ultron. All primary systems are fully operational."
+    sample_ur = "السلام علیکم، میں الٹران ہوں۔ میں آپ کی مدد کے لیے تیار ہوں۔"
+    preview_text = body.text or (sample_ur if body.language == "ur" else sample_en)
+
+    provider = body.provider or "system"
+    if provider == "elevenlabs":
+        api_key = get_elevenlabs_api_key()
+        if not api_key:
+            raise HTTPException(
+                status_code=401, detail="ElevenLabs API key is not configured"
+            )
+        return await preview_elevenlabs_voice(
+            ElevenLabsPreviewRequest(
+                voice_id=body.voice_id,
+                text=preview_text,
+            )
+        )
+
+    backend = await _resolve_tts_backend(request)
+    if backend is None:
+        return {
+            "status": "client_synthesis",
+            "text": preview_text,
+            "provider": provider,
+            "voice_id": body.voice_id or "default",
+            "language": body.language or "en",
+        }
+
+    try:
+        result = await asyncio.to_thread(
+            backend.synthesize,
+            preview_text,
+            voice_id=body.voice_id or "",
+            speed=1.0,
+            output_format="wav",
+        )
+        media_type = "audio/mpeg" if result.format == "mp3" else "audio/wav"
+        return Response(
+            content=result.audio,
+            media_type=media_type,
+            headers={
+                "X-Voice-Id": result.voice_id or (body.voice_id or ""),
+                "X-Voice-Provider": getattr(backend, "backend_id", provider),
+            },
+        )
+    except Exception as exc:
+        logger.warning("Local TTS preview failed: %s; falling back to client synthesis", exc)
+        return {
+            "status": "client_synthesis",
+            "text": preview_text,
+            "provider": provider,
+            "voice_id": body.voice_id or "default",
+            "language": body.language or "en",
+        }
+
+
+# ---- Personalization routes ----
+
+personalization_router = APIRouter(prefix="/v1/personalization", tags=["personalization"])
+
+
+@personalization_router.get("")
+async def get_personalization_endpoint():
+    """Retrieve user personalization settings, persona, and presentation preferences."""
+    from openjarvis.core.user_preferences import get_personalization_preferences
+
+    return get_personalization_preferences()
+
+
+@personalization_router.post("")
+async def update_personalization_endpoint(body: PersonalizationRequest):
+    """Update personalization settings including user name, persona, presentation, and language."""
+    from openjarvis.core.user_preferences import set_personalization_preferences
+
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    try:
+        updated = set_personalization_preferences(updates)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return updated
 
 
 # ---- Feedback routes ----
@@ -1949,6 +2116,7 @@ def include_all_routes(app) -> None:
     app.include_router(runtime_router)
     app.include_router(usage_router)
     app.include_router(wizard_router)
+    app.include_router(personalization_router)
 
     # Agent Manager routes (if available)
     try:
@@ -2000,6 +2168,7 @@ __all__ = [
     "websocket_router",
     "learning_router",
     "speech_router",
+    "personalization_router",
     "feedback_router",
     "optimize_router",
     "runtime_router",

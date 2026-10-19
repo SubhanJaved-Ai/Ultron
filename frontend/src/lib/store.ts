@@ -150,6 +150,15 @@ interface Settings {
   speechEnabled: boolean;
   voiceOutputEnabled: boolean;
   voiceAutoplay: boolean;
+  // Personalization & Cyber Experience
+  userName: string;
+  voicePresentation: 'masculine' | 'feminine' | 'neutral';
+  persona: string;
+  language: 'en' | 'ur' | 'auto';
+  notificationPhone: string;
+  soundEnabled: boolean;
+  soundVolume: number;
+  onboardingCompleted: boolean;
 }
 
 function loadSettings(): Settings {
@@ -165,6 +174,14 @@ function loadSettings(): Settings {
     speechEnabled: false,
     voiceOutputEnabled: false,
     voiceAutoplay: false,
+    userName: 'Sir',
+    voicePresentation: 'neutral',
+    persona: 'jarvis',
+    language: 'en',
+    notificationPhone: '',
+    soundEnabled: true,
+    soundVolume: 0.6,
+    onboardingCompleted: false,
   };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -264,8 +281,14 @@ interface AppState {
   liveEnergy: LiveEnergyMetrics | null;
   setLiveEnergy: (data: LiveEnergyMetrics | null) => void;
 
-  // Actions: settings
+  // Actions: settings & personalization
   updateSettings: (partial: Partial<Settings>) => void;
+  setUserName: (userName: string) => void;
+  setVoicePresentation: (voicePresentation: 'masculine' | 'feminine' | 'neutral') => void;
+  setPersona: (persona: string) => void;
+  setLanguage: (language: 'en' | 'ur' | 'auto') => void;
+  setSoundSettings: (enabled: boolean, volume?: number) => void;
+  setOnboardingCompleted: (completed: boolean) => void;
 
   // Actions: UI
   setCommandPaletteOpen: (open: boolean) => void;
@@ -604,6 +627,20 @@ export const useAppStore = create<AppState>((set, get) => {
       saveSettings(updated);
       set({ settings: updated });
     },
+    setUserName: (userName: string) => get().updateSettings({ userName }),
+    setVoicePresentation: (voicePresentation: 'masculine' | 'feminine' | 'neutral') =>
+      get().updateSettings({ voicePresentation }),
+    setPersona: (persona: string) => get().updateSettings({ persona }),
+    setLanguage: (language: 'en' | 'ur' | 'auto') => get().updateSettings({ language }),
+    setSoundSettings: (enabled: boolean, volume?: number) => {
+      const curVol = get().settings.soundVolume;
+      get().updateSettings({
+        soundEnabled: enabled,
+        soundVolume: volume !== undefined ? Math.max(0, Math.min(1, volume)) : curVol,
+      });
+    },
+    setOnboardingCompleted: (completed: boolean) =>
+      get().updateSettings({ onboardingCompleted: completed }),
 
     // ── UI ──────────────────────────────────────────────────────────
 

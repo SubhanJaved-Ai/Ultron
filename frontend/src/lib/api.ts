@@ -567,6 +567,105 @@ export async function updateVoiceSettings(updates: VoiceSettingsUpdate): Promise
   return res.json();
 }
 
+export interface PersonalizationPreferences {
+  user_name: string;
+  phone_number?: string;
+  notification_phone?: string;
+  presentation: 'masculine' | 'feminine' | 'neutral';
+  voice_presentation?: 'masculine' | 'feminine' | 'neutral';
+  persona: string;
+  language: 'en' | 'ur' | 'auto';
+  sound_enabled: boolean;
+  sound_volume: number;
+  sound_effects?: {
+    enabled: boolean;
+    volume: number;
+  };
+  onboarding_completed: boolean;
+}
+
+export interface VoiceOptionInfo {
+  id: string;
+  name: string;
+  gender: string;
+  lang: string;
+}
+
+export interface VoiceProviderCapability {
+  id: string;
+  name: string;
+  free: boolean;
+  requires_key: boolean;
+  available: boolean;
+  supported_languages: string[];
+  cost_notice: string;
+  voices?: VoiceOptionInfo[];
+}
+
+export async function fetchPersonalization(): Promise<PersonalizationPreferences> {
+  const res = await apiFetch('/v1/personalization');
+  if (!res.ok) {
+    throw new Error(`Failed to fetch personalization: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function updatePersonalization(
+  updates: Partial<PersonalizationPreferences>,
+): Promise<PersonalizationPreferences> {
+  const res = await apiFetch('/v1/personalization', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const err = await res.json();
+      detail = err.detail || '';
+    } catch {
+      // Ignore non-json
+    }
+    throw new Error(detail || `Failed to update personalization: ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface VoicePreviewResult {
+  status: string;
+  text?: string;
+  audioBlob?: Blob;
+}
+
+export async function previewVoiceUtterance(opts: {
+  provider?: string;
+  voice_id?: string;
+  language?: string;
+  text?: string;
+}): Promise<VoicePreviewResult> {
+  const res = await apiFetch('/v1/speech/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(opts),
+  });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const err = await res.json();
+      detail = err.detail || '';
+    } catch {
+      // Ignore non-json
+    }
+    throw new Error(detail || `Voice preview failed: ${res.status}`);
+  }
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('audio')) {
+    const audioBlob = await res.blob();
+    return { status: 'server_audio', audioBlob };
+  }
+  return res.json();
+}
+
 export async function testElevenLabsConnection(apiKey?: string): Promise<ElevenLabsConnectionTestResult> {
   const res = await apiFetch(`/v1/speech/elevenlabs/test`, {
     method: 'POST',

@@ -13,7 +13,12 @@ from openjarvis.core import paths
 logger = logging.getLogger(__name__)
 
 
+USER_PREFERENCES_PATH: Path | None = None
+
+
 def _get_pref_file() -> Path:
+    if USER_PREFERENCES_PATH is not None:
+        return Path(USER_PREFERENCES_PATH)
     config_dir = paths.get_config_dir()
     config_dir.mkdir(parents=True, exist_ok=True)
     return config_dir / "user_preferences.json"
@@ -581,5 +586,208 @@ def rollback_model_preferences(user_id: str | None = None) -> dict:
         raise ValueError("No previous model configuration available to roll back to.")
 
     return set_model_preferences(provider=prev_prov, model=prev_mod, user_id=user_id)
+
+
+# ---------------------------------------------------------------------------
+# Personalization & Persona Voice Experience
+# ---------------------------------------------------------------------------
+
+VALID_PERSONAS = (
+    "jarvis",
+    "assistant",
+    "mentor",
+    "best_friend",
+    "bro",
+    "listener",
+    "partner",
+    "core",
+)
+DEFAULT_PERSONA = "jarvis"
+
+VALID_PRESENTATIONS = ("masculine", "feminine", "neutral")
+DEFAULT_PRESENTATION = "neutral"
+
+VALID_LANGUAGES = ("en", "ur", "auto")
+DEFAULT_LANGUAGE = "en"
+
+_PHONE_RE = re.compile(r"^[\+]?[0-9\s\-\(\)]{0,24}$")
+
+
+def _validate_persona(val: object) -> str:
+    clean = str(val or "").strip().lower()
+    if clean not in VALID_PERSONAS:
+        raise ValueError(
+            f"Invalid persona '{val}'. Must be one of: {', '.join(VALID_PERSONAS)}"
+        )
+    return clean
+
+
+def _validate_presentation(val: object) -> str:
+    clean = str(val or "").strip().lower()
+    if clean not in VALID_PRESENTATIONS:
+        raise ValueError(
+            f"Invalid presentation '{val}'. Must be one of: {', '.join(VALID_PRESENTATIONS)}"
+        )
+    return clean
+
+
+def _validate_language(val: object) -> str:
+    clean = str(val or "").strip().lower()
+    if clean not in VALID_LANGUAGES:
+        raise ValueError(
+            f"Invalid language '{val}'. Must be one of: {', '.join(VALID_LANGUAGES)}"
+        )
+    return clean
+
+
+def get_personalization_preferences(user_id: str | None = None) -> dict:
+    """Return personalization settings: persona, presentation, language, sound effects, name."""
+    f = _get_pref_file()
+    data: dict = {}
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    pers_data = data.get("personalization", {})
+    if not isinstance(pers_data, dict):
+        pers_data = {}
+
+    persona = pers_data.get("persona", DEFAULT_PERSONA)
+    if persona not in VALID_PERSONAS:
+        persona = DEFAULT_PERSONA
+
+    presentation = (
+        pers_data.get("presentation")
+        or pers_data.get("voice_presentation")
+        or DEFAULT_PRESENTATION
+    )
+    if presentation not in VALID_PRESENTATIONS:
+        presentation = DEFAULT_PRESENTATION
+
+    language = pers_data.get("language", DEFAULT_LANGUAGE)
+    if language not in VALID_LANGUAGES:
+        language = DEFAULT_LANGUAGE
+
+    sound_data = pers_data.get("sound_effects", {})
+    if not isinstance(sound_data, dict):
+        sound_data = {}
+
+    if "sound_enabled" in pers_data:
+        sound_enabled = bool(pers_data["sound_enabled"])
+    else:
+        sound_enabled = bool(sound_data.get("enabled", True))
+
+    try:
+        if "sound_volume" in pers_data:
+            sound_vol = max(0.0, min(1.0, float(pers_data["sound_volume"])))
+        else:
+            sound_vol = max(0.0, min(1.0, float(sound_data.get("volume", 0.6))))
+    except (ValueError, TypeError):
+        sound_vol = 0.6
+
+    user_name = get_user_address(user_id=user_id) or "Sir"
+    phone = str(pers_data.get("notification_phone") or pers_data.get("phone_number") or "").strip()
+    onboarding_completed = bool(pers_data.get("onboarding_completed", False))
+
+    return {
+        "user_name": user_name,
+        "phone_number": phone,
+        "notification_phone": phone,
+        "presentation": presentation,
+        "voice_presentation": presentation,
+        "persona": persona,
+        "language": language,
+        "sound_enabled": sound_enabled,
+        "sound_volume": sound_vol,
+        "sound_effects": {
+            "enabled": sound_enabled,
+            "volume": sound_vol,
+        },
+        "onboarding_completed": onboarding_completed,
+    }
+
+
+def set_personalization_preferences(updates: dict, user_id: str | None = None) -> dict:
+    """Validate and persist personalization preferences in user_preferences.json."""
+    if not isinstance(updates, dict):
+        raise ValueError("Payload must be a dictionary")
+
+    f = _get_pref_file()
+    data: dict = {}
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    current = data.get("personalization", {})
+    if not isinstance(current, dict):
+        current = {}
+
+    if "persona" in updates and updates["persona"] is not None:
+        current["persona"] = _validate_persona(updates["persona"])
+
+    pres = updates.get("presentation") if "presentation" in updates else updates.get("voice_presentation")
+    if pres is not None:
+        validated_pres = _validate_presentation(pres)
+        current["presentation"] = validated_pres
+        current["voice_presentation"] = validated_pres
+
+    if "language" in updates and updates["language"] is not None:
+        current["language"] = _validate_language(updates["language"])
+
+    phone_val = updates.get("phone_number") if "phone_number" in updates else updates.get("notification_phone")
+    if phone_val is not None:
+        clean_phone = str(phone_val).strip()
+        if clean_phone and not _PHONE_RE.match(clean_phone):
+            raise ValueError(f"Invalid phone number: {clean_phone}")
+        current["notification_phone"] = clean_phone
+        current["phone_number"] = clean_phone
+
+    if "onboarding_completed" in updates and updates["onboarding_completed"] is not None:
+        current["onboarding_completed"] = bool(updates["onboarding_completed"])
+
+    curr_snd = current.get("sound_effects", {"enabled": True, "volume": 0.6})
+    if not isinstance(curr_snd, dict):
+        curr_snd = {"enabled": True, "volume": 0.6}
+
+    if "sound_enabled" in updates and updates["sound_enabled"] is not None:
+        curr_snd["enabled"] = bool(updates["sound_enabled"])
+        current["sound_enabled"] = curr_snd["enabled"]
+
+    if "sound_volume" in updates and updates["sound_volume"] is not None:
+        try:
+            curr_snd["volume"] = max(0.0, min(1.0, float(updates["sound_volume"])))
+        except (ValueError, TypeError):
+            curr_snd["volume"] = 0.6
+        current["sound_volume"] = curr_snd["volume"]
+
+    if "sound_effects" in updates and isinstance(updates["sound_effects"], dict):
+        snd = updates["sound_effects"]
+        if "enabled" in snd:
+            curr_snd["enabled"] = bool(snd["enabled"])
+            current["sound_enabled"] = curr_snd["enabled"]
+        if "volume" in snd:
+            try:
+                curr_snd["volume"] = max(0.0, min(1.0, float(snd["volume"])))
+            except (ValueError, TypeError):
+                curr_snd["volume"] = 0.6
+            current["sound_volume"] = curr_snd["volume"]
+
+    current["sound_effects"] = curr_snd
+
+    if "user_name" in updates and updates["user_name"] is not None:
+        clean_name = str(updates["user_name"]).strip()
+        set_user_address(clean_name, user_id=user_id)
+        current["user_name"] = clean_name
+
+    data["personalization"] = current
+    f.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    logger.info("Personalization preferences updated: persona=%s", current.get("persona"))
+
+    return get_personalization_preferences(user_id=user_id)
+
 
 

@@ -623,6 +623,23 @@ def _handle_direct(
             }
             for tc in tool_calls
         ]
+ 
+    try:
+        from openjarvis.traces.usage_ledger import get_usage_ledger
+
+        prov_key = _engine_key_for_model(engine, model) or ("ollama" if any(k in model.lower() for k in ("qwen", "llama", "mistral", "gemma")) else "cloud")
+        get_usage_ledger().record_usage(
+            provider=prov_key,
+            model=model,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            cached_prompt_tokens=usage.get("cached_tokens", 0),
+            reasoning_tokens=usage.get("reasoning_tokens", 0),
+            duration_seconds=result.get("latency_seconds", 0.0),
+            status="success",
+        )
+    except Exception:
+        pass
 
     return ChatCompletionResponse(
         model=model,

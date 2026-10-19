@@ -99,6 +99,35 @@ class OptimizeRunRequest(BaseModel):
     max_samples: int = 50
 
 
+class RuntimeLimitsUpdateRequest(BaseModel):
+    provider: str
+    requests_per_minute: Optional[int] = None
+    tokens_per_minute: Optional[int] = None
+    max_concurrency: Optional[int] = None
+    timeout_seconds: Optional[float] = None
+    max_retries: Optional[int] = None
+
+
+class ReconcileCostRequest(BaseModel):
+    request_id: str
+    provider_billed_cost: float
+    reconciliation_source: str = "provider_billing_api"
+
+
+class BenchmarkRequest(BaseModel):
+    model_id: str = "qwen2.5:7b"
+
+
+class ModelInstallRequest(BaseModel):
+    model_id: str
+    confirm: bool = False
+
+
+class ModelConfigureRequest(BaseModel):
+    provider: str
+    model: str
+
+
 # ---- Agent routes ----
 
 agents_router = APIRouter(prefix="/v1/agents", tags=["agents"])
@@ -1547,6 +1576,329 @@ async def start_optimize_run(req: OptimizeRunRequest, request: Request):
     return {"status": "started", "run_id": "placeholder"}
 
 
+# ---- Runtime & Rate Limiting routes ----
+
+runtime_router = APIRouter(prefix="/v1/runtime", tags=["runtime"])
+
+
+@runtime_router.get("/limits")
+async def get_runtime_limits(request: Request):
+    """Get active provider rate limits, concurrency controls, and circuit breaker states."""
+    try:
+        from openjarvis.engine.resource_limiter import get_provider_limiter
+
+        limiter = get_provider_limiter()
+        return {
+            "status": "ok",
+            "providers": limiter.get_all_stats(),
+        }
+    except Exception as exc:
+        logger.warning("Failed to get runtime limits: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@runtime_router.post("/limits")
+async def update_runtime_limits(req: RuntimeLimitsUpdateRequest, request: Request):
+    """Update runtime limits for a specific provider."""
+    try:
+        from openjarvis.engine.resource_limiter import (
+            ProviderConfig,
+            get_provider_limiter,
+        )
+
+        limiter = get_provider_limiter()
+        existing_cfg = limiter.get_config(req.provider)
+        new_cfg = ProviderConfig(
+            provider=req.provider,
+            requests_per_minute=req.requests_per_minute
+            if req.requests_per_minute is not None
+            else existing_cfg.requests_per_minute,
+            tokens_per_minute=req.tokens_per_minute
+            if req.tokens_per_minute is not None
+            else existing_cfg.tokens_per_minute,
+            max_concurrent=req.max_concurrency
+            if req.max_concurrency is not None
+            else existing_cfg.max_concurrent,
+            request_timeout_seconds=req.timeout_seconds
+            if req.timeout_seconds is not None
+            else existing_cfg.request_timeout_seconds,
+            max_retries=req.max_retries
+            if req.max_retries is not None
+            else existing_cfg.max_retries,
+            is_local=existing_cfg.is_local,
+        )
+        limiter.set_config(new_cfg)
+        return {
+            "status": "updated",
+            "provider": req.provider,
+            "config": {
+                "requests_per_minute": new_cfg.requests_per_minute,
+                "tokens_per_minute": new_cfg.tokens_per_minute,
+                "max_concurrency": new_cfg.max_concurrent,
+                "timeout_seconds": new_cfg.request_timeout_seconds,
+                "max_retries": new_cfg.max_retries,
+                "is_local": new_cfg.is_local,
+            },
+        }
+    except Exception as exc:
+        logger.warning("Failed to update runtime limits: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@runtime_router.post("/limits/reset")
+async def reset_runtime_limits(request: Request):
+    """Reset all circuit breakers and usage limiters to initial state."""
+    try:
+        from openjarvis.engine.resource_limiter import get_provider_limiter
+
+        limiter = get_provider_limiter()
+        limiter.reset_all()
+        return {
+            "status": "reset",
+            "providers": limiter.get_all_stats(),
+        }
+    except Exception as exc:
+        logger.warning("Failed to reset runtime limits: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ---- Cloud Usage & Cost Ledger routes ----
+
+usage_router = APIRouter(prefix="/v1/usage", tags=["usage"])
+
+
+@usage_router.get("/summary")
+async def get_usage_summary(hours: Optional[int] = None, request: Request = None):
+    """Get aggregated usage summary with clear cost distinctions (estimated, billed, local, speech)."""
+    try:
+        from openjarvis.traces.usage_ledger import get_usage_ledger
+
+        ledger = get_usage_ledger()
+        summary = ledger.get_summary(hours=hours)
+        return summary
+    except Exception as exc:
+        logger.warning("Failed to get usage summary: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@usage_router.get("/ledger")
+async def get_usage_records(
+    limit: int = 50,
+    offset: int = 0,
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    request: Request = None,
+):
+    """Get auditable request-level cloud usage records."""
+    try:
+        from openjarvis.traces.usage_ledger import get_usage_ledger
+
+        ledger = get_usage_ledger()
+        records = ledger.get_records(
+            limit=limit, offset=offset, provider=provider, model=model
+        )
+        return {
+            "records": records,
+            "count": len(records),
+            "limit": limit,
+            "offset": offset,
+        }
+    except Exception as exc:
+        logger.warning("Failed to get usage records: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@usage_router.get("/export")
+async def export_usage_csv(request: Request):
+    """Export all usage records to CSV format."""
+    try:
+        from openjarvis.traces.usage_ledger import get_usage_ledger
+        from starlette.responses import PlainTextResponse
+
+        ledger = get_usage_ledger()
+        csv_data = ledger.export_csv()
+        return PlainTextResponse(
+            csv_data,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=ultron_cloud_usage_ledger.csv"
+            },
+        )
+    except Exception as exc:
+        logger.warning("Failed to export usage CSV: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@usage_router.post("/reconcile")
+async def reconcile_usage_cost(req: ReconcileCostRequest, request: Request):
+    """Reconcile an estimated request cost with authoritative provider-reported billed cost."""
+    try:
+        from openjarvis.traces.usage_ledger import get_usage_ledger
+
+        ledger = get_usage_ledger()
+        success = ledger.reconcile_billed_cost(
+            request_id=req.request_id,
+            billed_cost_usd=req.provider_billed_cost,
+            reconciliation_source=req.reconciliation_source,
+        )
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Request {req.request_id} not found in usage ledger",
+            )
+        return {
+            "status": "reconciled",
+            "request_id": req.request_id,
+            "provider_billed_cost": req.provider_billed_cost,
+            "reconciliation_source": req.reconciliation_source,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Failed to reconcile usage cost: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ---- Local Model Wizard routes ----
+
+wizard_router = APIRouter(prefix="/v1/wizard", tags=["wizard"])
+
+
+@wizard_router.get("/hardware")
+async def get_system_hardware(request: Request):
+    """Perform non-privileged hardware scan for CPU, RAM, disk, GPU/VRAM, and Ollama status."""
+    try:
+        from openjarvis.intelligence.hardware_wizard import scan_system_hardware
+
+        hw = scan_system_hardware()
+        return hw.__dict__
+    except Exception as exc:
+        logger.warning("Hardware scan failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@wizard_router.get("/recommendations")
+async def get_model_recommendations(request: Request):
+    """Scan hardware and generate ranked Ultron-tailored local model recommendations."""
+    try:
+        from openjarvis.intelligence.hardware_wizard import (
+            recommend_models,
+            scan_system_hardware,
+        )
+
+        hw = scan_system_hardware()
+        recs = recommend_models(hw)
+        return {
+            "hardware": hw.__dict__,
+            "recommendations": [r.__dict__ for r in recs],
+        }
+    except Exception as exc:
+        logger.warning("Model recommendations failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@wizard_router.post("/benchmark")
+async def run_model_benchmark(req: BenchmarkRequest, request: Request):
+    """Run the 8-scenario safe local capability benchmark for Ultron tasks."""
+    try:
+        from dataclasses import asdict
+
+        from openjarvis.intelligence.hardware_wizard import (
+            run_local_model_benchmark,
+        )
+
+        result = run_local_model_benchmark(req.model_id)
+        return asdict(result)
+    except Exception as exc:
+        logger.warning("Benchmark failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@wizard_router.post("/install")
+async def install_local_model(req: ModelInstallRequest, request: Request):
+    """Guided installation of a local model via Ollama. Requires explicit user confirmation."""
+    import shutil
+    import subprocess
+
+    if not req.confirm:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Explicit confirmation required before downloading {req.model_id}. Set confirm=True.",
+        )
+
+    ollama_path = shutil.which("ollama")
+    if not ollama_path:
+        return {
+            "status": "error",
+            "detail": "Ollama executable not found in PATH. Please install Ollama from https://ollama.com before downloading models.",
+        }
+
+    try:
+        # Fixed arguments, bounded timeout, safe error handling
+        proc = subprocess.run(
+            [ollama_path, "pull", req.model_id],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if proc.returncode == 0:
+            return {
+                "status": "success",
+                "model_id": req.model_id,
+                "output": proc.stdout.strip(),
+            }
+        return {
+            "status": "failed",
+            "model_id": req.model_id,
+            "error": proc.stderr.strip(),
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "timeout",
+            "detail": f"Model pull for {req.model_id} timed out after 180 seconds",
+        }
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)}
+
+
+@wizard_router.get("/current")
+async def get_current_model_selection(request: Request):
+    """Get the active provider and model preferences."""
+    try:
+        from openjarvis.core.user_preferences import get_model_preferences
+
+        return {"current": get_model_preferences()}
+    except Exception as exc:
+        logger.warning("Failed to get model preferences: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@wizard_router.post("/configure")
+async def configure_model_selection(req: ModelConfigureRequest, request: Request):
+    """Set the active provider and model with automatic backup of previous selection."""
+    try:
+        from openjarvis.core.user_preferences import set_model_preferences
+
+        updated = set_model_preferences(req.provider, req.model)
+        return {"status": "configured", "current": updated}
+    except Exception as exc:
+        logger.warning("Failed to configure model selection: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@wizard_router.post("/rollback")
+async def rollback_model_selection(request: Request):
+    """Roll back to previous provider and model preferences."""
+    try:
+        from openjarvis.core.user_preferences import rollback_model_preferences
+
+        restored = rollback_model_preferences()
+        return {"status": "rolled_back", "current": restored}
+    except Exception as exc:
+        logger.warning("Failed to rollback model preferences: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 def include_all_routes(app) -> None:
     """Include all extended API routers in a FastAPI app."""
     from openjarvis.server.approval_routes import (
@@ -1567,6 +1919,9 @@ def include_all_routes(app) -> None:
     app.include_router(speech_router)
     app.include_router(feedback_router)
     app.include_router(optimize_router)
+    app.include_router(runtime_router)
+    app.include_router(usage_router)
+    app.include_router(wizard_router)
 
     # Agent Manager routes (if available)
     try:
@@ -1620,4 +1975,7 @@ __all__ = [
     "speech_router",
     "feedback_router",
     "optimize_router",
+    "runtime_router",
+    "usage_router",
+    "wizard_router",
 ]

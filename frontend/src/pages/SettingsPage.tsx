@@ -55,6 +55,8 @@ import {
   type ElevenLabsVoice,
   type ElevenLabsModel,
 } from '../lib/api';
+import { LocalModelWizard } from '../components/Settings/LocalModelWizard';
+import { RuntimeLimitsSection } from '../components/Settings/RuntimeLimitsSection';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
 const CLOUD_KEY_STATUS_CHANGED = 'openjarvis-cloud-key-status-changed';
@@ -1116,6 +1118,12 @@ export function SettingsPage() {
               </div>
             </SettingRow>
           </Section>
+
+          {/* One-Click Local Model Recommendation & Setup Wizard */}
+          <LocalModelWizard />
+
+          {/* Centralized Rate Limiting & Runtime Reliability */}
+          <RuntimeLimitsSection />
 
           {/* API Keys */}
           <Section title="API Keys">

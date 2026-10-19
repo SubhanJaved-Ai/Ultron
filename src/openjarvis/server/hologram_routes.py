@@ -73,6 +73,18 @@ async def get_speech_audio(text: str = ""):
                     output_format="mp3",
                 )
                 if res and res.audio:
+                    try:
+                        from openjarvis.traces.usage_ledger import get_usage_ledger
+
+                        get_usage_ledger().record_usage(
+                            provider="elevenlabs",
+                            model=prefs.get("model_id", "eleven_multilingual_v2"),
+                            purpose="speech",
+                            characters=len(query_text),
+                            status="success",
+                        )
+                    except Exception:
+                        pass
                     return Response(
                         content=res.audio,
                         media_type="audio/mpeg",

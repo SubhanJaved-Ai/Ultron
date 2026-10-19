@@ -52,11 +52,19 @@ During the **Product Readiness Sprint**, Ultron was comprehensively prepared, ha
    - Generated `MANUAL_QA_CHECKLIST.md` with startup commands, URL inventory, verification checklist, disposable sandbox guidelines, bug report template, and ElevenLabs voice testing procedures.
    - Server left running on `http://127.0.0.1:8000` for immediate owner testing.
 
+7. **Advanced Runtime, Cost Intelligence & Local Model Optimization Sprint (Priority 7)**:
+   - Built Centralized Rate Limiter with token buckets, concurrency controls, and circuit breakers.
+   - Built Verified Cloud Usage Ledger with versioned pricing catalog `2026-10-v1`, reconciliation, and CSV export.
+   - Built Local Model Wizard with non-privileged hardware scan, 8-scenario benchmark, consent-gated install, and rollback.
+   - Evaluated Rust microbenchmarks (Token bucket at 418k ops/s, Pricing at 72k ops/s) and responsibly deferred native rewrite.
+   - Passed all 38 backend pytest tests and 173 frontend vitest tests.
+   - Full details documented in `ULTRON_ADVANCED_RUNTIME_SPRINT_REPORT.md`.
+
 ---
 
 ## 2. Automated Test Suite Results
 
-A total of **115 backend readiness tests were executed and passed (100%)**:
+A total of **153 backend readiness tests were executed and passed (100%)**:
 
 | Test Suite File | Domain Covered | Tests | Result | Execution Time |
 | :--- | :--- | :---: | :---: | :---: |
@@ -65,9 +73,13 @@ A total of **115 backend readiness tests were executed and passed (100%)**:
 | `tests/tools/test_file_sandbox_reliability.py` | Sandbox write/read/patch, traversal defense, approval gating | 5 | **PASS** | 9.09s |
 | `tests/server/test_hologram_theme.py` | Argon Hologram CSS tokens, palette controller, persistence | 31 | **PASS** | 12.30s |
 | `tests/server/test_hologram.py` | Hologram routes, directives, voice selection, soul circuit | 30 | **PASS** | 14.28s |
-| **Total** | **Full Product Readiness Suite** | **115** | **PASS** | **53.27s** |
+| `tests/engine/test_resource_limiter.py` | Token buckets, circuit breakers, backoff, task budgets | 12 | **PASS** | 4.10s |
+| `tests/traces/test_usage_ledger.py` | Versioned pricing `2026-10-v1`, idempotency, reconciliation, CSV | 10 | **PASS** | 3.80s |
+| `tests/intelligence/test_hardware_wizard.py` | Hardware scan, model recommendations, 8 benchmark scenarios | 5 | **PASS** | 4.20s |
+| `tests/server/test_advanced_runtime_routes.py` | Runtime limits, usage summary/reconciliation, wizard routes | 11 | **PASS** | 5.10s |
+| **Total** | **Full Product Readiness Suite** | **153** | **PASS** | **70.47s** |
 
-Frontend Vitest Suite: **170/170 passed** across 22 test files (including `voice-settings.test.ts`).
+Frontend Vitest Suite: **173/173 passed** across 23 test files (including `LocalModelWizard.test.tsx` and `voice-settings.test.ts`).
 
 ---
 
@@ -86,6 +98,9 @@ Frontend Vitest Suite: **170/170 passed** across 22 test files (including `voice
 | **7** | `/memory-skills` | 1280x800 | Fact inspection, trust tiers (Trusted, Quarantined), learned skills | `screenshots/readiness_memory.png` | **PASS** |
 | **8** | `/settings` (MCP) | 1280x800 | "Add MCP Server" modal, transport selection (HTTP/SSE), token field | `screenshots/readiness_mcp.png` | **PASS** |
 | **9** | `/settings` (ElevenLabs) | 1280x800 | Provider toggle, masked key display, connection test, voice & model dropdowns | Live MCP Evaluated | **PASS** |
+| **10** | `/settings` (Runtime Limits) | 1280x800 | Token-bucket RPM/TPM, concurrency sliders, circuit breaker states | `screenshots/sprint_runtime_limits.png` | **PASS** |
+| **11** | `/settings` (Model Wizard) | 1280x800 | Hardware scan, suitability ranking, 8-scenario benchmark, rollback | `screenshots/sprint_wizard_recommendations.png` | **PASS** |
+| **12** | `/dashboard` (Cost Ledger) | 1280x800 | Cloud spend telemetry, provider breakdown, request drilldown modal | `screenshots/sprint_cost_dashboard.png` | **PASS** |
 
 ---
 
@@ -101,11 +116,11 @@ Frontend Vitest Suite: **170/170 passed** across 22 test files (including `voice
 
 ## 5. Owner Handoff Instructions
 
-The owner should consult `MANUAL_QA_CHECKLIST.md` and `ULTRON_ELEVENLABS_INTEGRATION_REPORT.md` at the repository root.
+The owner should consult `MANUAL_QA_CHECKLIST.md`, `ULTRON_ELEVENLABS_INTEGRATION_REPORT.md`, and `ULTRON_ADVANCED_RUNTIME_SPRINT_REPORT.md` at the repository root.
 
 1. **Server Status:** The server is already active in the background on `http://localhost:8000`.
 2. **Access URL:** Open Google Chrome or any desktop browser to `http://localhost:8000`.
-3. **Execution Protocol:** Walk through the 6 phases detailed in `MANUAL_QA_CHECKLIST.md` and test the ElevenLabs voice integration in Settings.
+3. **Execution Protocol:** Walk through the manual checklist, test the ElevenLabs voice integration, inspect the Cost Intelligence dashboard, and test the Local Model Wizard.
 4. **Issue Tracking:** Use the standardized **Bug Report Template** at the bottom of the checklist to document any visual nuances or feedback.
 
 Ultron is officially prepared and verified for owner manual testing.

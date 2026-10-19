@@ -1967,3 +1967,334 @@ export async function deleteMCPServer(serverName: string): Promise<{ name: strin
   }
   return res.json();
 }
+
+// ---------------------------------------------------------------------------
+// Advanced Runtime & Resource Limiting
+// ---------------------------------------------------------------------------
+
+export interface ProviderRuntimeStats {
+  provider: string;
+  is_local: boolean;
+  circuit_state: 'closed' | 'open' | 'half_open';
+  active_concurrency: number;
+  max_concurrency: number;
+  requests_per_minute_limit: number;
+  tokens_per_minute_limit: number;
+  current_rpm_tokens: number;
+  current_tpm_tokens: number;
+  consecutive_failures: number;
+  circuit_cooldown_remaining_seconds: number;
+}
+
+export interface RuntimeLimitsResponse {
+  status: string;
+  providers: Record<string, ProviderRuntimeStats>;
+}
+
+export async function getRuntimeLimits(): Promise<RuntimeLimitsResponse> {
+  const res = await apiFetch('/v1/runtime/limits');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to get runtime limits: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function updateRuntimeLimits(data: {
+  provider: string;
+  requests_per_minute?: number;
+  tokens_per_minute?: number;
+  max_concurrency?: number;
+  timeout_seconds?: number;
+  max_retries?: number;
+}): Promise<any> {
+  const res = await apiFetch('/v1/runtime/limits', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to update runtime limits: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function resetRuntimeLimits(): Promise<any> {
+  const res = await apiFetch('/v1/runtime/limits/reset', { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to reset runtime limits: ${res.status}`);
+  }
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Cloud Usage & Cost Ledger
+// ---------------------------------------------------------------------------
+
+export interface UsageSummary {
+  period: { start_time: number; end_time: number };
+  pricing_version: string;
+  total_requests: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_cached_tokens: number;
+  total_reasoning_tokens: number;
+  total_characters: number;
+  total_estimated_cost_usd: number;
+  total_billed_cost_usd: number;
+  local_requests: number;
+  local_tokens: number;
+  unknown_cost_requests: number;
+  by_provider: Array<{
+    provider: string;
+    requests: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    characters: number;
+    estimated_cost_usd: number;
+    billed_cost_usd: number;
+    is_local: boolean;
+  }>;
+  by_model: Array<{
+    provider: string;
+    model: string;
+    requests: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    characters: number;
+    estimated_cost_usd: number;
+    billed_cost_usd: number;
+  }>;
+}
+
+export interface UsageRecord {
+  request_id: string;
+  task_id: string;
+  agent_id: string;
+  purpose: string;
+  provider: string;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cached_prompt_tokens: number;
+  reasoning_tokens: number;
+  characters: number;
+  duration_seconds: number;
+  cost_type: 'estimated' | 'provider_billed' | 'local_zero' | 'unknown';
+  estimated_cost_usd: number;
+  billed_cost_usd: number;
+  pricing_version: string;
+  status: string;
+  retry_count: number;
+  metadata: Record<string, any>;
+  created_at: number;
+}
+
+export async function getUsageSummary(hours?: number): Promise<UsageSummary> {
+  const qs = hours ? `?hours=${encodeURIComponent(hours)}` : '';
+  const res = await apiFetch(`/v1/usage/summary${qs}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch usage summary: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getUsageLedger(
+  limit: number = 50,
+  offset: number = 0,
+  provider?: string,
+  model?: string,
+): Promise<{ records: UsageRecord[]; count: number }> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (provider) params.set('provider', provider);
+  if (model) params.set('model', model);
+  const res = await apiFetch(`/v1/usage/ledger?${params.toString()}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch usage ledger: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function exportUsageCsv(): Promise<string> {
+  const res = await apiFetch('/v1/usage/export');
+  if (!res.ok) {
+    throw new Error(`Failed to export usage CSV: ${res.status}`);
+  }
+  return res.text();
+}
+
+export async function reconcileUsageCost(
+  requestId: string,
+  providerBilledCost: number,
+  reconciliationSource: string = 'manual_reconciliation',
+): Promise<any> {
+  const res = await apiFetch('/v1/usage/reconcile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      request_id: requestId,
+      provider_billed_cost: providerBilledCost,
+      reconciliation_source: reconciliationSource,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to reconcile usage cost: ${res.status}`);
+  }
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Local Model Wizard & Hardware Discovery
+// ---------------------------------------------------------------------------
+
+export interface HardwareScanResult {
+  platform_os: string;
+  architecture: string;
+  cpu_brand: string;
+  cpu_cores: number;
+  total_ram_gb: number;
+  free_ram_gb: number;
+  total_disk_gb: number;
+  free_disk_gb: number;
+  disk_path: string;
+  gpu_vendor: string;
+  gpu_name: string;
+  total_vram_gb: number;
+  free_vram_gb: number;
+  cuda_compute_capability: string;
+  ollama_installed: boolean;
+  ollama_running: boolean;
+  installed_models: Array<{ name: string; size?: number }>;
+  scan_timestamp: number;
+}
+
+export interface ModelRecommendation {
+  model_id: string;
+  name: string;
+  parameter_size: string;
+  estimated_download_gb: number;
+  estimated_ram_gb: number;
+  category: string;
+  fit_status: 'recommended' | 'supported' | 'marginal' | 'insufficient_memory';
+  overall_score: number;
+  tool_calling_support: 'verified' | 'standard' | 'experimental' | 'unsupported';
+  reasoning: string;
+  context_length: number;
+  license_type: string;
+}
+
+export interface BenchmarkScenarioResult {
+  scenario_id: string;
+  name: string;
+  passed: boolean;
+  latency_ms: number;
+  output: string;
+  error?: string;
+}
+
+export interface LocalBenchmarkResult {
+  model_id: string;
+  scenarios_tested: number;
+  scenarios_passed: number;
+  pass_rate_pct: number;
+  avg_latency_ms: number;
+  tool_validity_pct: number;
+  results: BenchmarkScenarioResult[];
+  completed_at: number;
+}
+
+export async function getHardwareScan(): Promise<HardwareScanResult> {
+  const res = await apiFetch('/v1/wizard/hardware');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Hardware scan failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getModelRecommendations(): Promise<{
+  hardware: HardwareScanResult;
+  recommendations: ModelRecommendation[];
+}> {
+  const res = await apiFetch('/v1/wizard/recommendations');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to fetch model recommendations: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function runModelBenchmark(modelId: string = 'qwen3:8b'): Promise<LocalBenchmarkResult> {
+  const res = await apiFetch('/v1/wizard/benchmark', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model_id: modelId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Benchmark failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function installLocalModel(modelId: string, confirm: boolean): Promise<any> {
+  const res = await apiFetch('/v1/wizard/install', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model_id: modelId, confirm }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Model install failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getCurrentModelPreferences(): Promise<{
+  current: {
+    provider: string;
+    model: string;
+    previous_provider?: string;
+    previous_model?: string;
+    updated_at?: number;
+  };
+}> {
+  const res = await apiFetch('/v1/wizard/current');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to get model preferences: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function configureModelPreferences(
+  provider: string,
+  model: string,
+): Promise<{ status: string; current: any }> {
+  const res = await apiFetch('/v1/wizard/configure', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, model }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to configure model preferences: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function rollbackModelPreferences(): Promise<{ status: string; current: any }> {
+  const res = await apiFetch('/v1/wizard/rollback', {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to rollback model preferences: ${res.status}`);
+  }
+  return res.json();
+}

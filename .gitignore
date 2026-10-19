@@ -133,3 +133,6 @@ learning.db
 minion_logs/
 *.oj-debug.json
 oj-debug.*.json
+
+# User protected assets
+screenshots/chrome_airluc_youtube.png

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from pathlib import Path
 
 from openjarvis.core import paths
@@ -512,4 +513,73 @@ def set_voice_preferences(updates: dict, user_id: str | None = None) -> dict:
     f.write_text(json.dumps(data, indent=2), encoding="utf-8")
     logger.info("Voice preferences updated: provider=%s", current.get("provider"))
     return get_voice_preferences(user_id=user_id)
+
+
+def get_model_preferences(user_id: str | None = None) -> dict:
+    """Return model selection preferences including rollback history."""
+    f = _get_pref_file()
+    data: dict = {}
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    model_data = data.get("model_selection", {})
+    return {
+        "provider": str(model_data.get("provider", "cloud")),
+        "model": str(model_data.get("model", "gemini-3.8-flash")),
+        "previous_provider": str(model_data.get("previous_provider", "")),
+        "previous_model": str(model_data.get("previous_model", "")),
+        "updated_at": float(model_data.get("updated_at", 0.0)),
+    }
+
+
+def set_model_preferences(provider: str, model: str, user_id: str | None = None) -> dict:
+    """Update active model, safely preserving previous configuration for 1-click rollback."""
+    f = _get_pref_file()
+    data: dict = {}
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    current = data.get("model_selection", {})
+    prev_prov = current.get("provider", "cloud")
+    prev_mod = current.get("model", "gemini-3.8-flash")
+
+    new_sel = {
+        "provider": str(provider).strip().lower(),
+        "model": str(model).strip(),
+        "previous_provider": prev_prov,
+        "previous_model": prev_mod,
+        "updated_at": time.time(),
+    }
+
+    data["model_selection"] = new_sel
+    f.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    logger.info("Model preferences updated: %s / %s (previous: %s / %s)", provider, model, prev_prov, prev_mod)
+    return new_sel
+
+
+def rollback_model_preferences(user_id: str | None = None) -> dict:
+    """Restore the previous model and provider configuration."""
+    f = _get_pref_file()
+    data: dict = {}
+    if f.is_file():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    current = data.get("model_selection", {})
+    prev_prov = current.get("previous_provider")
+    prev_mod = current.get("previous_model")
+
+    if not prev_prov or not prev_mod:
+        raise ValueError("No previous model configuration available to roll back to.")
+
+    return set_model_preferences(provider=prev_prov, model=prev_mod, user_id=user_id)
+
 

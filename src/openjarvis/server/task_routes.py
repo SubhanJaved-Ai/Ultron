@@ -26,6 +26,7 @@ class CreateTaskRequest(BaseModel):
     steps: Optional[List[Dict[str, Any]]] = Field(None, description="Optional explicit DAG steps")
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Metadata tags")
     auto_run: bool = Field(True, description="Whether to start execution immediately")
+    idempotency_key: Optional[str] = Field(None, description="Client idempotency key for deduplication")
 
 
 class ApproveStepRequest(BaseModel):
@@ -122,6 +123,20 @@ def create_task(body: CreateTaskRequest, request: Request) -> Dict[str, Any]:
     user_id = _get_current_user_id(request)
     if user_id and "owner_id" not in meta:
         meta["owner_id"] = user_id
+
+    # Check idempotency key from body or header
+    idempotency_key = body.idempotency_key or request.headers.get("Idempotency-Key") or request.headers.get("X-Idempotency-Key")
+    if idempotency_key and str(idempotency_key).strip():
+        clean_key = str(idempotency_key).strip()
+        existing = runner.store.find_task_by_idempotency_key(clean_key)
+        if existing:
+            _check_task_access(existing, request)
+            return {
+                "status": "ok",
+                "task": existing.to_dict(),
+                "idempotent_replay": True,
+            }
+        meta["idempotency_key"] = clean_key
 
     try:
         task = runner.plan_task(

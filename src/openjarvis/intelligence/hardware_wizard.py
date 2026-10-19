@@ -33,16 +33,16 @@ class HardwareScanResult:
     architecture: str
     cpu_brand: str
     cpu_cores: int
-    total_ram_gb: float
-    free_ram_gb: float
-    total_disk_gb: float
-    free_disk_gb: float
-    disk_path: str
-    physical_cores: int = 0
+    total_ram_gb: Optional[float] = None
+    free_ram_gb: Optional[float] = None
+    total_disk_gb: Optional[float] = None
+    free_disk_gb: Optional[float] = None
+    disk_path: str = ""
+    physical_cores: Optional[int] = None
     gpu_vendor: str = "none"
     gpu_name: str = "None (CPU Only)"
-    total_vram_gb: float = 0.0
-    free_vram_gb: float = 0.0
+    total_vram_gb: Optional[float] = None
+    free_vram_gb: Optional[float] = None
     cuda_compute_capability: str = ""
     ollama_installed: bool = False
     ollama_running: bool = False
@@ -179,9 +179,9 @@ def scan_system_hardware() -> HardwareScanResult:
         except Exception:
             pass
 
-    # RAM (Total & Free) - report 0.0 (unavailable) if discovery fails, never invent 8GB/4GB
-    total_ram_gb = 0.0
-    free_ram_gb = 0.0
+    # RAM (Total & Free) - report None (unavailable) if discovery fails, never invent defaults
+    total_ram_gb: Optional[float] = None
+    free_ram_gb: Optional[float] = None
     if os_name == "windows":
         try:
             import ctypes
@@ -215,10 +215,10 @@ def scan_system_hardware() -> HardwareScanResult:
         except Exception:
             pass
 
-    # Disk Space - report 0.0 (unavailable) if discovery fails, never invent 50GB/20GB
+    # Disk Space - report None (unavailable) if discovery fails, never invent defaults
     data_dir = get_data_dir()
-    total_disk_gb = 0.0
-    free_disk_gb = 0.0
+    total_disk_gb: Optional[float] = None
+    free_disk_gb: Optional[float] = None
     try:
         usage = shutil.disk_usage(data_dir)
         total_disk_gb = round(usage.total / (1024**3), 1)
@@ -229,8 +229,8 @@ def scan_system_hardware() -> HardwareScanResult:
     # GPU Detection
     gpu_vendor = "none"
     gpu_name = "None (CPU Only)"
-    total_vram_gb = 0.0
-    free_vram_gb = 0.0
+    total_vram_gb: Optional[float] = None
+    free_vram_gb: Optional[float] = None
     cuda_compute = ""
 
     # Check NVIDIA via nvidia-smi with bounded timeout
@@ -336,7 +336,7 @@ def scan_system_hardware() -> HardwareScanResult:
 
 def recommend_models(hw: HardwareScanResult) -> List[ModelRecommendation]:
     """Score and rank candidate models based on detected system hardware and Ultron task needs."""
-    effective_vram = hw.total_vram_gb if hw.gpu_vendor in ("nvidia", "apple") else 0.0
+    effective_vram = (hw.total_vram_gb or 0.0) if hw.gpu_vendor in ("nvidia", "apple") else 0.0
     effective_ram = hw.total_ram_gb
     free_disk = hw.free_disk_gb
 
@@ -349,7 +349,9 @@ def recommend_models(hw: HardwareScanResult) -> List[ModelRecommendation]:
 
         # Calculate fit status
         fit_status = "recommended"
-        if effective_vram >= base_vram:
+        if effective_ram is None:
+            fit_status = "unverified_capacity"
+        elif effective_vram >= base_vram:
             fit_status = "recommended"
         elif effective_ram >= req_ram + 3.0:  # Can run on CPU RAM with 3GB system headroom
             fit_status = "supported"
@@ -358,8 +360,8 @@ def recommend_models(hw: HardwareScanResult) -> List[ModelRecommendation]:
         else:
             fit_status = "insufficient_memory"
 
-        # Check disk space
-        if free_disk < download_size + 2.0:
+        # Check disk space if known
+        if free_disk is not None and free_disk < download_size + 2.0:
             fit_status = "insufficient_memory"
 
         # Multi-factor score (0-100)
@@ -401,9 +403,10 @@ def recommend_models(hw: HardwareScanResult) -> List[ModelRecommendation]:
         else:
             category = "supported"
 
+        ram_str = f"{effective_ram:.1f} GB system RAM" if effective_ram is not None else "unverified system RAM"
         reasoning = (
             f"{item['strengths']} Requires ~{req_ram:.1f} GB RAM. "
-            f"Detected: {hw.gpu_name} ({effective_vram:.1f} GB VRAM), {effective_ram:.1f} GB system RAM."
+            f"Detected: {hw.gpu_name} ({effective_vram:.1f} GB VRAM), {ram_str}."
         )
 
         recommendations.append(
@@ -449,6 +452,7 @@ class LocalBenchmarkResult:
     is_simulated: bool = False
     evaluation_mode: str = "framework_simulation"  # "live_model_evaluation" or "framework_simulation"
     simulation_notice: str = ""
+    empirical_score_verified: bool = False
     results: List[BenchmarkScenarioResult] = field(default_factory=list)
     completed_at: float = field(default_factory=time.time)
 
@@ -628,5 +632,6 @@ def run_local_model_benchmark(
         is_simulated=is_simulated,
         evaluation_mode=eval_mode,
         simulation_notice=notice,
+        empirical_score_verified=(active_inference_fn is not None and not is_simulated),
         results=scenario_results,
     )

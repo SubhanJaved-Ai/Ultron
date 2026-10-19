@@ -360,10 +360,18 @@ class UsageLedger:
         provider: Optional[str] = None,
         model: Optional[str] = None,
         task_id: Optional[str] = None,
+        start_time: float = 0.0,
+        end_time: Optional[float] = None,
     ) -> List[Dict[str, Any]]:
-        """Retrieve paginated usage records."""
+        """Retrieve paginated usage records with optional time range and provider filters."""
         clauses = []
         params: List[Any] = []
+        if start_time > 0.0:
+            clauses.append("created_at >= ?")
+            params.append(start_time)
+        if end_time is not None:
+            clauses.append("created_at <= ?")
+            params.append(end_time)
         if provider:
             clauses.append("provider = ?")
             params.append(provider)
@@ -400,23 +408,52 @@ class UsageLedger:
         self,
         request_id: str,
         billed_cost_usd: float,
-        reconciliation_source: Optional[str] = None,
+        reconciliation_source: Optional[str] = "manual_invoice_audit",
     ) -> bool:
-        """Update authoritative billed cost for a specific request."""
+        """Update authoritative billed cost for a specific request with verified source provenance."""
+        source_clean = str(reconciliation_source or "").strip()
+        if not source_clean:
+            raise ValueError(
+                "Billing reconciliation requires an authoritative source or invoice reference (e.g., 'openai_invoice_2026_10')."
+            )
+        if billed_cost_usd < 0.0:
+            raise ValueError("Billed cost cannot be negative.")
+
         with self._lock, self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT metadata FROM cloud_usage_ledger WHERE request_id = ?",
+                (request_id,),
+            ).fetchone()
+            if not row:
+                return False
+
+            try:
+                meta = json.loads(row["metadata"] or "{}")
+            except Exception:
+                meta = {}
+
+            meta["reconciliation_source"] = source_clean
+            meta["reconciled_at"] = time.time()
+            meta["reconciled_cost_usd"] = billed_cost_usd
+
             cursor = conn.execute(
                 """\
                 UPDATE cloud_usage_ledger
-                SET billed_cost_usd = ?, cost_type = 'provider_billed'
+                SET billed_cost_usd = ?, cost_type = 'provider_billed', metadata = ?
                 WHERE request_id = ?
                 """,
-                (billed_cost_usd, request_id),
+                (billed_cost_usd, json.dumps(meta), request_id),
             )
             return cursor.rowcount > 0
 
     def export_csv(self, start_time: float = 0.0, end_time: Optional[float] = None) -> str:
-        """Export ledger records to CSV string."""
-        records = self.get_records(limit=10_000, offset=0)
+        """Export ledger records within optional time range to CSV string."""
+        records = self.get_records(
+            limit=10_000,
+            offset=0,
+            start_time=start_time,
+            end_time=end_time,
+        )
         output = io.StringIO()
         fieldnames = [
             "request_id", "created_at", "provider", "model", "purpose", "task_id",

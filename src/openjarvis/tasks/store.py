@@ -228,6 +228,24 @@ class TaskStore:
         )
 
     @_db_locked
+    def find_task_by_idempotency_key(self, idempotency_key: str) -> Optional[TaskRecord]:
+        """Find an existing task matching a given client idempotency key stored in metadata."""
+        if not idempotency_key or not str(idempotency_key).strip():
+            return None
+        key = str(idempotency_key).strip()
+        rows = self._conn.execute(
+            "SELECT task_id, metadata FROM tasks ORDER BY created_at DESC LIMIT 200"
+        ).fetchall()
+        for r in rows:
+            try:
+                meta = json.loads(r["metadata"] or "{}")
+                if meta.get("idempotency_key") == key:
+                    return self.get_task(r["task_id"])
+            except Exception:
+                continue
+        return None
+
+    @_db_locked
     def get_steps_for_task(self, task_id: str) -> List[TaskStep]:
         """Retrieve all steps for a task ordered by step_index."""
         rows = self._conn.execute(

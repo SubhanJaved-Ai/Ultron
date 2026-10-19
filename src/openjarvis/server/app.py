@@ -9,9 +9,17 @@ import threading
 import time
 from typing import Any
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+from openjarvis.engine.resource_limiter import (
+    ResourceLimitError,
+    RateLimitExceededError,
+    CircuitBreakerOpenError,
+    BudgetExceededError,
+)
 
 from openjarvis.server.analytics_routes import router as analytics_router
 from openjarvis.server.api_routes import include_all_routes
@@ -596,6 +604,81 @@ def create_app(
     # Model Context Protocol (MCP) Management
     app.include_router(mcp_router)
     include_all_routes(app)
+
+    # -----------------------------------------------------------------------
+    # Centralized REST API Contract Error Handlers
+    # Provides predictable error structures: {"detail": msg, "error": {"code": code, ...}}
+    # Maintaining 100% backward compatibility with clients reading res.json().detail
+    # -----------------------------------------------------------------------
+    @app.exception_handler(ResourceLimitError)
+    async def resource_limit_exception_handler(request: Request, exc: ResourceLimitError):
+        status_code = 429
+        error_code = "RATE_LIMIT_EXCEEDED"
+        if isinstance(exc, CircuitBreakerOpenError):
+            status_code = 503
+            error_code = "CIRCUIT_BREAKER_OPEN"
+        elif isinstance(exc, BudgetExceededError):
+            status_code = 422
+            error_code = "BUDGET_EXCEEDED"
+        elif isinstance(exc, RateLimitExceededError):
+            status_code = 429
+            error_code = "RATE_LIMIT_EXCEEDED"
+
+        msg = str(exc)
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "detail": msg,
+                "error": {
+                    "code": error_code,
+                    "message": msg,
+                    "status": status_code,
+                },
+            },
+        )
+
+    @app.exception_handler(HTTPException)
+    async def custom_http_exception_handler(request: Request, exc: HTTPException):
+        code_map = {
+            400: "BAD_REQUEST",
+            401: "UNAUTHORIZED",
+            403: "FORBIDDEN",
+            404: "NOT_FOUND",
+            409: "STATE_CONFLICT",
+            422: "UNPROCESSABLE_ENTITY",
+            429: "RATE_LIMIT_EXCEEDED",
+            500: "INTERNAL_SERVER_ERROR",
+            503: "SERVICE_UNAVAILABLE",
+        }
+        err_code = code_map.get(exc.status_code, "API_ERROR")
+        msg = str(exc.detail) if not isinstance(exc.detail, str) else exc.detail
+        return JSONResponse(
+            status_code=exc.status_code,
+            headers=getattr(exc, "headers", None),
+            content={
+                "detail": exc.detail,
+                "error": {
+                    "code": err_code,
+                    "message": msg,
+                    "status": exc.status_code,
+                },
+            },
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": exc.errors(),
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Request validation failed",
+                    "status": 422,
+                    "details": exc.errors(),
+                },
+            },
+        )
 
     # Restore SendBlue channel bindings from database on startup
     _restore_sendblue_bindings(app)

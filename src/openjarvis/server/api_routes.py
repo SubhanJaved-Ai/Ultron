@@ -12,12 +12,13 @@ from typing import Any, Dict, List, Optional
 from fastapi import (
     APIRouter,
     HTTPException,
+    Query,
     Request,
     Response,
     WebSocket,
     WebSocketDisconnect,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -109,9 +110,9 @@ class RuntimeLimitsUpdateRequest(BaseModel):
 
 
 class ReconcileCostRequest(BaseModel):
-    request_id: str
-    provider_billed_cost: float
-    reconciliation_source: str = "provider_billing_api"
+    request_id: str = Field(..., description="Target request ID to reconcile")
+    provider_billed_cost: float = Field(..., ge=0.0, description="Authoritative billed cost in USD")
+    reconciliation_source: str = Field("provider_billing_api", min_length=3, description="Invoice or provider billing export reference")
 
 
 class BenchmarkRequest(BaseModel):
@@ -1708,15 +1709,39 @@ async def get_usage_records(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+def _parse_timestamp_query(val: Optional[Union[float, str]], default: Optional[float] = None) -> Optional[float]:
+    if val is None or val == "":
+        return default
+    if isinstance(val, (int, float)):
+        return float(val)
+    try:
+        return float(val)
+    except ValueError:
+        pass
+    try:
+        from datetime import datetime
+        dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+        return dt.timestamp()
+    except Exception:
+        raise HTTPException(status_code=422, detail=f"Invalid timestamp format: {val}")
+
+
 @usage_router.get("/export")
-async def export_usage_csv(request: Request):
-    """Export all usage records to CSV format."""
+async def export_usage_csv(
+    request: Request,
+    start_time: Optional[str] = Query(None, description="Start timestamp filter (epoch seconds or ISO-8601 string)"),
+    end_time: Optional[str] = Query(None, description="End timestamp filter (epoch seconds or ISO-8601 string)"),
+):
+    """Export all usage records to CSV format with optional start and end time filtering."""
     try:
         from openjarvis.traces.usage_ledger import get_usage_ledger
         from starlette.responses import PlainTextResponse
 
+        st = _parse_timestamp_query(start_time, default=0.0)
+        et = _parse_timestamp_query(end_time, default=None)
+
         ledger = get_usage_ledger()
-        csv_data = ledger.export_csv()
+        csv_data = ledger.export_csv(start_time=st, end_time=et)
         return PlainTextResponse(
             csv_data,
             media_type="text/csv",
@@ -1724,6 +1749,8 @@ async def export_usage_csv(request: Request):
                 "Content-Disposition": "attachment; filename=ultron_cloud_usage_ledger.csv"
             },
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.warning("Failed to export usage CSV: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))

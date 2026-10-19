@@ -235,7 +235,7 @@ async def _stream_openai(
     attempt = 0
     yielded_any_token = False
 
-    async with limiter.acquire_slot(provider, estimated_tokens=est_tokens):
+    async with limiter.acquire_slot(provider, estimated_tokens=est_tokens, model=model):
         try:
             while True:
                 try:
@@ -352,6 +352,7 @@ async def _stream_openai(
             raise
         finally:
             duration = time.time() - start_time
+            is_partial = stream_status != "success"
             try:
                 get_usage_ledger().record_usage(
                     provider=provider,
@@ -364,7 +365,12 @@ async def _stream_openai(
                     duration_seconds=duration,
                     status=stream_status,
                     retry_count=attempt,
-                    metadata={"provider": provider, "model": model},
+                    metadata={
+                        "provider": provider,
+                        "model": model,
+                        "partial_stream": is_partial,
+                        "interrupted": stream_status in ("cancelled", "error"),
+                    },
                 )
             except Exception as log_err:
                 logger.warning("Failed to record usage in ledger: %s", log_err)
@@ -408,7 +414,7 @@ async def _stream_anthropic(
     attempt = 0
     yielded_any_token = False
 
-    async with limiter.acquire_slot("anthropic", estimated_tokens=est_tokens):
+    async with limiter.acquire_slot("anthropic", estimated_tokens=est_tokens, model=model):
         try:
             while True:
                 try:
@@ -527,6 +533,7 @@ async def _stream_anthropic(
             raise
         finally:
             duration = time.time() - start_time
+            is_partial = stream_status != "success"
             try:
                 get_usage_ledger().record_usage(
                     provider="anthropic",
@@ -538,7 +545,12 @@ async def _stream_anthropic(
                     duration_seconds=duration,
                     status=stream_status,
                     retry_count=attempt,
-                    metadata={"provider": "anthropic", "model": model},
+                    metadata={
+                        "provider": "anthropic",
+                        "model": model,
+                        "partial_stream": is_partial,
+                        "interrupted": stream_status in ("cancelled", "error"),
+                    },
                 )
             except Exception as log_err:
                 logger.warning("Failed to record usage in ledger: %s", log_err)
@@ -608,7 +620,7 @@ async def stream_local(
     completion_tokens = 0
     stream_status = "success"
 
-    async with limiter.acquire_slot("ollama", estimated_tokens=est_tokens):
+    async with limiter.acquire_slot("ollama", estimated_tokens=est_tokens, model=model):
         try:
             async with httpx.AsyncClient(timeout=300) as client:
                 async with client.stream("POST", f"{host}/api/chat", json=payload) as resp:
@@ -644,6 +656,7 @@ async def stream_local(
             raise
         finally:
             duration = time.time() - start_time
+            is_partial = stream_status != "success"
             try:
                 get_usage_ledger().record_usage(
                     provider="ollama",
@@ -652,7 +665,12 @@ async def stream_local(
                     completion_tokens=completion_tokens,
                     duration_seconds=duration,
                     status=stream_status,
-                    metadata={"provider": "ollama", "model": model},
+                    metadata={
+                        "provider": "ollama",
+                        "model": model,
+                        "partial_stream": is_partial,
+                        "interrupted": stream_status in ("cancelled", "error"),
+                    },
                 )
             except Exception as log_err:
                 logger.warning("Failed to record usage in ledger: %s", log_err)

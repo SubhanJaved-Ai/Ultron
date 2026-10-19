@@ -360,6 +360,10 @@ class CentralizedResourceLimiter:
         self,
         task_id: str,
         budget_config: Optional[TaskBudgetConfig] = None,
+        *,
+        model: Optional[str] = None,
+        provider: Optional[str] = None,
+        allow_unmetered_on_spend_budget: bool = False,
     ) -> None:
         """Validate that task has not exceeded its budget limits."""
         if not task_id:
@@ -388,6 +392,18 @@ class CentralizedResourceLimiter:
                 raise BudgetExceededError(
                     f"Task '{task_id}' exceeded cloud spend budget (${usage.estimated_spend_usd:.4f}/${budget.max_spend_usd:.2f})."
                 )
+
+            # Prevent uncataloged / unknown-priced models from silently bypassing a hard spend budget
+            if budget.max_spend_usd is not None and model and not allow_unmetered_on_spend_budget:
+                norm_prov = (provider or "").lower()
+                if norm_prov not in ("ollama", "local"):
+                    from openjarvis.intelligence.pricing import resolve_price_entry
+                    if resolve_price_entry(norm_prov or "default", model) is None:
+                        raise BudgetExceededError(
+                            f"Task '{task_id}' has a hard spend budget (${budget.max_spend_usd:.2f}), "
+                            f"but model '{model}' has uncataloged/unknown pricing. "
+                            f"Operation blocked to prevent unmetered spend bypass."
+                        )
 
             if budget.max_duration_seconds is not None and duration >= budget.max_duration_seconds:
                 raise BudgetExceededError(
@@ -429,7 +445,7 @@ class CentralizedResourceLimiter:
         cfg = limiter.config
 
         # Check task budget first
-        self.check_task_budget(task_id)
+        self.check_task_budget(task_id, model=model, provider=provider)
 
         last_exc: Optional[Exception] = None
         attempt = 0
@@ -502,7 +518,7 @@ class CentralizedResourceLimiter:
         cfg = limiter.config
 
         # Check task budget first
-        self.check_task_budget(task_id)
+        self.check_task_budget(task_id, model=model, provider=provider)
 
         last_exc: Optional[Exception] = None
         attempt = 0
@@ -568,10 +584,17 @@ class CentralizedResourceLimiter:
         provider: str,
         estimated_tokens: int = 100,
         task_id: str = "",
+        model: str = "",
+        allow_unmetered_on_spend_budget: bool = False,
     ) -> AsyncIterator[ProviderLimiter]:
         """Async context manager acquiring concurrency, rate token, and task budget slot."""
         limiter = self.get_limiter(provider)
-        self.check_task_budget(task_id)
+        self.check_task_budget(
+            task_id,
+            model=model,
+            provider=provider,
+            allow_unmetered_on_spend_budget=allow_unmetered_on_spend_budget,
+        )
         limiter.check_and_acquire(estimated_tokens=estimated_tokens)
         success = False
         error_message = ""
@@ -590,10 +613,17 @@ class CentralizedResourceLimiter:
         provider: str,
         estimated_tokens: int = 100,
         task_id: str = "",
+        model: str = "",
+        allow_unmetered_on_spend_budget: bool = False,
     ) -> Iterator[ProviderLimiter]:
         """Sync context manager acquiring concurrency, rate token, and task budget slot."""
         limiter = self.get_limiter(provider)
-        self.check_task_budget(task_id)
+        self.check_task_budget(
+            task_id,
+            model=model,
+            provider=provider,
+            allow_unmetered_on_spend_budget=allow_unmetered_on_spend_budget,
+        )
         limiter.check_and_acquire(estimated_tokens=estimated_tokens)
         success = False
         error_message = ""

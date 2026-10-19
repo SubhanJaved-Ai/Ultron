@@ -65,7 +65,8 @@ export function SystemPanel() {
 
   const selectedModel = useAppStore((s) => s.selectedModel);
   const serverInfo = useAppStore((s) => s.serverInfo);
-  const activeModelId = selectedModel || telemetry?.active_model || serverInfo?.model || 'Local Model';
+  const rawModel = selectedModel || telemetry?.active_model || serverInfo?.model;
+  const activeModelId = typeof rawModel === 'string' && rawModel ? rawModel : 'Local Model';
 
   const totalRequests = savings?.total_calls ?? telemetry?.total_requests ?? 0;
   const promptTokens = (savings?.total_prompt_tokens && savings.total_prompt_tokens > 0)
@@ -79,10 +80,11 @@ export function SystemPanel() {
   const activeCostResult = calculateModelCost(activeModelId, promptTokens, completionTokens, savings?.local_cost ?? 0);
   const activeModelCost = activeCostResult.cost;
 
+  const activeLower = activeModelId.toLowerCase();
   const isLocal = Boolean(
     activeCostResult.pricing.isLocal ||
-    activeModelId.toLowerCase().includes('ollama') ||
-    activeModelId.toLowerCase().includes('local')
+    activeLower.includes('ollama') ||
+    activeLower.includes('local')
   );
 
   return (

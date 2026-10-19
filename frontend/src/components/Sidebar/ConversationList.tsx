@@ -28,10 +28,12 @@ export function ConversationList({ searchQuery }: Props) {
   const selectConversation = useAppStore((s) => s.selectConversation);
   const deleteConversation = useAppStore((s) => s.deleteConversation);
 
-  const filtered = searchQuery
-    ? conversations.filter((c) =>
-        c.title.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+  const qLower = typeof searchQuery === 'string' ? searchQuery.toLowerCase() : '';
+  const filtered = qLower
+    ? conversations.filter((c) => {
+        const title = typeof c?.title === 'string' ? c.title : '';
+        return title.toLowerCase().includes(qLower);
+      })
     : conversations;
 
   if (filtered.length === 0) {

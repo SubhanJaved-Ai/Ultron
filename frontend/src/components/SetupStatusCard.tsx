@@ -34,7 +34,7 @@ export interface ClassifiedSetupError {
 }
 
 export function classifySetupError(status: SetupStatus | null): ClassifiedSetupError {
-  const err = (status?.error || '').toLowerCase();
+  const err = (typeof status?.error === 'string' ? status.error : '').toLowerCase();
   const phase = status?.phase || '';
 
   if (

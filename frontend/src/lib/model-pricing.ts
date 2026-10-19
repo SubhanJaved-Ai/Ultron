@@ -46,8 +46,8 @@ export const KNOWN_MODEL_PRICING: ModelPricingTier[] = [
 /**
  * Resolve pricing for a model name. Defaults to standard lightweight rates.
  */
-export function getModelPricing(modelName?: string): ModelPricingTier {
-  if (!modelName) {
+export function getModelPricing(modelName?: string | unknown): ModelPricingTier {
+  if (!modelName || typeof modelName !== 'string') {
     return { idPrefix: 'default', displayName: 'Standard Model', inputPerMillion: 0.15, outputPerMillion: 0.60 };
   }
   const lower = modelName.toLowerCase();
@@ -84,8 +84,8 @@ export function getModelPricing(modelName?: string): ModelPricingTier {
 /**
  * Formats model ID into clean human-readable title.
  */
-export function formatModelName(modelId: string): string {
-  if (!modelId) return 'Default Model';
+export function formatModelName(modelId?: string | unknown): string {
+  if (!modelId || typeof modelId !== 'string') return 'Default Model';
   // Strip common prefixes
   let clean = modelId.replace(/^models\//, '').replace(/^openrouter\//, '');
   // Capitalize nicely

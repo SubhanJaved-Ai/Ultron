@@ -122,14 +122,17 @@ export function CommandPalette() {
     }
   }, [desktopKeyStorage]);
 
+  const safeQuery = typeof query === 'string' ? query.toLowerCase() : '';
   const filtered = tab === 'installed'
-    ? (query
-        ? models.filter((m) => m.id.toLowerCase().includes(query.toLowerCase()))
+    ? (safeQuery
+        ? models.filter((m) => typeof m?.id === 'string' && m.id.toLowerCase().includes(safeQuery))
         : models)
     : tab === 'catalogue'
     ? CATALOGUE_MODELS.filter((m) =>
         !installedIds.has(m.id) &&
-        (!query || m.id.toLowerCase().includes(query.toLowerCase()) || m.desc.toLowerCase().includes(query.toLowerCase()))
+        (!safeQuery ||
+          (typeof m?.id === 'string' && m.id.toLowerCase().includes(safeQuery)) ||
+          (typeof m?.desc === 'string' && m.desc.toLowerCase().includes(safeQuery)))
       )
     : []; // cloud tab doesn't use filtered
 

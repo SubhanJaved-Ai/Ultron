@@ -75,7 +75,8 @@ export function Sidebar() {
     !!selectedModel &&
     selectedModel !== serverInfo.model;
 
-  const activeModelId = selectedModel || serverInfo?.model || 'Local Model';
+  const rawModel = selectedModel || serverInfo?.model;
+  const activeModelId = typeof rawModel === 'string' && rawModel ? rawModel : 'Local Model';
   const promptTokens = savings?.total_prompt_tokens ?? 0;
   const completionTokens = savings?.total_completion_tokens ?? 0;
   const costResult = calculateModelCost(activeModelId, promptTokens, completionTokens, savings?.local_cost ?? 0);

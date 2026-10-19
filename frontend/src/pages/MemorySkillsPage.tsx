@@ -1534,8 +1534,9 @@ export function MemorySkillsPage() {
   };
 
   // Helper for source type icon
-  const renderSourceTypeIcon = (type: string) => {
-    switch (type.toLowerCase()) {
+  const renderSourceTypeIcon = (type?: string | unknown) => {
+    const safeType = typeof type === 'string' ? type.toLowerCase() : '';
+    switch (safeType) {
       case 'website':
       case 'web':
         return <Globe size={13} className="text-cyan-400" />;

@@ -180,6 +180,10 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname === '/onboarding') {
+      setShowOnboarding(false);
+      return;
+    }
     const hasCompleted = localStorage.getItem('ultron-onboarding-completed');
     if (!settings.onboardingCompleted && !hasCompleted) {
       setShowOnboarding(true);
@@ -213,6 +217,23 @@ export default function App() {
         />
       )}
       <Routes>
+        <Route
+          path="onboarding"
+          element={
+            <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-slate-900/35 backdrop-blur-xl">
+              <CinematicOnboarding
+                onComplete={() => {
+                  localStorage.setItem('ultron-onboarding-completed', 'true');
+                  window.location.href = '/';
+                }}
+                onSkip={() => {
+                  localStorage.setItem('ultron-onboarding-completed', 'true');
+                  window.location.href = '/';
+                }}
+              />
+            </div>
+          }
+        />
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
@@ -224,17 +245,6 @@ export default function App() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="memory-skills" element={<MemorySkillsPage />} />
           <Route path="hologram" element={<HologramPage />} />
-          <Route
-            path="onboarding"
-            element={
-              <CinematicOnboarding
-                onComplete={() => {
-                  localStorage.setItem('ultron-onboarding-completed', 'true');
-                  window.location.hash = '';
-                }}
-              />
-            }
-          />
         </Route>
       </Routes>
       <Toaster position="bottom-right" />

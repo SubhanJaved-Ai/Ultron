@@ -24,8 +24,8 @@ function applyTheme() {
 
 applyTheme();
 
-// In native desktop environments, ensure any previously registered service
-// workers are cleanly unregistered so fresh Tauri assets are always loaded.
+// Ensure any previously registered service workers or stale caches
+// are cleanly unregistered so fresh assets are always loaded.
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker
     .getRegistrations()
@@ -35,6 +35,13 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       }
     })
     .catch(() => {});
+  if ('caches' in window) {
+    caches.keys().then((names) => {
+      for (const name of names) {
+        caches.delete(name).catch(() => {});
+      }
+    }).catch(() => {});
+  }
 }
 
 // Fetch the API base URL from the Tauri backend before rendering.

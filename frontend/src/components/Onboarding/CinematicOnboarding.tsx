@@ -275,17 +275,19 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
           if (voiceGender === 'feminine') {
             const female = voices.find(
               (v) =>
-                v.name.toLowerCase().includes('zira') ||
-                v.name.toLowerCase().includes('female') ||
-                v.name.toLowerCase().includes('susan'),
+                typeof v?.name === 'string' &&
+                (v.name.toLowerCase().includes('zira') ||
+                  v.name.toLowerCase().includes('female') ||
+                  v.name.toLowerCase().includes('susan')),
             );
             if (female) utterance.voice = female;
           } else if (voiceGender === 'masculine') {
             const male = voices.find(
               (v) =>
-                v.name.toLowerCase().includes('david') ||
-                v.name.toLowerCase().includes('male') ||
-                v.name.toLowerCase().includes('george'),
+                typeof v?.name === 'string' &&
+                (v.name.toLowerCase().includes('david') ||
+                  v.name.toLowerCase().includes('male') ||
+                  v.name.toLowerCase().includes('george')),
             );
             if (male) utterance.voice = male;
           }

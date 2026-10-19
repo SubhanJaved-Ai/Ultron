@@ -82,11 +82,12 @@ export async function initAnalytics(): Promise<void> {
       return;
     }
 
-    cachedAnonId = identity.anon_id;
+    cachedAnonId = typeof identity.anon_id === 'string' ? identity.anon_id : String(identity.anon_id || '');
+    if (!cachedAnonId) return;
 
     posthog.init(identity.key, {
       api_host: identity.host,
-      bootstrap: { distinctID: identity.anon_id },
+      bootstrap: { distinctID: cachedAnonId },
       // No surprise data collection — only events we call out by name.
       autocapture: false,
       capture_pageview: false,
@@ -105,7 +106,13 @@ export async function initAnalytics(): Promise<void> {
     });
 
     // Set distinct_id explicitly in case bootstrap raced.
-    posthog.identify(identity.anon_id);
+    try {
+      if (typeof cachedAnonId === 'string' && cachedAnonId.trim()) {
+        posthog.identify(cachedAnonId);
+      }
+    } catch {
+      // analytics identification must never crash UI
+    }
 
     // Register version + platform as super-properties so they're attached
     // to every event automatically, without per-call-site repetition.

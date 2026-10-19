@@ -11,8 +11,9 @@ const EMBEDDING_MODEL_PREFIXES = [
   'sentence-transformers',
 ];
 
-export function isEmbedOnlyModel(modelId: string): boolean {
-  const name = (modelId || '').trim().toLowerCase();
+export function isEmbedOnlyModel(modelId?: string | unknown): boolean {
+  if (!modelId || typeof modelId !== 'string') return false;
+  const name = modelId.trim().toLowerCase();
   const leaf = name.slice(name.lastIndexOf('/') + 1).split(':')[0];
   return (
     leaf.includes('embed') ||

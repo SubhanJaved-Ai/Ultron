@@ -20,7 +20,7 @@ export function AgentStatusStrip({ streamState }: Props) {
   let targetUrl: string | null = null;
 
   if (runningTool) {
-    const tLower = runningTool.tool.toLowerCase();
+    const tLower = typeof runningTool.tool === 'string' ? runningTool.tool.toLowerCase() : '';
     isBrowser = /browser|navigate|visit|open_url|goto/i.test(tLower);
     isScreenshot = /screenshot|capture/i.test(tLower);
     if (runningTool.arguments) {

@@ -242,9 +242,9 @@ export function LearningCurve({ apiUrl }: { apiUrl: string }) {
     cost: Math.round(point.cost * 10000) / 10000,
   }));
 
-  const policyConfig = policy?.config;
-  const isGrpo = policyConfig?.name?.toLowerCase().includes('grpo');
-  const isBandit = policyConfig?.name?.toLowerCase().includes('bandit');
+  const policyName = typeof policyConfig?.name === 'string' ? policyConfig.name.toLowerCase() : '';
+  const isGrpo = policyName.includes('grpo');
+  const isBandit = policyName.includes('bandit');
 
   return (
     <div style={styles.container}>

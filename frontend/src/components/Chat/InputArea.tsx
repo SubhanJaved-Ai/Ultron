@@ -13,6 +13,7 @@ import {
 import { MicButton } from './MicButton';
 import { AgentStatusStrip } from './AgentStatusStrip';
 import { useSpeech } from '../../hooks/useSpeech';
+import { soundEffects } from '../../lib/sound-effects';
 import type {
   ChatMessage,
   MessageTelemetry,
@@ -163,7 +164,14 @@ export function InputArea() {
     el.style.height = Math.min(el.scrollHeight, 200) + 'px';
   }, [input]);
 
+  useEffect(() => {
+    return () => {
+      soundEffects.stopLoadingCue();
+    };
+  }, []);
+
   const stopStreaming = useCallback(() => {
+    soundEffects.stopLoadingCue();
     abortRef.current?.abort();
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -238,6 +246,7 @@ export function InputArea() {
       activeToolCalls: [],
       content: '',
     });
+    soundEffects.playLoadingCue();
     useAppStore.getState().addLogEntry({
       timestamp: Date.now(),
       level: 'info',
@@ -487,6 +496,7 @@ export function InputArea() {
       // numbers don't get stuck on the last sample.
       useAppStore.getState().setLiveEnergy(null);
     } finally {
+      soundEffects.stopLoadingCue();
       if (!accumulatedContent) {
         accumulatedContent = 'No response was generated. Please try again.';
       }

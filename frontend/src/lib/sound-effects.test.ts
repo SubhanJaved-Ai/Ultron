@@ -183,4 +183,88 @@ describe('SoundEffectsService', () => {
     soundEffects.playPreviewStart();
     soundEffects.playPreviewStop();
   });
+
+  it('handles playMicListeningCue and stopMicListeningCue with Audio element tracking', () => {
+    const mockAudioInstances: any[] = [];
+    class MockAudio {
+      src: string;
+      volume = 1;
+      paused = false;
+      currentTime = 0;
+      onended: any = null;
+      onerror: any = null;
+      play = vi.fn().mockResolvedValue(undefined);
+      pause = vi.fn().mockImplementation(() => { this.paused = true; });
+
+      constructor(src: string) {
+        this.src = src;
+        mockAudioInstances.push(this);
+      }
+    }
+
+    vi.stubGlobal('Audio', MockAudio);
+
+    soundEffects.setEnabled(true);
+    soundEffects.setVolume(0.7);
+
+    soundEffects.playMicListeningCue();
+    expect(mockAudioInstances.length).toBe(1);
+    expect(mockAudioInstances[0].src).toContain('mic.wav');
+    expect(mockAudioInstances[0].volume).toBeCloseTo(0.7);
+    expect(mockAudioInstances[0].play).toHaveBeenCalled();
+
+    // Deduplication: calling again while playing avoids creating duplicate
+    soundEffects.playMicListeningCue();
+    expect(mockAudioInstances.length).toBe(1);
+
+    // Stop cue pauses and resets
+    soundEffects.stopMicListeningCue();
+    expect(mockAudioInstances[0].pause).toHaveBeenCalled();
+    expect(mockAudioInstances[0].currentTime).toBe(0);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('handles playLoadingCue and stopLoadingCue with volume scaling and loop support', () => {
+    const mockAudioInstances: any[] = [];
+    class MockAudio {
+      src: string;
+      volume = 1;
+      loop = false;
+      paused = false;
+      currentTime = 0;
+      onended: any = null;
+      onerror: any = null;
+      play = vi.fn().mockResolvedValue(undefined);
+      pause = vi.fn().mockImplementation(() => { this.paused = true; });
+
+      constructor(src: string) {
+        this.src = src;
+        mockAudioInstances.push(this);
+      }
+    }
+
+    vi.stubGlobal('Audio', MockAudio);
+
+    soundEffects.setEnabled(true);
+    soundEffects.setVolume(0.8);
+
+    soundEffects.playLoadingCue(true);
+    expect(mockAudioInstances.length).toBe(1);
+    expect(mockAudioInstances[0].src).toContain('loading.wav');
+    expect(mockAudioInstances[0].volume).toBeCloseTo(0.8 * 0.6);
+    expect(mockAudioInstances[0].loop).toBe(true);
+    expect(mockAudioInstances[0].play).toHaveBeenCalled();
+
+    // Deduplication: second call while playing is ignored
+    soundEffects.playLoadingCue(true);
+    expect(mockAudioInstances.length).toBe(1);
+
+    // Stopping cleans up element
+    soundEffects.stopLoadingCue();
+    expect(mockAudioInstances[0].pause).toHaveBeenCalled();
+    expect(mockAudioInstances[0].currentTime).toBe(0);
+
+    vi.unstubAllGlobals();
+  });
 });

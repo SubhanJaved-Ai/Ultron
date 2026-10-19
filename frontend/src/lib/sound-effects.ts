@@ -14,10 +14,27 @@ export interface SoundConfig {
   volume: number; // 0.0 to 1.0
 }
 
+export const SOUND_ASSET_PATHS = {
+  mic: '/audio/mic.wav',
+  loading: '/audio/loading.wav',
+  listening: '/audio/07_voice_ai_listening.wav',
+  processingLoop: '/audio/08_ai_processing_LOOP.wav',
+} as const;
+
+function resolveAssetUrl(relPath: string): string {
+  if (typeof window === 'undefined') return relPath;
+  const base = (import.meta as any).env?.BASE_URL || '/';
+  const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const cleanRel = relPath.startsWith('/') ? relPath : '/' + relPath;
+  return `${cleanBase}${cleanRel}`;
+}
+
 const SETTINGS_SOUND_KEY = 'ultron-sound-settings';
 
 class SoundEffectsService {
   private ctx: AudioContext | null = null;
+  private currentMicAudio: HTMLAudioElement | null = null;
+  private currentLoadingAudio: HTMLAudioElement | null = null;
   private config: SoundConfig = {
     enabled: true,
     volume: 0.35,
@@ -357,6 +374,133 @@ class SoundEffectsService {
       osc.stop(now + 0.09);
     } catch {
       // Audio node failure recovery
+    }
+  }
+
+  /**
+   * 8. Named Asset: Microphone / Listening Cue
+   * Triggers the authentic 'mic.wav' asset when voice capture is activated.
+   * Deduplicated, volume-scaled, non-blocking, and safely degraded if Audio fails.
+   */
+  public playMicListeningCue(): void {
+    if (!this.config.enabled || this.config.volume <= 0) return;
+    if (typeof window === 'undefined') return;
+
+    if (this.currentMicAudio && !this.currentMicAudio.paused) {
+      return; // Already playing, avoid duplicate overlapping
+    }
+
+    try {
+      if (typeof Audio !== 'undefined') {
+        const audio = new Audio(resolveAssetUrl(SOUND_ASSET_PATHS.mic));
+        audio.volume = Math.max(0, Math.min(1, this.config.volume));
+        this.currentMicAudio = audio;
+
+        audio.onended = () => {
+          if (this.currentMicAudio === audio) {
+            this.currentMicAudio = null;
+          }
+        };
+
+        audio.onerror = () => {
+          if (this.currentMicAudio === audio) {
+            this.currentMicAudio = null;
+          }
+          // Fallback to synthetic click blip so user still receives audio cue
+          this.playClick();
+        };
+
+        const promise = audio.play();
+        if (promise && typeof promise.catch === 'function') {
+          promise.catch(() => {
+            if (this.currentMicAudio === audio) {
+              this.currentMicAudio = null;
+            }
+          });
+        }
+      } else {
+        this.playClick();
+      }
+    } catch {
+      this.currentMicAudio = null;
+    }
+  }
+
+  /**
+   * Stop active microphone listening audio cue.
+   */
+  public stopMicListeningCue(): void {
+    if (this.currentMicAudio) {
+      try {
+        this.currentMicAudio.pause();
+        this.currentMicAudio.currentTime = 0;
+      } catch {}
+      this.currentMicAudio = null;
+    }
+  }
+
+  /**
+   * 9. Named Asset: Loading & Processing Cue
+   * Triggers authentic 'loading.wav' asset during model inference, tool execution,
+   * research, or audio synthesis loading.
+   * Non-blocking, volume-controlled (calibrated so as not to overpower UI), deduplicated.
+   */
+  public playLoadingCue(loop = false): void {
+    if (!this.config.enabled || this.config.volume <= 0) return;
+    if (typeof window === 'undefined') return;
+
+    if (this.currentLoadingAudio && !this.currentLoadingAudio.paused) {
+      return; // Already active, avoid duplicate overlapping
+    }
+
+    try {
+      if (typeof Audio !== 'undefined') {
+        const audio = new Audio(resolveAssetUrl(SOUND_ASSET_PATHS.loading));
+        // Calibrated at 60% of master volume for subtle background ambience
+        audio.volume = Math.max(0, Math.min(1, this.config.volume * 0.6));
+        audio.loop = loop;
+        this.currentLoadingAudio = audio;
+
+        audio.onended = () => {
+          if (this.currentLoadingAudio === audio) {
+            this.currentLoadingAudio = null;
+          }
+        };
+
+        audio.onerror = () => {
+          if (this.currentLoadingAudio === audio) {
+            this.currentLoadingAudio = null;
+          }
+          // Fallback to synthetic processing pulse
+          this.playProcessingPulse();
+        };
+
+        const promise = audio.play();
+        if (promise && typeof promise.catch === 'function') {
+          promise.catch(() => {
+            if (this.currentLoadingAudio === audio) {
+              this.currentLoadingAudio = null;
+            }
+          });
+        }
+      } else {
+        this.playProcessingPulse();
+      }
+    } catch {
+      this.currentLoadingAudio = null;
+    }
+  }
+
+  /**
+   * Stop and clean up any active loading or processing audio playback.
+   */
+  public stopLoadingCue(): void {
+    if (this.currentLoadingAudio) {
+      try {
+        this.currentLoadingAudio.pause();
+        this.currentLoadingAudio.currentTime = 0;
+      } catch {}
+      this.currentLoadingAudio = null;
     }
   }
 

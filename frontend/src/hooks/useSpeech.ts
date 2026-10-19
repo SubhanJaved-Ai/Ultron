@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { transcribeAudio, fetchSpeechHealth } from '../lib/api';
+import { soundEffects } from '../lib/sound-effects';
 
 export type SpeechState = 'idle' | 'recording' | 'transcribing';
 
@@ -16,6 +17,11 @@ export function useSpeech() {
     fetchSpeechHealth()
       .then((health) => setAvailable(health.available))
       .catch(() => setAvailable(false));
+
+    return () => {
+      soundEffects.stopMicListeningCue();
+      soundEffects.stopLoadingCue();
+    };
   }, []);
 
   const startRecording = useCallback(async (): Promise<void> => {
@@ -40,7 +46,9 @@ export function useSpeech() {
       recorder.start();
       mediaRecorderRef.current = recorder;
       setState('recording');
+      soundEffects.playMicListeningCue();
     } catch (err) {
+      soundEffects.stopMicListeningCue();
       setError('Microphone access denied');
       setState('idle');
     }
@@ -55,7 +63,9 @@ export function useSpeech() {
       }
 
       recorder.onstop = async () => {
+        soundEffects.stopMicListeningCue();
         setState('transcribing');
+        soundEffects.playLoadingCue();
 
         // Stop all audio tracks
         streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -66,9 +76,13 @@ export function useSpeech() {
 
         try {
           const result = await transcribeAudio(blob);
+          soundEffects.stopLoadingCue();
+          soundEffects.playSuccessChime();
           setState('idle');
           resolve(result.text);
         } catch (err) {
+          soundEffects.stopLoadingCue();
+          soundEffects.playErrorTone();
           setState('idle');
           const msg = err instanceof Error ? err.message : 'Transcription failed';
           setError(msg);

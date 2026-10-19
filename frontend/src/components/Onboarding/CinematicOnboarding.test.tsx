@@ -123,4 +123,23 @@ describe('CinematicOnboarding', () => {
     expect(html).toContain('Mute Cyber Audio Cues');
     expect(html).toContain('CANONICAL ELECTRON CORE');
   });
+
+  it('applies premium white glassmorphism styling and eliminates dark container panels', () => {
+    const html = renderToStaticMarkup(
+      <CinematicOnboarding onComplete={vi.fn()} onSkip={vi.fn()} />
+    );
+
+    // Verify translucent white surface background
+    expect(html).toContain('rgba(255, 255, 255, 0.94)');
+    expect(html).toContain('rgba(248, 250, 252, 0.97)');
+    expect(html).toContain('backdrop-blur');
+
+    // Verify absence of old dark card container background
+    expect(html).not.toContain('rgba(15, 23, 42, 0.94)');
+    expect(html).not.toContain('bg-black/85');
+
+    // Verify crisp dark readable typography
+    expect(html).toContain('text-slate-900');
+    expect(html).toContain('text-slate-700');
+  });
 });

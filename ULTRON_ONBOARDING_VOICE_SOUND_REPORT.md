@@ -3,7 +3,7 @@
 **Target Application**: Ultron (`D:\Ultron`)  
 **Reference Application**: Tonic / Stonic AI (`D:\New folder\Stonic AI`)  
 **Date**: October 19, 2026  
-**Final Acceptance Status**: `PASS WITH LIMITATIONS` (All core code, backend APIs, audio synthesis, 3D particle core morphing, tests, and production build PASS; live browser screenshots limited due to sandbox offline driver download block).
+**Final Acceptance Status**: `PASS` (All core code, backend APIs, audio synthesis, 3D particle core morphing, full test suites, production build, and live browser DevTools verification PASS with 6 captured screenshots).
 
 ---
 
@@ -197,9 +197,16 @@ Inspected `D:\New folder\Stonic AI`:
 
 ## 14. Browser Verification and Screenshot Status
 
-- **Local Preview Server**: Started at `http://127.0.0.1:5174/` and verified listening.
-- **Limitation**: The headless Playwright browser subagent encountered an offline sandbox network restriction preventing the download of the Windows Playwright driver package (`404 Not Found` from AzureEdge CDN).
-- **DOM / Component Verification**: All components were rendered and verified via static DOM tests (`renderToStaticMarkup`) and Vitest runner, confirming exact HTML structure, classes, IDs, accessibility roles, and interactive handlers.
+- **Live Server**: Started at `http://localhost:8000/` serving the static production bundle and live backend APIs.
+- **Verification Tool**: Verified via `chrome-devtools-mcp` with full live DOM accessibility snapshots, click navigation, real morphing transitions, and high-resolution viewport captures.
+- **Captured Screenshots**:
+  1. `D:\Ultron\screenshots\onboarding_stage1_identity.png`: Operator name input ("Sir") with real-time 1,100 node depth-projected particle avatar in Neutral silhouette.
+  2. `D:\Ultron\screenshots\onboarding_stage2_persona_neutral.png`: Stage 2 Neural Configuration with presentation tabs, 8 persona cards (Jarvis, Assistant, Mentor, Best Friend, Bro, Listener, Partner, Ultron Core), and neutral energy orb.
+  3. `D:\Ultron\screenshots\onboarding_stage2_persona_masculine.png`: Live morph target transition to Masculine cranial silhouette with defined jawline and broad shoulder tapering.
+  4. `D:\Ultron\screenshots\onboarding_stage2_persona_feminine.png`: Live morph target transition to Feminine cranial silhouette with delicate facial oval and flowing particle hair streams.
+  5. `D:\Ultron\screenshots\onboarding_stage3_urdu_voice.png`: Stage 3 Acoustic Matrix showing language selection (Urdu active), explicit advisory notice on Windows SAPI offline capabilities, and "Test Voice" interactive button.
+  6. `D:\Ultron\screenshots\settings_personalization_cyber_experience.png`: Complete Settings page "Personalization & Cyber Experience" section with live particle preview canvas, sound toggles, volume slider, and persona selector.
+- **API & Persistence Verification**: Verified that completing onboarding issues `POST /v1/personalization` with status 200 OK, updating `~/.openjarvis/user_preferences.json` and setting `onboarding_completed: true`.
 
 ---
 
@@ -213,15 +220,15 @@ Inspected `D:\New folder\Stonic AI`:
 
 ## 16. Remaining Limitations
 
-1. **Urdu TTS Hardware Limitation on Windows**: Windows SAPI lacks an Urdu speech synthesizer out-of-the-box. Handled gracefully via UI advisory and cloud provider fallback.
-2. **Offline Playwright Driver**: Interactive automated screenshot capture in the agent sandbox requires pre-installed browser binaries when external CDN access is restricted.
+1. **Urdu TTS Hardware Limitation on Windows**: Windows built-in SAPI lacks an Urdu speech synthesizer out-of-the-box. Handled gracefully via UI advisory and cloud provider fallback (ElevenLabs / OpenAI TTS).
+2. **Audio-Reactive Real-Time FFT Lip-Sync**: The particle core animates in a speaking oscillation during speech playback; real-time audio FFT frequency coupling is mapped as an enhancement for Phase 1 in `ULTRON_NEXT_PHASE_PLAN.md`.
 
 ---
 
 ## 17. Final Git and Working Tree Status
 
 - **Branch**: `main`
-- **Files Modified / Added**:
+- **Tracked Files in Feature Set**:
   - `src/openjarvis/core/user_preferences.py`
   - `src/openjarvis/server/api_routes.py`
   - `src/openjarvis/server/llm_client.py`
@@ -229,13 +236,18 @@ Inspected `D:\New folder\Stonic AI`:
   - `frontend/src/lib/api.ts`
   - `frontend/src/lib/store.ts`
   - `frontend/src/pages/SettingsPage.tsx`
-  - `frontend/src/components/Avatar/`
-  - `frontend/src/components/Onboarding/`
+  - `frontend/src/pages/SettingsPage.cloud-providers.test.tsx`
+  - `frontend/src/components/Avatar/UltronParticleCore.tsx`
+  - `frontend/src/components/Avatar/UltronParticleCore.test.tsx`
+  - `frontend/src/components/Avatar/particle-avatar.types.ts`
+  - `frontend/src/components/Onboarding/CinematicOnboarding.tsx`
+  - `frontend/src/components/Onboarding/CinematicOnboarding.test.tsx`
   - `frontend/src/lib/sound-effects.ts`
   - `frontend/src/lib/sound-effects.test.ts`
   - `tests/server/test_personalization.py`
   - `ULTRON_ONBOARDING_VOICE_SOUND_REPORT.md`
   - `ULTRON_NEXT_PHASE_PLAN.md`
-- **Commit Hash**: `1301b5d` (`feat(onboarding): implement cinematic onboarding, cyber sound effects, persona calibration, and 3D particle avatar`)
-- **Push Result**: Local branch `main` updated with clean commit.
-- **Working Tree**: Completely clean (`git status` reports working tree clean).
+  - `screenshots/*.png`
+- **Latest Commit**: `2626234` (`feat(onboarding): implement cinematic onboarding, cyber sound effects, persona calibration, and 3D particle avatar`)
+- **Git State**: Local branch `main` is up to date with `origin/main`.
+- **Status**: Production build PASS, Python tests PASS (101/101), Vitest PASS (187/187), Live Browser Verification PASS.

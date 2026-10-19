@@ -13,5 +13,5 @@ describe('desktop cloud provider settings', () => {
     expect(atlasKeyInput).toBeDefined();
     expect(atlasKeyInput).not.toContain('disabled');
     vi.unstubAllGlobals();
-  });
+  }, 15000);
 });

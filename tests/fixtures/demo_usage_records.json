@@ -1,0 +1,57 @@
+[
+  {
+    "request_id": "demo-req-openai-01",
+    "provider": "openai",
+    "model": "gpt-4o",
+    "prompt_tokens": 3200,
+    "completion_tokens": 850,
+    "characters": 0,
+    "estimated_cost_usd": 0.0165,
+    "cost_type": "estimated",
+    "created_at": 1792384956.7740278
+  },
+  {
+    "request_id": "demo-req-anthropic-02",
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet",
+    "prompt_tokens": 4500,
+    "completion_tokens": 1200,
+    "characters": 0,
+    "estimated_cost_usd": 0.0315,
+    "cost_type": "estimated",
+    "created_at": 1792384956.7790139
+  },
+  {
+    "request_id": "demo-req-gemini-03",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "prompt_tokens": 2100,
+    "completion_tokens": 420,
+    "characters": 0,
+    "estimated_cost_usd": 0.00168,
+    "cost_type": "estimated",
+    "created_at": 1792384956.7870054
+  },
+  {
+    "request_id": "demo-req-elevenlabs-04",
+    "provider": "elevenlabs",
+    "model": "eleven_multilingual_v2",
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "characters": 280,
+    "estimated_cost_usd": 0.084,
+    "cost_type": "estimated",
+    "created_at": 1792384956.8135657
+  },
+  {
+    "request_id": "demo-req-ollama-05",
+    "provider": "ollama",
+    "model": "qwen3:8b",
+    "prompt_tokens": 1800,
+    "completion_tokens": 650,
+    "characters": 0,
+    "estimated_cost_usd": 0.0,
+    "cost_type": "local_zero",
+    "created_at": 1792384956.8315153
+  }
+]

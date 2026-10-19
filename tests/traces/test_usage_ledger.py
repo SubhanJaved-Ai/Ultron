@@ -112,6 +112,17 @@ def test_calculate_cost_unknown_model_labeled_unknown() -> None:
     assert breakdown.cost_type == "unknown"
     assert breakdown.rate_matched is False
 
+    # Known provider with unverified model must NOT inherit another model's rates
+    breakdown_known_prov = calculate_cost(
+        "openai",
+        "unverified-custom-model-99",
+        prompt_tokens=5000,
+        completion_tokens=2000,
+    )
+    assert breakdown_known_prov.cost_type == "unknown"
+    assert breakdown_known_prov.rate_matched is False
+    assert breakdown_known_prov.estimated_cost_usd == 0.0
+
 
 def test_usage_ledger_record_and_summary(tmp_path) -> None:
     db_file = tmp_path / "test_ledger.db"

@@ -14,10 +14,13 @@ import wave
 from typing import Any, Dict, List, Optional
 
 import httpx
+import time
 
 from openjarvis.core.registry import TTSRegistry
+from openjarvis.engine.resource_limiter import get_resource_limiter
 from openjarvis.security.credential_stripper import sanitize_error_message
 from openjarvis.speech.tts import TTSBackend, TTSResult
+from openjarvis.traces.usage_ledger import get_usage_ledger
 
 logger = logging.getLogger(__name__)
 
@@ -146,17 +149,45 @@ def _elevenlabs_synthesize(
         "voice_settings": voice_settings,
     }
 
-    try:
-        resp = httpx.post(url, headers=headers, json=payload, timeout=timeout)
-        resp.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        _handle_http_error(exc)
-    except httpx.TimeoutException as exc:
-        raise ElevenLabsTimeoutError("ElevenLabs speech synthesis timed out") from exc
-    except httpx.RequestError as exc:
-        raise ElevenLabsAPIError(
-            f"Network error during speech synthesis: {sanitize_error_message(str(exc))}"
-        ) from exc
+    limiter = get_resource_limiter()
+    start_time = time.time()
+    captured_req_id = None
+    stream_status = "success"
+
+    with limiter.acquire_slot_sync("elevenlabs"):
+        try:
+            resp = httpx.post(url, headers=headers, json=payload, timeout=timeout)
+            captured_req_id = resp.headers.get("request-id") or resp.headers.get("x-request-id")
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            stream_status = "error"
+            _handle_http_error(exc)
+        except httpx.TimeoutException as exc:
+            stream_status = "error"
+            raise ElevenLabsTimeoutError("ElevenLabs speech synthesis timed out") from exc
+        except httpx.RequestError as exc:
+            stream_status = "error"
+            raise ElevenLabsAPIError(
+                f"Network error during speech synthesis: {sanitize_error_message(str(exc))}"
+            ) from exc
+        except Exception:
+            stream_status = "error"
+            raise
+        finally:
+            duration = time.time() - start_time
+            try:
+                get_usage_ledger().record_usage(
+                    provider="elevenlabs",
+                    model=target_model,
+                    request_id=captured_req_id,
+                    characters=len(clean_text),
+                    duration_seconds=duration,
+                    status=stream_status,
+                    purpose="speech",
+                    metadata={"voice_id": target_voice, "format": output_format, "model_id": target_model},
+                )
+            except Exception:
+                pass
 
     raw_bytes = resp.content
     if output_format == "wav" and not raw_bytes.startswith(b"RIFF"):

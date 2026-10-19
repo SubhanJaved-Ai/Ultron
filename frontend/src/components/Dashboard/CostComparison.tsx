@@ -10,6 +10,8 @@ import {
   X,
   Radio,
   Clock,
+  Receipt,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   getUsageSummary,
@@ -145,7 +147,7 @@ export function CostComparison() {
       ) : (
         <>
           {/* Top High-level Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             {/* Estimated Cloud API Spend */}
             <div
               className="p-3 rounded-lg border flex flex-col justify-between"
@@ -157,7 +159,7 @@ export function CostComparison() {
               <div className="flex items-center justify-between text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 <span className="flex items-center gap-1.5 font-medium">
                   <Cloud size={13} style={{ color: 'var(--color-accent)' }} />
-                  Estimated Cloud API Spend
+                  Estimated Spend
                 </span>
                 <span
                   className="text-[9px] uppercase px-1.5 py-0.5 rounded font-mono font-semibold"
@@ -183,7 +185,43 @@ export function CostComparison() {
               </div>
             </div>
 
-            {/* Authoritative Provider-Billed or Local Inference */}
+            {/* Authoritative Provider-Billed Spend */}
+            <div
+              className="p-3 rounded-lg border flex flex-col justify-between"
+              style={{
+                background: 'var(--color-bg-secondary)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              <div className="flex items-center justify-between text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Receipt size={13} style={{ color: '#3b82f6' }} />
+                  Provider-Billed
+                </span>
+                <span
+                  className="text-[9px] uppercase px-1.5 py-0.5 rounded font-mono font-semibold"
+                  style={{
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#3b82f6',
+                  }}
+                >
+                  Reconciled
+                </span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-xl font-bold font-mono" style={{ color: 'var(--color-text)' }}>
+                  ${(summary?.total_billed_cost_usd || 0).toFixed(4)}
+                </span>
+                <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  reconciled
+                </span>
+              </div>
+              <div className="text-[10px] mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                Authoritative provider billing invoices
+              </div>
+            </div>
+
+            {/* Local Inference (Free API inference) */}
             <div
               className="p-3 rounded-lg border flex flex-col justify-between"
               style={{
@@ -194,7 +232,7 @@ export function CostComparison() {
               <div className="flex items-center justify-between text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 <span className="flex items-center gap-1.5 font-medium">
                   <HardDrive size={13} style={{ color: 'var(--color-success)' }} />
-                  Local Inference (Free)
+                  Local Inference
                 </span>
                 <span
                   className="text-[9px] uppercase px-1.5 py-0.5 rounded font-mono font-semibold"
@@ -203,7 +241,7 @@ export function CostComparison() {
                     color: 'var(--color-success)',
                   }}
                 >
-                  Local: $0.00
+                  $0.00 API
                 </span>
               </div>
               <div className="mt-2 flex items-baseline justify-between">
@@ -211,11 +249,47 @@ export function CostComparison() {
                   $0.0000
                 </span>
                 <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                  {summary?.local_requests || 0} local requests
+                  {summary?.local_requests || 0} calls
                 </span>
               </div>
               <div className="text-[10px] mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
-                {(summary?.local_tokens || 0).toLocaleString()} local tokens (zero cloud API fees)
+                Inference API fee only (excludes host electricity)
+              </div>
+            </div>
+
+            {/* Unknown / Unmetered Requests */}
+            <div
+              className="p-3 rounded-lg border flex flex-col justify-between"
+              style={{
+                background: 'var(--color-bg-secondary)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              <div className="flex items-center justify-between text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                <span className="flex items-center gap-1.5 font-medium">
+                  <AlertTriangle size={13} style={{ color: summary?.unknown_cost_requests ? '#f59e0b' : 'var(--color-text-tertiary)' }} />
+                  Unmetered Calls
+                </span>
+                <span
+                  className="text-[9px] uppercase px-1.5 py-0.5 rounded font-mono font-semibold"
+                  style={{
+                    background: summary?.unknown_cost_requests ? 'rgba(245, 158, 11, 0.15)' : 'rgba(156, 163, 175, 0.15)',
+                    color: summary?.unknown_cost_requests ? '#b45309' : 'var(--color-text-tertiary)',
+                  }}
+                >
+                  {summary?.unknown_cost_requests ? 'Action Needed' : 'None'}
+                </span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-xl font-bold font-mono" style={{ color: 'var(--color-text)' }}>
+                  {summary?.unknown_cost_requests || 0}
+                </span>
+                <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  requests
+                </span>
+              </div>
+              <div className="text-[10px] mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                Unverified model rates or missing pricing
               </div>
             </div>
           </div>
@@ -384,12 +458,16 @@ export function CostComparison() {
                                   ? 'rgba(34, 197, 94, 0.15)'
                                   : r.cost_type === 'provider_billed'
                                   ? 'rgba(59, 130, 246, 0.15)'
+                                  : r.cost_type === 'unknown'
+                                  ? 'rgba(156, 163, 175, 0.2)'
                                   : 'rgba(234, 179, 8, 0.15)',
                               color:
                                 r.cost_type === 'local_zero'
                                   ? 'var(--color-success)'
                                   : r.cost_type === 'provider_billed'
                                   ? 'var(--color-accent)'
+                                  : r.cost_type === 'unknown'
+                                  ? 'var(--color-text-secondary)'
                                   : '#b45309',
                             }}
                           >
@@ -397,12 +475,16 @@ export function CostComparison() {
                               ? 'Local ($0.00)'
                               : r.cost_type === 'provider_billed'
                               ? 'Provider-Billed'
+                              : r.cost_type === 'unknown'
+                              ? 'Unknown'
                               : 'Estimated'}
                           </span>
                         </td>
                         <td className="py-2.5 px-2 text-right font-mono font-semibold" style={{ color: 'var(--color-text)' }}>
                           {r.cost_type === 'local_zero'
                             ? '$0.0000'
+                            : r.cost_type === 'unknown'
+                            ? '—'
                             : `$${(r.billed_cost_usd > 0 ? r.billed_cost_usd : r.estimated_cost_usd).toFixed(4)}`}
                         </td>
                         <td className="py-2.5 px-2 text-center">

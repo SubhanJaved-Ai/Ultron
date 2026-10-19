@@ -7,13 +7,14 @@ Anthropic, Google Gemini, Ollama, ElevenLabs, LiteLLM) across chat, tasks, and s
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager, contextmanager
 import logging
 import random
 import threading
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -485,6 +486,125 @@ class CentralizedResourceLimiter:
         if last_exc:
             raise last_exc
         raise ResourceLimitError(f"Execution failed for provider '{provider}' after {cfg.max_retries} retries.")
+
+    async def execute_with_policy_async(
+        self,
+        provider: str,
+        coro_fn: Callable[[], Any],
+        *,
+        model: str = "",
+        estimated_tokens: int = 100,
+        task_id: str = "",
+        is_idempotent: bool = True,
+    ) -> Any:
+        """Asynchronously execute a provider call wrapped in rate-limiting, concurrency, retry, and budget controls."""
+        limiter = self.get_limiter(provider)
+        cfg = limiter.config
+
+        # Check task budget first
+        self.check_task_budget(task_id)
+
+        last_exc: Optional[Exception] = None
+        attempt = 0
+
+        while attempt <= cfg.max_retries:
+            attempt += 1
+            limiter.check_and_acquire(estimated_tokens=estimated_tokens)
+            try:
+                res = coro_fn()
+                if asyncio.iscoroutine(res):
+                    result = await res
+                else:
+                    result = res
+                limiter.release(success=True)
+                return result
+            except Exception as exc:
+                err_msg = str(exc)
+                limiter.release(success=False, error_message=err_msg)
+                last_exc = exc
+
+                # Do NOT retry authentication failures (401/403)
+                if any(code in err_msg for code in ("401", "403", "unauthorized", "invalid_api_key", "Forbidden")):
+                    logger.error("Authentication error calling %s; not retrying: %s", provider, err_msg)
+                    raise
+
+                # Do NOT retry non-idempotent actions
+                if not is_idempotent:
+                    logger.warning("Call to %s is not marked idempotent; failing fast: %s", provider, err_msg)
+                    raise
+
+                # Check if we have retries left
+                if attempt > cfg.max_retries:
+                    break
+
+                backoff = min(
+                    cfg.max_backoff_seconds,
+                    cfg.initial_backoff_seconds * (cfg.backoff_multiplier ** (attempt - 1)),
+                )
+                jitter = backoff * cfg.jitter_factor * (random.random() * 2 - 1)
+                sleep_time = max(0.1, backoff + jitter)
+
+                retry_after = getattr(exc, "retry_after", None)
+                if retry_after is not None and isinstance(retry_after, (int, float)):
+                    sleep_time = min(cfg.max_backoff_seconds, float(retry_after))
+
+                logger.warning(
+                    "Async call to %s failed (attempt %d/%d): %s. Backing off for %.2fs.",
+                    provider,
+                    attempt,
+                    cfg.max_retries + 1,
+                    err_msg,
+                    sleep_time,
+                )
+                await asyncio.sleep(sleep_time)
+
+        if last_exc:
+            raise last_exc
+        raise ResourceLimitError(f"Execution failed for provider '{provider}' after {cfg.max_retries} retries.")
+
+    @asynccontextmanager
+    async def acquire_slot(
+        self,
+        provider: str,
+        estimated_tokens: int = 100,
+        task_id: str = "",
+    ) -> AsyncIterator[ProviderLimiter]:
+        """Async context manager acquiring concurrency, rate token, and task budget slot."""
+        limiter = self.get_limiter(provider)
+        self.check_task_budget(task_id)
+        limiter.check_and_acquire(estimated_tokens=estimated_tokens)
+        success = False
+        error_message = ""
+        try:
+            yield limiter
+            success = True
+        except Exception as exc:
+            error_message = str(exc)
+            raise
+        finally:
+            limiter.release(success=success, error_message=error_message)
+
+    @contextmanager
+    def acquire_slot_sync(
+        self,
+        provider: str,
+        estimated_tokens: int = 100,
+        task_id: str = "",
+    ) -> Iterator[ProviderLimiter]:
+        """Sync context manager acquiring concurrency, rate token, and task budget slot."""
+        limiter = self.get_limiter(provider)
+        self.check_task_budget(task_id)
+        limiter.check_and_acquire(estimated_tokens=estimated_tokens)
+        success = False
+        error_message = ""
+        try:
+            yield limiter
+            success = True
+        except Exception as exc:
+            error_message = str(exc)
+            raise
+        finally:
+            limiter.release(success=success, error_message=error_message)
 
     def summary(self) -> Dict[str, Any]:
         """Diagnostic summary of all configured providers and task budgets."""

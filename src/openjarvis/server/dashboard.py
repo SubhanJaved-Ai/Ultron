@@ -428,8 +428,20 @@ setInterval(refresh, 5000);
 
 @dashboard_router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard():
-    """Serve the savings dashboard page."""
+    """Serve the modern savings/telemetry dashboard SPA, or fallback to standalone HTML."""
+    import pathlib
+
+    static_index = pathlib.Path(__file__).parent / "static" / "index.html"
+    if static_index.is_file():
+        return HTMLResponse(content=static_index.read_text(encoding="utf-8"))
+    return HTMLResponse(content=DASHBOARD_HTML)
+
+
+@dashboard_router.get("/legacy-dashboard", response_class=HTMLResponse)
+async def legacy_dashboard():
+    """Serve the legacy standalone savings dashboard page."""
     return HTMLResponse(content=DASHBOARD_HTML)
 
 
 __all__ = ["dashboard_router"]
+

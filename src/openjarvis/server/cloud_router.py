@@ -19,12 +19,15 @@ from typing import Any, Sequence
 
 import httpx
 
+import time
 from openjarvis.core.paths import get_config_dir
 from openjarvis.core.types import Message, Role
+from openjarvis.engine.resource_limiter import get_resource_limiter
 from openjarvis.security.credential_stripper import (
     sanitize_error_message,
     sanitize_url,
 )
+from openjarvis.traces.usage_ledger import get_usage_ledger
 
 logger = logging.getLogger("openjarvis.server.cloud_router")
 
@@ -194,6 +197,7 @@ async def _stream_openai(
     api_key_name: str = "OPENAI_API_KEY",
     api_key: str | None = None,
     max_retries: int = 3,
+    provider: str = "openai",
 ) -> AsyncIterator[str]:
     if not api_key:
         keys = _load_keys()
@@ -201,12 +205,13 @@ async def _stream_openai(
     if not api_key:
         raise ValueError(f"{api_key_name} not set — add it in the Cloud Models tab")
 
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "messages": _to_openai_msgs(messages),
         "temperature": temperature,
         "max_tokens": max_tokens,
         "stream": True,
+        "stream_options": {"include_usage": True},
     }
 
     url = f"{base_url.rstrip('/')}/chat/completions"
@@ -215,95 +220,154 @@ async def _stream_openai(
         "Content-Type": "application/json",
     }
 
+    limiter = get_resource_limiter()
+    est_input = max(10, sum(len(m.content or "") for m in messages) // 4)
+    est_tokens = est_input + max_tokens
+
+    start_time = time.time()
+    captured_req_id: str | None = None
+    captured_model: str = model
+    prompt_tokens = 0
+    completion_tokens = 0
+    cached_prompt_tokens = 0
+    reasoning_tokens = 0
+    stream_status = "success"
     attempt = 0
     yielded_any_token = False
 
-    while True:
+    async with limiter.acquire_slot(provider, estimated_tokens=est_tokens):
         try:
-            async with httpx.AsyncClient(timeout=180) as client:
-                async with client.stream(
-                    "POST",
-                    url,
-                    json=payload,
-                    headers=headers,
-                ) as resp:
-                    if resp.status_code >= 400:
-                        err_body = await resp.aread()
-                        err_msg = ""
-                        try:
-                            err_json = json.loads(err_body)
-                            err_msg = (
-                                err_json.get("error", {}).get("message")
-                                or str(err_json)
-                            )
-                        except Exception:
-                            err_msg = err_body.decode("utf-8", errors="replace")[:300]
-                        clean_msg = sanitize_error_message(err_msg)
-                        clean_url = sanitize_url(str(resp.request.url))
+            while True:
+                try:
+                    async with httpx.AsyncClient(timeout=180) as client:
+                        async with client.stream(
+                            "POST",
+                            url,
+                            json=payload,
+                            headers=headers,
+                        ) as resp:
+                            if resp.status_code >= 400:
+                                err_body = await resp.aread()
+                                err_msg = ""
+                                try:
+                                    err_json = json.loads(err_body)
+                                    err_msg = (
+                                        err_json.get("error", {}).get("message")
+                                        or str(err_json)
+                                    )
+                                except Exception:
+                                    err_msg = err_body.decode("utf-8", errors="replace")[:300]
+                                clean_msg = sanitize_error_message(err_msg)
+                                clean_url = sanitize_url(str(resp.request.url))
 
-                        if (
-                            not yielded_any_token
-                            and attempt < max_retries
-                            and resp.status_code in RETRYABLE_STATUS_CODES
-                        ):
-                            retry_after = _parse_retry_after(resp.headers.get("retry-after"))
-                            delay = _compute_retry_delay(attempt, retry_after)
-                            logger.warning(
-                                "Transient cloud error (%d) from %s: %s; retrying in %.2fs (attempt %d/%d)",
-                                resp.status_code,
-                                clean_url,
-                                clean_msg,
-                                delay,
-                                attempt + 1,
-                                max_retries,
-                            )
-                            attempt += 1
-                            await asyncio.sleep(delay)
-                            continue
+                                # Fallback if a non-standard provider rejects stream_options
+                                if (
+                                    resp.status_code == 400
+                                    and "stream_options" in clean_msg.lower()
+                                    and "stream_options" in payload
+                                ):
+                                    payload.pop("stream_options", None)
+                                    continue
 
-                        raise RuntimeError(
-                            f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+                                if (
+                                    not yielded_any_token
+                                    and attempt < max_retries
+                                    and resp.status_code in RETRYABLE_STATUS_CODES
+                                ):
+                                    retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                                    delay = _compute_retry_delay(attempt, retry_after)
+                                    logger.warning(
+                                        "Transient cloud error (%d) from %s: %s; retrying in %.2fs (attempt %d/%d)",
+                                        resp.status_code,
+                                        clean_url,
+                                        clean_msg,
+                                        delay,
+                                        attempt + 1,
+                                        max_retries,
+                                    )
+                                    attempt += 1
+                                    await asyncio.sleep(delay)
+                                    continue
+
+                                raise RuntimeError(
+                                    f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+                                )
+
+                            async for line in resp.aiter_lines():
+                                if not line.startswith("data: "):
+                                    continue
+                                data = line[6:].strip()
+                                if data == "[DONE]":
+                                    break
+                                try:
+                                    chunk = json.loads(data)
+                                    if "id" in chunk and chunk["id"]:
+                                        captured_req_id = chunk["id"]
+                                    if "model" in chunk and chunk["model"]:
+                                        captured_model = chunk["model"]
+                                    if "usage" in chunk and chunk["usage"]:
+                                        u = chunk["usage"]
+                                        prompt_tokens = u.get("prompt_tokens", prompt_tokens)
+                                        completion_tokens = u.get("completion_tokens", completion_tokens)
+                                        p_det = u.get("prompt_tokens_details") or {}
+                                        cached_prompt_tokens = p_det.get("cached_tokens", cached_prompt_tokens)
+                                        c_det = u.get("completion_tokens_details") or {}
+                                        reasoning_tokens = c_det.get("reasoning_tokens", reasoning_tokens)
+                                    delta = chunk["choices"][0]["delta"].get("content") or ""
+                                    if delta:
+                                        yielded_any_token = True
+                                        yield delta
+                                except Exception:
+                                    pass
+                    break
+                except (
+                    httpx.ConnectError,
+                    httpx.ConnectTimeout,
+                    httpx.ReadTimeout,
+                    httpx.RemoteProtocolError,
+                ) as exc:
+                    clean_url = sanitize_url(url)
+                    clean_err = sanitize_error_message(str(exc))
+                    if not yielded_any_token and attempt < max_retries:
+                        delay = _compute_retry_delay(attempt)
+                        logger.warning(
+                            "Transient connection error from %s: %s; retrying in %.2fs (attempt %d/%d)",
+                            clean_url,
+                            clean_err,
+                            delay,
+                            attempt + 1,
+                            max_retries,
                         )
-
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        data = line[6:].strip()
-                        if data == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(data)
-                            delta = chunk["choices"][0]["delta"].get("content") or ""
-                            if delta:
-                                yielded_any_token = True
-                                yield delta
-                        except Exception:
-                            pass
-            break
-        except (
-            httpx.ConnectError,
-            httpx.ConnectTimeout,
-            httpx.ReadTimeout,
-            httpx.RemoteProtocolError,
-        ) as exc:
-            clean_url = sanitize_url(url)
-            clean_err = sanitize_error_message(str(exc))
-            if not yielded_any_token and attempt < max_retries:
-                delay = _compute_retry_delay(attempt)
-                logger.warning(
-                    "Transient connection error from %s: %s; retrying in %.2fs (attempt %d/%d)",
-                    clean_url,
-                    clean_err,
-                    delay,
-                    attempt + 1,
-                    max_retries,
+                        attempt += 1
+                        await asyncio.sleep(delay)
+                        continue
+                    raise RuntimeError(
+                        f"Cloud provider connection error from {clean_url}: {clean_err}"
+                    ) from exc
+        except (asyncio.CancelledError, GeneratorExit):
+            stream_status = "cancelled"
+            raise
+        except Exception:
+            stream_status = "error"
+            raise
+        finally:
+            duration = time.time() - start_time
+            try:
+                get_usage_ledger().record_usage(
+                    provider=provider,
+                    model=captured_model or model,
+                    request_id=captured_req_id,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    cached_prompt_tokens=cached_prompt_tokens,
+                    reasoning_tokens=reasoning_tokens,
+                    duration_seconds=duration,
+                    status=stream_status,
+                    retry_count=attempt,
+                    metadata={"provider": provider, "model": model},
                 )
-                attempt += 1
-                await asyncio.sleep(delay)
-                continue
-            raise RuntimeError(
-                f"Cloud provider connection error from {clean_url}: {clean_err}"
-            ) from exc
+            except Exception as log_err:
+                logger.warning("Failed to record usage in ledger: %s", log_err)
 
 
 async def _stream_anthropic(
@@ -330,98 +394,154 @@ async def _stream_anthropic(
         payload["system"] = system_text
 
     url = "https://api.anthropic.com/v1/messages"
+    limiter = get_resource_limiter()
+    est_input = max(10, sum(len(m.content or "") for m in messages) // 4)
+    est_tokens = est_input + max_tokens
+
+    start_time = time.time()
+    captured_req_id: str | None = None
+    captured_model: str = model
+    prompt_tokens = 0
+    completion_tokens = 0
+    cached_prompt_tokens = 0
+    stream_status = "success"
     attempt = 0
     yielded_any_token = False
 
-    while True:
+    async with limiter.acquire_slot("anthropic", estimated_tokens=est_tokens):
         try:
-            async with httpx.AsyncClient(timeout=180) as client:
-                async with client.stream(
-                    "POST",
-                    url,
-                    json=payload,
-                    headers={
-                        "x-api-key": api_key,
-                        "anthropic-version": "2023-06-01",
-                        "Content-Type": "application/json",
-                    },
-                ) as resp:
-                    if resp.status_code >= 400:
-                        err_body = await resp.aread()
-                        err_msg = ""
-                        try:
-                            err_json = json.loads(err_body)
-                            err_msg = (
-                                err_json.get("error", {}).get("message")
-                                or str(err_json)
+            while True:
+                try:
+                    async with httpx.AsyncClient(timeout=180) as client:
+                        async with client.stream(
+                            "POST",
+                            url,
+                            json=payload,
+                            headers={
+                                "x-api-key": api_key,
+                                "anthropic-version": "2023-06-01",
+                                "Content-Type": "application/json",
+                            },
+                        ) as resp:
+                            captured_req_id = (
+                                resp.headers.get("request-id")
+                                or resp.headers.get("x-request-id")
+                                or captured_req_id
                             )
-                        except Exception:
-                            err_msg = err_body.decode("utf-8", errors="replace")[:300]
-                        clean_msg = sanitize_error_message(err_msg)
-                        clean_url = sanitize_url(str(resp.request.url))
+                            if resp.status_code >= 400:
+                                err_body = await resp.aread()
+                                err_msg = ""
+                                try:
+                                    err_json = json.loads(err_body)
+                                    err_msg = (
+                                        err_json.get("error", {}).get("message")
+                                        or str(err_json)
+                                    )
+                                except Exception:
+                                    err_msg = err_body.decode("utf-8", errors="replace")[:300]
+                                clean_msg = sanitize_error_message(err_msg)
+                                clean_url = sanitize_url(str(resp.request.url))
 
-                        if (
-                            not yielded_any_token
-                            and attempt < max_retries
-                            and resp.status_code in RETRYABLE_STATUS_CODES
-                        ):
-                            retry_after = _parse_retry_after(resp.headers.get("retry-after"))
-                            delay = _compute_retry_delay(attempt, retry_after)
-                            logger.warning(
-                                "Transient cloud error (%d) from %s: %s; retrying in %.2fs (attempt %d/%d)",
-                                resp.status_code,
-                                clean_url,
-                                clean_msg,
-                                delay,
-                                attempt + 1,
-                                max_retries,
-                            )
-                            attempt += 1
-                            await asyncio.sleep(delay)
-                            continue
+                                if (
+                                    not yielded_any_token
+                                    and attempt < max_retries
+                                    and resp.status_code in RETRYABLE_STATUS_CODES
+                                ):
+                                    retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                                    delay = _compute_retry_delay(attempt, retry_after)
+                                    logger.warning(
+                                        "Transient cloud error (%d) from %s: %s; retrying in %.2fs (attempt %d/%d)",
+                                        resp.status_code,
+                                        clean_url,
+                                        clean_msg,
+                                        delay,
+                                        attempt + 1,
+                                        max_retries,
+                                    )
+                                    attempt += 1
+                                    await asyncio.sleep(delay)
+                                    continue
 
-                        raise RuntimeError(
-                            f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+                                raise RuntimeError(
+                                    f"Cloud provider error ({resp.status_code}) from {clean_url}: {clean_msg}"
+                                )
+
+                            async for line in resp.aiter_lines():
+                                if not line.startswith("data: "):
+                                    continue
+                                data = line[6:].strip()
+                                try:
+                                    event = json.loads(data)
+                                    ev_type = event.get("type")
+                                    if ev_type == "message_start":
+                                        m_obj = event.get("message", {})
+                                        if m_obj.get("id"):
+                                            captured_req_id = m_obj["id"]
+                                        if m_obj.get("model"):
+                                            captured_model = m_obj["model"]
+                                        u = m_obj.get("usage", {})
+                                        prompt_tokens = u.get("input_tokens", prompt_tokens)
+                                        cached_prompt_tokens = u.get(
+                                            "cache_read_input_tokens", cached_prompt_tokens
+                                        )
+                                    elif ev_type == "content_block_delta":
+                                        text = event.get("delta", {}).get("text", "")
+                                        if text:
+                                            yielded_any_token = True
+                                            yield text
+                                    elif ev_type == "message_delta":
+                                        u = event.get("usage", {})
+                                        completion_tokens = u.get("output_tokens", completion_tokens)
+                                except Exception:
+                                    pass
+                    break
+                except (
+                    httpx.ConnectError,
+                    httpx.ConnectTimeout,
+                    httpx.ReadTimeout,
+                    httpx.RemoteProtocolError,
+                ) as exc:
+                    clean_url = sanitize_url(url)
+                    clean_err = sanitize_error_message(str(exc))
+                    if not yielded_any_token and attempt < max_retries:
+                        delay = _compute_retry_delay(attempt)
+                        logger.warning(
+                            "Transient connection error from %s: %s; retrying in %.2fs (attempt %d/%d)",
+                            clean_url,
+                            clean_err,
+                            delay,
+                            attempt + 1,
+                            max_retries,
                         )
-
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        data = line[6:].strip()
-                        try:
-                            event = json.loads(data)
-                            if event.get("type") == "content_block_delta":
-                                text = event.get("delta", {}).get("text", "")
-                                if text:
-                                    yielded_any_token = True
-                                    yield text
-                        except Exception:
-                            pass
-            break
-        except (
-            httpx.ConnectError,
-            httpx.ConnectTimeout,
-            httpx.ReadTimeout,
-            httpx.RemoteProtocolError,
-        ) as exc:
-            clean_url = sanitize_url(url)
-            clean_err = sanitize_error_message(str(exc))
-            if not yielded_any_token and attempt < max_retries:
-                delay = _compute_retry_delay(attempt)
-                logger.warning(
-                    "Transient connection error from %s: %s; retrying in %.2fs (attempt %d/%d)",
-                    clean_url,
-                    clean_err,
-                    delay,
-                    attempt + 1,
-                    max_retries,
+                        attempt += 1
+                        await asyncio.sleep(delay)
+                        continue
+                    raise RuntimeError(
+                        f"Cloud provider connection error from {clean_url}: {clean_err}"
+                    ) from exc
+        except (asyncio.CancelledError, GeneratorExit):
+            stream_status = "cancelled"
+            raise
+        except Exception:
+            stream_status = "error"
+            raise
+        finally:
+            duration = time.time() - start_time
+            try:
+                get_usage_ledger().record_usage(
+                    provider="anthropic",
+                    model=captured_model or model,
+                    request_id=captured_req_id,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    cached_prompt_tokens=cached_prompt_tokens,
+                    duration_seconds=duration,
+                    status=stream_status,
+                    retry_count=attempt,
+                    metadata={"provider": "anthropic", "model": model},
                 )
-                attempt += 1
-                await asyncio.sleep(delay)
-                continue
-            raise RuntimeError(
-                f"Cloud provider connection error from {clean_url}: {clean_err}"
-            ) from exc
+            except Exception as log_err:
+                logger.warning("Failed to record usage in ledger: %s", log_err)
 
 
 async def _stream_google(
@@ -444,6 +564,7 @@ async def _stream_google(
         base_url="https://generativelanguage.googleapis.com/v1beta/openai",
         api_key_name="GEMINI_API_KEY",
         api_key=api_key,
+        provider="google",
     ):
         yield token
 
@@ -477,28 +598,64 @@ async def stream_local(
         },
     }
     host = _ollama_host()
-    async with httpx.AsyncClient(timeout=300) as client:
-        async with client.stream("POST", f"{host}/api/chat", json=payload) as resp:
-            if resp.status_code >= 400:
-                err_body = await resp.aread()
-                clean_msg = sanitize_error_message(
-                    err_body.decode("utf-8", errors="replace")[:300]
+    limiter = get_resource_limiter()
+    est_input = max(10, sum(len(m.content or "") for m in messages) // 4)
+    est_tokens = est_input + max_tokens
+
+    start_time = time.time()
+    captured_model: str = model
+    prompt_tokens = 0
+    completion_tokens = 0
+    stream_status = "success"
+
+    async with limiter.acquire_slot("ollama", estimated_tokens=est_tokens):
+        try:
+            async with httpx.AsyncClient(timeout=300) as client:
+                async with client.stream("POST", f"{host}/api/chat", json=payload) as resp:
+                    if resp.status_code >= 400:
+                        err_body = await resp.aread()
+                        clean_msg = sanitize_error_message(
+                            err_body.decode("utf-8", errors="replace")[:300]
+                        )
+                        raise RuntimeError(
+                            f"Local provider error ({resp.status_code}): {clean_msg}"
+                        )
+                    async for line in resp.aiter_lines():
+                        if not line:
+                            continue
+                        try:
+                            data = json.loads(line)
+                            token = data.get("message", {}).get("content", "")
+                            if token:
+                                yield token
+                            if data.get("done"):
+                                prompt_tokens = data.get("prompt_eval_count", prompt_tokens)
+                                completion_tokens = data.get("eval_count", completion_tokens)
+                                if data.get("model"):
+                                    captured_model = data["model"]
+                                break
+                        except Exception:
+                            pass
+        except (asyncio.CancelledError, GeneratorExit):
+            stream_status = "cancelled"
+            raise
+        except Exception:
+            stream_status = "error"
+            raise
+        finally:
+            duration = time.time() - start_time
+            try:
+                get_usage_ledger().record_usage(
+                    provider="ollama",
+                    model=captured_model or model,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    duration_seconds=duration,
+                    status=stream_status,
+                    metadata={"provider": "ollama", "model": model},
                 )
-                raise RuntimeError(
-                    f"Local provider error ({resp.status_code}): {clean_msg}"
-                )
-            async for line in resp.aiter_lines():
-                if not line:
-                    continue
-                try:
-                    data = json.loads(line)
-                    token = data.get("message", {}).get("content", "")
-                    if token:
-                        yield token
-                    if data.get("done"):
-                        break
-                except Exception:
-                    pass
+            except Exception as log_err:
+                logger.warning("Failed to record usage in ledger: %s", log_err)
 
 
 async def list_local_models() -> list[str]:
@@ -549,7 +706,9 @@ async def stream_cloud(
     provider = get_provider(model)
 
     if provider == "openai":
-        async for token in _stream_openai(model, messages, temperature, max_tokens):
+        async for token in _stream_openai(
+            model, messages, temperature, max_tokens, provider="openai"
+        ):
             yield token
 
     elif provider == "anthropic":
@@ -574,6 +733,7 @@ async def stream_cloud(
             max_tokens,
             base_url="https://openrouter.ai/api/v1",
             api_key_name="OPENROUTER_API_KEY",
+            provider="openrouter",
         ):
             yield token
 
@@ -591,6 +751,7 @@ async def stream_cloud(
             max_tokens,
             base_url="https://api.atlascloud.ai/v1",
             api_key_name="ATLASCLOUD_API_KEY",
+            provider="atlascloud",
         ):
             yield token
 
@@ -606,6 +767,7 @@ async def stream_cloud(
             max_tokens,
             base_url="https://api.minimax.io/v1",
             api_key_name="MINIMAX_API_KEY",
+            provider="minimax",
         ):
             yield token
 

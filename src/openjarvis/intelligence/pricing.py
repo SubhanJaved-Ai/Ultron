@@ -82,6 +82,24 @@ MODEL_PRICING: Dict[str, ModelPriceEntry] = {
         reasoning_per_1m=60.00,
         source_url="https://developers.openai.com/api/pricing",
     ),
+    "tts-1": ModelPriceEntry(
+        provider="openai",
+        model_id="tts-1",
+        label="OpenAI TTS 1",
+        input_per_1m=0.0,
+        output_per_1m=0.0,
+        char_rate_per_1k=0.015,
+        source_url="https://openai.com/api/pricing",
+    ),
+    "tts-1-hd": ModelPriceEntry(
+        provider="openai",
+        model_id="tts-1-hd",
+        label="OpenAI TTS 1 HD",
+        input_per_1m=0.0,
+        output_per_1m=0.0,
+        char_rate_per_1k=0.030,
+        source_url="https://openai.com/api/pricing",
+    ),
 
     # --- Anthropic ---
     "claude-3-5-sonnet-20241022": ModelPriceEntry(
@@ -269,16 +287,12 @@ def resolve_price_entry(provider: str, model: str) -> Optional[ModelPriceEntry]:
     if provider_norm == "ollama" or model_norm.startswith(("ollama/", "local/")):
         return MODEL_PRICING["ollama"]
 
-    # Partial prefix match
+    # Specific prefix match (e.g. gpt-4o-2024-08-06 matches gpt-4o)
     for key, entry in MODEL_PRICING.items():
-        if key in model_norm or model_norm.startswith(key):
+        if model_norm.startswith(key):
             return entry
 
-    # Generic provider fallback match
-    for key, entry in MODEL_PRICING.items():
-        if entry.provider == provider_norm:
-            return entry
-
+    # Unknown or unverified models must NOT silently inherit another model's rates
     return None
 
 

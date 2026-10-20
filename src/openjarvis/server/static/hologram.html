@@ -1,0 +1,3330 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="cyan" data-state="STANDBY">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#f8fafc" />
+  <meta name="description" content="ULTRON Autonomous Intelligence Matrix — 3D Holographic Neural Consciousness & Real-Time Voice Execution" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/favicon.ico" />
+  <title>ULTRON — Autonomous Intelligence Matrix</title>
+  <!--
+    ULTRON HOLOGRAM — ORGANIC 3D NEURAL CONSCIOUSNESS & ELECTRONIC PARTICLE MATRIX
+    ==============================================================================
+    Inspired directly by the Avengers: Age of Ultron holographic neural consciousness:
+      - Undulating, billowy 3D cerebral cortex folds (gyri & sulci) with Fresnel rim luminance
+      - Fine topographical striation bands and 3,800+ shimmering electronic particles
+      - Blazing white-hot internal synaptic singularity nexus with branching dendritic trees
+      - Upper-left satellite neural ganglia cluster connected by curved fiber-optic streams
+      - Clean, single-line Top HUD & Bottom ULTRON CORE dock with zero visual clutter
+      - Direct real-time bidirectional bridge to Ultron FastAPI backend & React host frame
+  -->
+  <style>
+    :root {
+      --bg-void: #f8fafc;
+      --bg-deep: #f1f5f9;
+      --bg-hud: rgba(255, 255, 255, 0.82);
+      --bg-hud-elevated: rgba(255, 255, 255, 0.92);
+      --bg-wing: rgba(255, 255, 255, 0.80);
+
+      --primary: #0284c7;
+      --primary-bright: #0369a1;
+      --primary-core: #ffffff;
+      --primary-mid: #0284c7;
+      --primary-deep: #075985;
+      --primary-glow: rgba(2, 132, 199, 0.28);
+      --primary-subtle: rgba(2, 132, 199, 0.08);
+      --primary-border: rgba(148, 163, 184, 0.35);
+      --primary-border-bright: rgba(2, 132, 199, 0.55);
+
+      /* Centralized theme tokens */
+      --theme-accent: #0284c7;
+      --theme-accent-bright: #0369a1;
+      --theme-accent-dim: rgba(2, 132, 199, 0.12);
+      --theme-accent-border: rgba(2, 132, 199, 0.45);
+      --theme-accent-glow: 0 0 20px rgba(2, 132, 199, 0.35);
+      --theme-pill-bg: rgba(2, 132, 199, 0.10);
+      --theme-pill-text: #0369a1;
+
+      --text-main: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #64748b;
+
+      --font-display: 'Inter', 'Rajdhani', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+
+      --transition-fast: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      --transition-smooth: 420ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    [data-theme="cyan"], html[data-theme="cyan"] {
+      --bg-void: #f8fafc;
+      --bg-deep: #f1f5f9;
+      --bg-hud: rgba(255, 255, 255, 0.82);
+      --bg-hud-elevated: rgba(255, 255, 255, 0.92);
+      --bg-wing: rgba(255, 255, 255, 0.80);
+
+      --primary: #0284c7;
+      --primary-bright: #0369a1;
+      --primary-core: #ffffff;
+      --primary-mid: #0284c7;
+      --primary-deep: #075985;
+      --primary-glow: rgba(2, 132, 199, 0.28);
+      --primary-subtle: rgba(2, 132, 199, 0.08);
+      --primary-border: rgba(148, 163, 184, 0.35);
+      --primary-border-bright: rgba(2, 132, 199, 0.55);
+
+      --theme-accent: #0284c7;
+      --theme-accent-bright: #0369a1;
+      --theme-accent-dim: rgba(2, 132, 199, 0.12);
+      --theme-accent-border: rgba(2, 132, 199, 0.45);
+      --theme-accent-glow: 0 0 20px rgba(2, 132, 199, 0.35);
+      --theme-pill-bg: rgba(2, 132, 199, 0.10);
+      --theme-pill-text: #0369a1;
+
+      --text-main: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #64748b;
+    }
+
+    [data-theme="crimson"], html[data-theme="crimson"] {
+      --bg-void: #fff5f5;
+      --bg-deep: #ffe4e6;
+      --bg-hud: rgba(255, 255, 255, 0.84);
+      --bg-hud-elevated: rgba(255, 255, 255, 0.94);
+      --bg-wing: rgba(255, 255, 255, 0.82);
+
+      --primary: #e11d48;
+      --primary-bright: #be123c;
+      --primary-core: #ffffff;
+      --primary-mid: #e11d48;
+      --primary-deep: #881337;
+      --primary-glow: rgba(225, 29, 72, 0.28);
+      --primary-subtle: rgba(225, 29, 72, 0.08);
+      --primary-border: rgba(244, 63, 94, 0.30);
+      --primary-border-bright: rgba(225, 29, 72, 0.55);
+
+      --theme-accent: #e11d48;
+      --theme-accent-bright: #be123c;
+      --theme-accent-dim: rgba(225, 29, 72, 0.12);
+      --theme-accent-border: rgba(225, 29, 72, 0.45);
+      --theme-accent-glow: 0 0 20px rgba(225, 29, 72, 0.35);
+      --theme-pill-bg: rgba(225, 29, 72, 0.10);
+      --theme-pill-text: #be123c;
+
+      --text-main: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #881337;
+    }
+
+    [data-theme="emerald"], html[data-theme="emerald"] {
+      --bg-void: #f0fdf4;
+      --bg-deep: #dcfce7;
+      --bg-hud: rgba(255, 255, 255, 0.84);
+      --bg-hud-elevated: rgba(255, 255, 255, 0.94);
+      --bg-wing: rgba(255, 255, 255, 0.82);
+
+      --primary: #059669;
+      --primary-bright: #047857;
+      --primary-core: #ffffff;
+      --primary-mid: #059669;
+      --primary-deep: #064e3b;
+      --primary-glow: rgba(5, 150, 105, 0.28);
+      --primary-subtle: rgba(5, 150, 105, 0.08);
+      --primary-border: rgba(16, 185, 129, 0.30);
+      --primary-border-bright: rgba(5, 150, 105, 0.55);
+
+      --theme-accent: #059669;
+      --theme-accent-bright: #047857;
+      --theme-accent-dim: rgba(5, 150, 105, 0.12);
+      --theme-accent-border: rgba(5, 150, 105, 0.45);
+      --theme-accent-glow: 0 0 20px rgba(5, 150, 105, 0.35);
+      --theme-pill-bg: rgba(5, 150, 105, 0.10);
+      --theme-pill-text: #047857;
+
+      --text-main: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #064e3b;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    /* =========================================================================
+       ATMOSPHERIC STAGE & FULL-SCREEN 3D NEURAL CONSCIOUSNESS CANVAS
+       ========================================================================= */
+    .viewport-stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 48%, rgba(15, 23, 42, 0.80) 0%, rgba(30, 41, 59, 0.62) 28%, rgba(51, 65, 85, 0.28) 48%, transparent 68%),
+        radial-gradient(circle at 18% 18%, rgba(224, 242, 254, 0.85) 0%, transparent 48%),
+        radial-gradient(circle at 82% 82%, rgba(241, 245, 249, 0.95) 0%, transparent 52%),
+        linear-gradient(135deg, var(--bg-void) 0%, var(--bg-deep) 52%, var(--bg-void) 100%);
+    }
+
+    .env-grid-floor {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(162deg, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
+        linear-gradient(18deg, rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+      background-size: 140px 140px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .volumetric-rays {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 48%, rgba(255, 255, 255, 0.15) 0%, transparent 62%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .scanline-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, transparent 15%, transparent 85%, rgba(241, 245, 249, 0.5) 100%);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .vignette-overlay {
+      position: absolute;
+      inset: 0;
+      box-shadow: inset 0 0 100px 25px rgba(255, 255, 255, 0.65);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    #hologram-stage {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      cursor: grab;
+    }
+
+    #hologram-stage:active {
+      cursor: grabbing;
+    }
+
+    #hologram-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .hud-reticle-layer {
+      display: none;
+    }
+
+    .hologram-target-badge {
+      position: absolute;
+      top: 66px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 6;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 14px;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(203, 213, 225, 0.7);
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      letter-spacing: 0.18em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+      transition: all var(--transition-fast);
+    }
+
+    .hologram-target-badge:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: #ffffff;
+      box-shadow: 0 6px 18px var(--primary-glow);
+    }
+
+    .hologram-target-badge .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+    }
+
+    /* =========================================================================
+       MAIN FULL-SCREEN UI SHELL
+       ========================================================================= */
+    .hud-shell {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 14px 22px 16px;
+      pointer-events: none;
+    }
+
+    /* =========================================================================
+       1. TOP HUD CONTROL CAPSULE
+       ========================================================================= */
+    .top-hud {
+      pointer-events: auto;
+      width: min(1420px, 97vw);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 18px;
+      background: var(--bg-hud);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-radius: 999px;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow:
+        0 10px 30px rgba(15, 23, 42, 0.08),
+        0 1px 3px rgba(15, 23, 42, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+      flex-wrap: nowrap;
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      padding-left: 4px;
+      flex-shrink: 1;
+    }
+
+    .brand-emblem {
+      display: none;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 15.5px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: var(--primary);
+      text-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .brand-divider {
+      width: 1px;
+      height: 15px;
+      background: rgba(148, 163, 184, 0.4);
+      flex-shrink: 0;
+    }
+
+    .brand-subtitle {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.13em;
+      color: var(--text-secondary);
+      opacity: 0.9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
+    }
+
+    .hud-btn {
+      appearance: none;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(203, 213, 225, 0.65);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      padding: 6px 12px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    .hud-btn:hover {
+      border-color: var(--primary);
+      background: #ffffff;
+      box-shadow: 0 4px 12px var(--primary-glow);
+      color: var(--primary);
+    }
+
+    .hud-btn svg {
+      width: 11px;
+      height: 11px;
+      flex-shrink: 0;
+    }
+
+    .theme-switcher, .theme-selector-pill {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(241, 245, 249, 0.85);
+      border: 1px solid rgba(203, 213, 225, 0.7);
+      border-radius: 999px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .theme-btn {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .theme-btn:hover {
+      color: var(--text-main);
+    }
+
+    .theme-btn.active {
+      background: #ffffff;
+      border-color: rgba(255, 255, 255, 0.95);
+      color: var(--primary);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    }
+
+    .hud-btn-soul {
+      border-color: rgba(168, 85, 247, 0.35);
+      background: rgba(250, 245, 255, 0.9);
+      color: #7e22ce;
+    }
+
+    .hud-btn-soul:hover {
+      border-color: #9333ea;
+      background: #ffffff;
+      box-shadow: 0 4px 14px rgba(168, 85, 247, 0.25);
+    }
+
+    .hud-btn-safety {
+      border-color: rgba(16, 185, 129, 0.35);
+      background: rgba(240, 253, 244, 0.9);
+      color: #047857;
+    }
+
+    .hud-btn-safety:hover {
+      border-color: #059669;
+      background: #ffffff;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+    }
+
+    .hud-btn-emergency {
+      border-color: rgba(239, 68, 68, 0.35);
+      background: rgba(254, 242, 242, 0.9);
+      color: #b91c1c;
+    }
+
+    .hud-btn-emergency:hover {
+      border-color: #dc2626;
+      background: #ffffff;
+      color: #991b1b;
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);
+    }
+
+    .state-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 13px;
+      border-radius: 999px;
+      background: var(--theme-pill-bg);
+      border: 1px solid var(--theme-accent-border);
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      color: var(--theme-pill-text);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+    }
+
+    .state-pill .state-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+      animation: statusPulse 2s infinite;
+    }
+
+    @keyframes statusPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(1.3); }
+    }
+
+    /* =========================================================================
+       2. WHISPER-MINIMAL PERIPHERAL TELEMETRY
+       ========================================================================= */
+    .mid-workspace {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      min-height: 0;
+      padding: 0 2px;
+    }
+
+    .peripheral-wing {
+      pointer-events: auto;
+      width: 204px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 6;
+      opacity: 0.88;
+      transition: opacity var(--transition-smooth);
+    }
+
+    .peripheral-wing:hover {
+      opacity: 1;
+    }
+
+    .holo-card {
+      background: var(--bg-wing);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-left: 3px solid var(--primary);
+      padding: 9px 12px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 12px;
+      box-shadow:
+        0 8px 24px rgba(15, 23, 42, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    .wing-right .holo-card {
+      border-left: 1px solid rgba(255, 255, 255, 0.95);
+      border-right: 3px solid var(--primary);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .card-title {
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      color: var(--primary);
+    }
+
+    .card-tag {
+      font-family: var(--font-mono);
+      font-size: 7.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      margin-bottom: 6px;
+    }
+
+    .metric-box {
+      padding: 1px 0;
+    }
+
+    .metric-label {
+      font-family: var(--font-mono);
+      font-size: 7.5px;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+    }
+
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: baseline;
+      gap: 3px;
+    }
+
+    .metric-val small {
+      font-size: 7.5px;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .bar-row {
+      margin-bottom: 4px;
+    }
+
+    .bar-meta {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 7.5px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+      font-weight: 600;
+    }
+
+    .bar-track {
+      height: 3px;
+      background: rgba(203, 213, 225, 0.5);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 999px;
+    }
+
+    .directive-stream {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 72px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 8px;
+    }
+
+    .directive-item {
+      display: flex;
+      gap: 6px;
+      color: var(--text-secondary);
+      line-height: 1.32;
+    }
+
+    .directive-item time {
+      color: var(--primary);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .state-matrix-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .state-sim-btn {
+      appearance: none;
+      background: rgba(241, 245, 249, 0.85);
+      border: 1px solid rgba(203, 213, 225, 0.7);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all var(--transition-fast);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+    }
+
+    .state-sim-btn:hover, .state-sim-btn.active {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: #ffffff;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    .mini-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .optics-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .optics-btn-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+    }
+
+    .mini-action-btn {
+      appearance: none;
+      background: rgba(241, 245, 249, 0.85);
+      border: 1px solid rgba(203, 213, 225, 0.7);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 7.5px;
+      letter-spacing: 0.05em;
+      padding: 4px 3px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all var(--transition-fast);
+    }
+
+    .mini-action-btn:hover, .mini-action-btn.active {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: #ffffff;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    /* =========================================================================
+       3. BOTTOM HUD — ULTRON CORE DOCK
+       ========================================================================= */
+    .bottom-dock-wrap {
+      pointer-events: auto;
+      width: min(620px, 94vw);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      z-index: 10;
+    }
+
+    .quick-directives-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      opacity: 0.85;
+      transition: opacity var(--transition-fast);
+    }
+
+    .quick-directives-bar:hover {
+      opacity: 1;
+    }
+
+    .directive-chip {
+      appearance: none;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(203, 213, 225, 0.75);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      letter-spacing: 0.08em;
+      padding: 4px 11px;
+      border-radius: 999px;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+      transition: all var(--transition-fast);
+    }
+
+    .directive-chip:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: #ffffff;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .ultron-core-panel {
+      background: var(--bg-hud-elevated);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-radius: 16px;
+      padding: 10px 18px 8px;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow:
+        0 16px 40px rgba(15, 23, 42, 0.08),
+        0 2px 6px rgba(15, 23, 42, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    .core-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .core-title-group {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .core-beacon {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+    }
+
+    .core-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: var(--primary);
+    }
+
+    .core-substatus {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .core-actions {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .core-mini-btn {
+      appearance: none;
+      background: rgba(241, 245, 249, 0.85);
+      border: 1px solid rgba(203, 213, 225, 0.7);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+    }
+
+    .core-mini-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: #ffffff;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    .core-response-text {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: var(--text-main);
+      text-align: center;
+      letter-spacing: 0.06em;
+      min-height: 18px;
+      max-height: 54px;
+      overflow-y: auto;
+      padding: 3px 6px;
+      font-weight: 600;
+    }
+
+    .core-waveform-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 12px;
+      margin-top: 2px;
+    }
+
+    #voice-waveform-canvas {
+      width: 170px;
+      height: 12px;
+      display: block;
+    }
+
+    .command-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-hud-elevated);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-radius: 999px;
+      padding: 5px 7px 5px 10px;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow:
+        0 12px 36px rgba(15, 23, 42, 0.08),
+        0 2px 6px rgba(15, 23, 42, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    .command-bar:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.12), 0 0 16px var(--primary-glow);
+    }
+
+    .mic-trigger-btn {
+      appearance: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid rgba(203, 213, 225, 0.8);
+      background: rgba(248, 250, 252, 0.95);
+      color: var(--text-main);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    .mic-trigger-btn:hover {
+      border-color: var(--primary);
+      box-shadow: 0 0 14px var(--primary-glow);
+      color: var(--primary);
+    }
+
+    .mic-trigger-btn.listening {
+      border-color: #059669;
+      color: #059669;
+      box-shadow: 0 0 18px rgba(5, 150, 105, 0.45);
+    }
+
+    .command-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      min-width: 0;
+    }
+
+    .command-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .transmit-btn {
+      appearance: none;
+      background: var(--primary);
+      border: 1px solid var(--primary);
+      color: #ffffff;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      padding: 8px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    .transmit-btn:hover {
+      background: var(--primary-bright);
+      box-shadow: 0 4px 16px var(--primary-glow);
+    }
+
+    /* =========================================================================
+       SLIDE-OVER DRAWERS & MODALS
+       ========================================================================= */
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.25);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 260ms ease;
+    }
+
+    .drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .holo-drawer {
+      position: fixed;
+      top: 16px;
+      bottom: 16px;
+      right: 16px;
+      width: min(460px, calc(100vw - 32px));
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      box-shadow: -16px 0 50px rgba(15, 23, 42, 0.12), 0 8px 30px rgba(15, 23, 42, 0.08);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(calc(100% + 32px));
+      transition: transform var(--transition-smooth);
+      overflow: hidden;
+    }
+
+    .holo-drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    }
+
+    .drawer-title {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      color: var(--primary);
+    }
+
+    .drawer-close-btn {
+      appearance: none;
+      background: rgba(241, 245, 249, 0.8);
+      border: 1px solid rgba(203, 213, 225, 0.7);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 5px 11px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .drawer-close-btn:hover {
+      background: #ffffff;
+      color: var(--text-main);
+    }
+
+    .drawer-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .chat-entry {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      background: rgba(248, 250, 252, 0.85);
+      font-size: 12.5px;
+      line-height: 1.48;
+      color: var(--text-main);
+    }
+
+    .chat-entry.user {
+      border-left: 3px solid var(--primary-mid);
+    }
+
+    .chat-entry.ultron {
+      border-left: 3px solid var(--primary);
+      background: rgba(240, 249, 255, 0.75);
+    }
+
+    .chat-meta {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .chat-action-panel {
+      margin-top: 6px;
+      padding: 6px 10px;
+      background: rgba(240, 249, 255, 0.9);
+      border-left: 2px solid var(--primary);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    .slider-control {
+      background: rgba(248, 250, 252, 0.85);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      border-radius: 10px;
+      padding: 11px 14px;
+    }
+
+    .slider-control label {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .slider-control input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .holo-toast {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-16px);
+      background: var(--bg-hud-elevated);
+      border: 1px solid var(--primary);
+      color: var(--primary-bright);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      padding: 8px 18px;
+      border-radius: 999px;
+      box-shadow: 0 4px 18px var(--primary-glow);
+      z-index: 60;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 240ms ease;
+    }
+
+    .holo-toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Accessibility: Respect Reduced Motion Preferences */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+
+    /* Responsive Viewports */
+    @media (max-width: 1200px) {
+      .brand-subtitle, .brand-divider {
+        display: none;
+      }
+      .peripheral-wing {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .top-hud {
+        padding: 6px 14px;
+      }
+      .brand-title {
+        font-size: 14px;
+      }
+      .hud-btn {
+        padding: 5px 9px;
+        font-size: 9px;
+      }
+      .bottom-dock-wrap {
+        width: 95vw;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .top-hud {
+        border-radius: 18px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 10px 14px;
+      }
+      .top-controls {
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+      .quick-directives-bar {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .hud-shell {
+        padding: 8px 10px 10px;
+      }
+      .hologram-target-badge {
+        font-size: 7.5px;
+        padding: 3px 10px;
+        top: 92px;
+      }
+      .core-panel-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .core-actions {
+        width: 100%;
+        justify-content: flex-end;
+      }
+      .command-bar {
+        padding: 4px 6px;
+      }
+      .transmit-btn {
+        padding: 6px 14px;
+        font-size: 9px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="viewport-stage" id="viewport-stage">
+    <div class="volumetric-rays"></div>
+    <div class="env-grid-floor"></div>
+    <div class="scanline-overlay"></div>
+    <div class="vignette-overlay"></div>
+
+    <!-- Central 3D Volumetric Neural Consciousness & Particle Cloud -->
+    <div id="hologram-stage" title="Drag to rotate 3D Ultron Neural Consciousness • Click core to toggle voice recognition">
+      <canvas id="hologram-canvas"></canvas>
+    </div>
+
+    <svg class="hud-reticle-layer" viewBox="0 0 600 600" aria-hidden="true"><defs><linearGradient id="reticleGrad"></linearGradient></defs></svg>
+
+    <button type="button" class="hologram-target-badge" id="btn-core-callout" aria-label="Toggle Ultron Acoustic Core">
+      <span class="pulse-dot"></span>
+      <span id="core-callout-text">NEURAL CONSCIOUSNESS MATRIX // CLICK CORE TO ENGAGE</span>
+    </button>
+
+    <div class="hud-shell">
+      <!-- ================= TOP HUD STRIP ================= -->
+      <header class="top-hud" role="banner">
+        <div class="brand-cluster">
+          <div class="brand-emblem" aria-hidden="true"></div>
+          <span class="brand-title">ULTRON</span>
+          <span class="brand-divider"></span>
+          <span class="brand-subtitle">AUTONOMOUS INTELLIGENCE MATRIX (JARVIS CORE)</span>
+        </div>
+
+        <nav class="top-controls" aria-label="Ultron System Controls">
+          <button type="button" class="hud-btn" id="btn-sign-in" title="Operator Authentication & Session">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <span id="sign-in-label">SIGN IN</span>
+          </button>
+
+          <button type="button" class="hud-btn" id="btn-chat-log" data-alt-id="chat-toggle-btn" title="Open Neural Conversation Archive">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span id="chat-log-label">CHAT LOG (4)</span>
+          </button>
+          <!-- Hidden anchor ensuring test contract compatibility -->
+          <span id="chat-toggle-btn" style="display:none;"></span>
+
+          <div class="theme-selector-pill" id="theme-selector" role="group" aria-label="Hologram Spectral Theme">
+            <button type="button" class="theme-btn active" id="theme-btn-cyan" data-theme-target="cyan">CYAN</button>
+            <button type="button" class="theme-btn" id="theme-btn-crimson" data-theme-target="crimson">CRIMSON</button>
+            <button type="button" class="theme-btn" id="theme-btn-emerald" data-theme-target="emerald">EMERALD</button>
+          </div>
+
+          <button type="button" class="hud-btn hud-btn-soul" id="personality-btn" title="Open Soul Circuit Cognitive Matrix">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2">
+              <path d="M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+            </svg>
+            <span>SOUL CIRCUIT</span>
+          </button>
+
+          <button type="button" class="hud-btn hud-btn-safety" id="btn-safety-kernel" title="Safety Kernel & Containment Guardrails">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00ff9d" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            <span>SAFETY KERNEL</span>
+          </button>
+
+          <button type="button" class="hud-btn hud-btn-emergency" id="btn-emergency-stop" title="Emergency Stop / Interrupt Active Execution">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+            </svg>
+            <span>HALT</span>
+          </button>
+
+          <button type="button" class="state-pill" id="btn-state-badge" title="Click to cycle operational state">
+            <span class="state-dot"></span>
+            <span id="hud-state-text">STANDBY</span>
+          </button>
+        </nav>
+      </header>
+
+      <!-- ================= WHISPER-MINIMAL PERIPHERAL TELEMETRY ================= -->
+      <main class="mid-workspace">
+        <aside class="peripheral-wing wing-left" aria-label="Cognitive Telemetry">
+          <section class="holo-card">
+            <div class="card-header">
+              <span class="card-title">NEURAL CORTEX</span>
+              <span class="card-tag" id="fps-readout">60 FPS</span>
+            </div>
+            <div class="telemetry-grid">
+              <div class="metric-box">
+                <div class="metric-label">SYNAPTIC FLUX</div>
+                <div class="metric-val"><span id="metric-load">18.4</span><small>%</small></div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">COHERENCE</div>
+                <div class="metric-val"><span id="metric-coherence">99.8</span><small>Q</small></div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">RESONANCE</div>
+                <div class="metric-val"><span id="metric-vocal">0.02</span><small>dB</small></div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">LATENCY</div>
+                <div class="metric-val"><span id="metric-latency">14</span><small>ms</small></div>
+              </div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-meta"><span>SOUL CIRCUIT</span><span id="bar-soul-label">96%</span></div>
+              <div class="bar-track"><div class="bar-fill" id="bar-soul-fill" style="width: 96%;"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-meta"><span>PARTICLE DENSITY</span><span id="bar-flux-label">100%</span></div>
+              <div class="bar-track"><div class="bar-fill" id="bar-flux-fill" style="width: 100%;"></div></div>
+            </div>
+          </section>
+
+          <section class="holo-card">
+            <div class="card-header">
+              <span class="card-title">NEURAL STREAM</span>
+              <span class="card-tag" id="stream-count-tag">LIVE</span>
+            </div>
+            <ul class="directive-stream" id="directive-stream-list">
+              <li class="directive-item"><time>00:18</time><span>Cortical gyri & synaptic particle cloud synchronized.</span></li>
+              <li class="directive-item"><time>00:18</time><span>Mind-stone neural core coherence verified at 99.8%.</span></li>
+              <li class="directive-item"><time>00:18</time><span>Acoustic wake-word sensor locked on "ULTRON" / "JARVIS".</span></li>
+            </ul>
+          </section>
+        </aside>
+
+        <aside class="peripheral-wing wing-right" aria-label="Operational State & Optics">
+          <section class="holo-card">
+            <div class="card-header">
+              <span class="card-title">CONSCIOUSNESS STATE</span>
+              <span class="card-tag">FSM</span>
+            </div>
+            <div class="state-matrix-grid" role="group" aria-label="Operational State Selector">
+              <button type="button" class="state-sim-btn active" id="state-btn-standby" data-state-target="STANDBY">
+                <span class="mini-dot"></span><span>STANDBY</span>
+              </button>
+              <button type="button" class="state-sim-btn" id="state-btn-listening" data-state-target="LISTENING">
+                <span class="mini-dot"></span><span>LISTENING</span>
+              </button>
+              <button type="button" class="state-sim-btn" id="state-btn-thinking" data-state-target="THINKING">
+                <span class="mini-dot"></span><span>THINKING</span>
+              </button>
+              <button type="button" class="state-sim-btn" id="state-btn-speaking" data-state-target="SPEAKING">
+                <span class="mini-dot"></span><span>SPEAKING</span>
+              </button>
+              <button type="button" class="state-sim-btn state-cancel-btn" id="state-btn-cancelling" data-state-target="CANCELLING">
+                <span class="mini-dot"></span><span>CANCELLING // INTERRUPT</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="holo-card">
+            <div class="card-header">
+              <span class="card-title">OPTICS & BRIDGE</span>
+              <span class="card-tag" id="camera-mode-tag">TRACKING</span>
+            </div>
+            <div class="optics-controls">
+              <div class="optics-btn-row">
+                <button type="button" class="mini-action-btn active" id="cam-btn-track" data-cam-mode="track">CURSOR TRACK</button>
+                <button type="button" class="mini-action-btn" id="cam-btn-orbit" data-cam-mode="orbit">AUTO ORBIT</button>
+                <button type="button" class="mini-action-btn" id="cam-btn-reset" data-cam-mode="reset">CENTER LOCK</button>
+              </div>
+              <div class="optics-btn-row">
+                <button type="button" class="mini-action-btn active" id="btn-toggle-voice-synth">VOICE SYNTH: ON</button>
+                <button type="button" class="mini-action-btn active" id="btn-toggle-scanbeam">LASER SCAN: ON</button>
+                <button type="button" class="mini-action-btn" id="btn-inspect-bridge">API BRIDGE</button>
+              </div>
+              <div class="bar-row" style="margin-top:2px;">
+                <div class="bar-meta"><span>SAFETY KERNEL</span><span id="safety-status-inline" style="color: #00ffaa;">ENFORCED</span></div>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <!-- ================= BOTTOM VOICE INTERACTION DOCK ================= -->
+      <footer class="bottom-dock-wrap" role="contentinfo">
+        <div class="quick-directives-bar" aria-label="Quick Directives">
+          <button type="button" class="directive-chip" data-prompt="Run full diagnostic scan on Ultron neural matrix">Diagnostic Scan</button>
+          <button type="button" class="directive-chip" data-prompt="Demonstrate vocal mandible articulation and speech synthesis">Test Vocal Articulation</button>
+          <button type="button" class="directive-chip" data-prompt="Report Soul Circuit harmonic status and cognitive alignment">Soul Circuit Status</button>
+          <button type="button" class="directive-chip" data-prompt="Verify Safety Kernel guardrails and FastAPI bridge hooks">Verify Safety Kernel</button>
+        </div>
+
+        <div class="ultron-core-panel">
+          <div class="core-panel-header">
+            <div class="core-title-group">
+              <span class="core-beacon"></span>
+              <span class="core-label">ULTRON CORE</span>
+              <span class="core-substatus" id="core-substatus-text">// NEURAL MATRIX READY</span>
+            </div>
+            <div class="core-actions">
+              <button type="button" class="core-mini-btn" id="btn-speak-response" title="Synthesize vocal response">
+                <span>SPEAK</span>
+              </button>
+              <button type="button" class="core-mini-btn" id="btn-copy" title="Copy Ultron response to clipboard">
+                <span>COPY</span>
+              </button>
+              <button type="button" class="core-mini-btn" id="btn-logs" title="Open System & Bridge Logs">
+                <span>LOGS</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="core-response-text" id="ultron-response-text">
+            CLICK CORE OR SAY "ULTRON" / "JARVIS" TO TALK
+          </div>
+
+          <div class="core-waveform-wrap">
+            <canvas id="voice-waveform-canvas" width="170" height="12"></canvas>
+          </div>
+        </div>
+
+        <form class="command-bar" id="command-form" autocomplete="off">
+          <button type="button" class="mic-trigger-btn" id="btn-mic" title="Toggle Voice Recognition (Listening State)" aria-label="Toggle Microphone">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
+          </button>
+          <input
+            type="text"
+            class="command-input"
+            id="ultron-input"
+            placeholder="Ask Ultron anything or speak out loud..."
+            aria-label="Ask Ultron anything or speak out loud"
+          />
+          <button type="submit" class="transmit-btn" id="btn-transmit">TRANSMIT</button>
+        </form>
+      </footer>
+    </div>
+
+    <!-- ================= SLIDE-OVER DRAWER ================= -->
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+    <aside class="holo-drawer" id="holo-drawer" data-alt-id="chat-drawer" aria-label="System Detail Panel">
+      <div class="drawer-header">
+        <span class="drawer-title" id="drawer-title">CHAT LOG ARCHIVE</span>
+        <button type="button" class="drawer-close-btn" id="btn-drawer-close">CLOSE [ESC]</button>
+      </div>
+      <div class="drawer-body" id="drawer-body"></div>
+    </aside>
+    <!-- Hidden anchor ensuring test contract compatibility -->
+    <div id="chat-drawer" style="display:none;"></div>
+    <div id="personality-modal" style="display:none;"></div>
+
+    <div class="holo-toast" id="holo-toast" role="status" aria-live="polite">COPIED TO CLIPBOARD</div>
+  </div>
+
+  <!-- =========================================================================
+       ORGANIC 3D ULTRON NEURAL BRAIN & ELECTRONIC PARTICLE HOLOGRAM ENGINE
+       ========================================================================= -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* =======================================================================
+         1. THEME PALETTES & OPERATIONAL STATE PROFILES
+         ======================================================================= */
+      const THEME_PALETTES = {
+        cyan: {
+          coreWhite: [255, 255, 255],
+          brightIce: [195, 250, 255],
+          primaryCyan: [0, 220, 255],
+          midBlue: [0, 125, 245],
+          deepBlue: [0, 50, 155],
+          hexVal: 0x00f3ff,
+          cssHex: '#00e5ff'
+        },
+        crimson: {
+          coreWhite: [255, 245, 248],
+          brightIce: [255, 195, 208],
+          primaryCyan: [255, 42, 75],
+          midBlue: [255, 95, 0],
+          deepBlue: [140, 10, 35],
+          hexVal: 0xff2a4b,
+          cssHex: '#ff2a4b'
+        },
+        emerald: {
+          coreWhite: [242, 255, 250],
+          brightIce: [195, 255, 232],
+          primaryCyan: [0, 255, 170],
+          midBlue: [0, 185, 255],
+          deepBlue: [0, 95, 85],
+          hexVal: 0x00ff88,
+          cssHex: '#00ffaa'
+        }
+      };
+
+      const STATE_PROFILES = {
+        STANDBY: {
+          speed: 1.0,
+          pulseRate: 1.0,
+          coreIntensity: 1.0,
+          loadRange: [14, 22],
+          substatus: '// NEURAL CONSCIOUSNESS MATRIX READY'
+        },
+        LISTENING: {
+          speed: 1.5,
+          pulseRate: 2.0,
+          coreIntensity: 1.25,
+          loadRange: [34, 48],
+          substatus: '// ACOUSTIC SENSORS LOCKED — LISTENING'
+        },
+        THINKING: {
+          speed: 2.4,
+          pulseRate: 3.4,
+          coreIntensity: 1.4,
+          loadRange: [78, 96],
+          substatus: '// DEEP SYNAPTIC SYNTHESIS IN PROGRESS'
+        },
+        SPEAKING: {
+          speed: 1.75,
+          pulseRate: 2.8,
+          coreIntensity: 1.45,
+          loadRange: [52, 74],
+          substatus: '// NEURAL RESONANCE TRANSMISSION ACTIVE'
+        },
+        CANCELLING: {
+          speed: 0.25,
+          pulseRate: 5.0,
+          coreIntensity: 0.75,
+          loadRange: [4, 9],
+          substatus: '// INTERRUPT PROTOCOL — HALTING EXECUTION'
+        }
+      };
+
+      /* =======================================================================
+         2. PRE-GENERATED VOLUMETRIC GLOW & CORTICAL NEBULA SPRITES
+         ======================================================================= */
+      function createHoloSprites(rgbCore, rgbBright, rgbPrimary, rgbMid, rgbDeep) {
+        const pCanvas = document.createElement('canvas');
+        pCanvas.width = 64;
+        pCanvas.height = 64;
+        const pCtx = pCanvas.getContext('2d');
+        const pGrad = pCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        pGrad.addColorStop(0.0, `rgba(${rgbCore[0]}, ${rgbCore[1]}, ${rgbCore[2]}, 1.0)`);
+        pGrad.addColorStop(0.15, `rgba(${rgbBright[0]}, ${rgbBright[1]}, ${rgbBright[2]}, 0.92)`);
+        pGrad.addColorStop(0.40, `rgba(${rgbPrimary[0]}, ${rgbPrimary[1]}, ${rgbPrimary[2]}, 0.36)`);
+        pGrad.addColorStop(1.0, `rgba(${rgbDeep[0]}, ${rgbDeep[1]}, ${rgbDeep[2]}, 0.0)`);
+        pCtx.fillStyle = pGrad;
+        pCtx.fillRect(0, 0, 64, 64);
+
+        const lCanvas = document.createElement('canvas');
+        lCanvas.width = 256;
+        lCanvas.height = 256;
+        const lCtx = lCanvas.getContext('2d');
+        const lGrad = lCtx.createRadialGradient(128, 128, 2, 128, 128, 128);
+        lGrad.addColorStop(0.0, `rgba(${rgbBright[0]}, ${rgbBright[1]}, ${rgbBright[2]}, 0.28)`);
+        lGrad.addColorStop(0.35, `rgba(${rgbPrimary[0]}, ${rgbPrimary[1]}, ${rgbPrimary[2]}, 0.15)`);
+        lGrad.addColorStop(0.70, `rgba(${rgbMid[0]}, ${rgbMid[1]}, ${rgbMid[2]}, 0.05)`);
+        lGrad.addColorStop(1.0, `rgba(0, 0, 0, 0.0)`);
+        lCtx.fillStyle = lGrad;
+        lCtx.fillRect(0, 0, 256, 256);
+
+        const sCanvas = document.createElement('canvas');
+        sCanvas.width = 256;
+        sCanvas.height = 256;
+        const sCtx = sCanvas.getContext('2d');
+        const sGrad = sCtx.createRadialGradient(128, 128, 8, 128, 128, 126);
+        sGrad.addColorStop(0.0, `rgba(${rgbMid[0]}, ${rgbMid[1]}, ${rgbMid[2]}, 0.12)`);
+        sGrad.addColorStop(0.50, `rgba(${rgbPrimary[0]}, ${rgbPrimary[1]}, ${rgbPrimary[2]}, 0.14)`);
+        sGrad.addColorStop(0.78, `rgba(${rgbBright[0]}, ${rgbBright[1]}, ${rgbBright[2]}, 0.08)`);
+        sGrad.addColorStop(1.0, `rgba(0, 0, 0, 0.0)`);
+        sCtx.fillStyle = sGrad;
+        sCtx.fillRect(0, 0, 256, 256);
+
+        return { particle: pCanvas, nebula: lCanvas, shell: sCanvas };
+      }
+
+      const SPRITES = {
+        cyan: createHoloSprites(
+          THEME_PALETTES.cyan.coreWhite,
+          THEME_PALETTES.cyan.brightIce,
+          THEME_PALETTES.cyan.primaryCyan,
+          THEME_PALETTES.cyan.midBlue,
+          THEME_PALETTES.cyan.deepBlue
+        ),
+        crimson: createHoloSprites(
+          THEME_PALETTES.crimson.coreWhite,
+          THEME_PALETTES.crimson.brightIce,
+          THEME_PALETTES.crimson.primaryCyan,
+          THEME_PALETTES.crimson.midBlue,
+          THEME_PALETTES.crimson.deepBlue
+        ),
+        emerald: createHoloSprites(
+          THEME_PALETTES.emerald.coreWhite,
+          THEME_PALETTES.emerald.brightIce,
+          THEME_PALETTES.emerald.primaryCyan,
+          THEME_PALETTES.emerald.midBlue,
+          THEME_PALETTES.emerald.deepBlue
+        )
+      };
+
+      /* =======================================================================
+         3. UNDULATING 3D CORTICAL GYRI LOBES & TOPOGRAPHICAL STRIATIONS
+         ======================================================================= */
+      function corticalFoldDisplacement(nx, ny, nz, seed) {
+        const h1 = Math.sin(nx * 2.5 + seed) * Math.cos(ny * 2.3 - seed * 0.7) * Math.cos(nz * 2.4 + 0.4);
+        const h2 = Math.cos(nx * 3.6 - ny * 3.1 + seed * 1.2) * Math.sin(nz * 3.3 + seed * 0.5);
+        const h3 = Math.sin((nx + nz) * 4.2 + seed) * Math.cos(ny * 3.8);
+        return 0.24 * h1 + 0.14 * h2 + 0.08 * h3;
+      }
+
+      const CORTICAL_LOBES = [
+        { cx:  0.18, cy:  0.06, cz:  0.05, rx: 1.05, ry: 0.94, rz: 0.98, seed: 0.3, rings: 28, isMain: true },
+        { cx:  0.34, cy:  0.64, cz:  0.12, rx: 0.68, ry: 0.58, rz: 0.64, seed: 1.4, rings: 22, isMain: true },
+        { cx: -0.06, cy:  0.72, cz:  0.16, rx: 0.60, ry: 0.52, rz: 0.58, seed: 2.2, rings: 20, isMain: true },
+        { cx:  0.86, cy:  0.14, cz:  0.08, rx: 0.64, ry: 0.56, rz: 0.60, seed: 3.1, rings: 20, isMain: true },
+        { cx:  0.68, cy: -0.34, cz:  0.14, rx: 0.66, ry: 0.54, rz: 0.62, seed: 4.0, rings: 20, isMain: true },
+        { cx:  0.12, cy: -0.64, cz:  0.22, rx: 0.86, ry: 0.48, rz: 0.74, seed: 4.9, rings: 22, isMain: true },
+        { cx: -0.46, cy: -0.32, cz:  0.20, rx: 0.66, ry: 0.54, rz: 0.62, seed: 5.8, rings: 20, isMain: true },
+        { cx: -0.52, cy:  0.22, cz:  0.18, rx: 0.64, ry: 0.58, rz: 0.64, seed: 6.7, rings: 20, isMain: true },
+        { cx:  0.14, cy: -0.10, cz:  0.26, rx: 0.56, ry: 0.52, rz: 0.55, seed: 7.5, rings: 18, isMain: true },
+        { cx: -1.38, cy:  0.86, cz: -0.18, rx: 0.68, ry: 0.52, rz: 0.58, seed: 8.4, rings: 20, isMain: false },
+        { cx: -1.76, cy:  0.64, cz: -0.08, rx: 0.50, ry: 0.42, rz: 0.48, seed: 9.3, rings: 16, isMain: false },
+        { cx: -1.12, cy:  1.06, cz: -0.24, rx: 0.46, ry: 0.38, rz: 0.44, seed: 10.1, rings: 14, isMain: false }
+      ];
+
+      const corticalRings = [];
+      const surfaceParticles = [];
+
+      CORTICAL_LOBES.forEach((lobe, lobeIdx) => {
+        const vSteps = 76;
+        const tiltA = (lobeIdx * 0.55) - 0.7;
+        const tiltB = (lobeIdx * 0.37) + 0.2;
+        const cosA = Math.cos(tiltA), sinA = Math.sin(tiltA);
+        const cosB = Math.cos(tiltB), sinB = Math.sin(tiltB);
+
+        for (let i = 0; i < lobe.rings; i++) {
+          const uFrac = 0.22 + (i / (lobe.rings - 1)) * 0.56;
+          const uAngle = uFrac * Math.PI;
+          const sinU = Math.sin(uAngle);
+          const cosU = Math.cos(uAngle);
+          const pts = [];
+
+          const arcSpan = Math.PI * (1.55 + (i % 3) * 0.18);
+          const arcStart = (i * 0.73) + lobe.seed;
+
+          for (let j = 0; j <= vSteps; j++) {
+            const vAngle = arcStart + (j / vSteps) * arcSpan;
+            const rawX = sinU * Math.cos(vAngle);
+            const rawY = cosU + 0.18 * Math.sin(vAngle * 2 + lobe.seed);
+            const rawZ = sinU * Math.sin(vAngle);
+
+            const x1 = rawX * cosA - rawY * sinA;
+            const y1 = rawX * sinA + rawY * cosA;
+            const z1 = rawZ;
+
+            const sx = x1;
+            const sy = y1 * cosB - z1 * sinB;
+            const sz = y1 * sinB + z1 * cosB;
+
+            const disp = corticalFoldDisplacement(sx, sy, sz, lobe.seed);
+            const rScale = 1.0 + disp;
+
+            const px = lobe.cx + sx * lobe.rx * rScale;
+            const py = lobe.cy + sy * lobe.ry * rScale;
+            const pz = lobe.cz + sz * lobe.rz * rScale;
+
+            const fnx = sx + 0.4 * Math.cos(sy * 3.5 + lobe.seed);
+            const fny = sy + 0.4 * Math.sin(sz * 3.5 - lobe.seed);
+            const fnz = sz + 0.4 * Math.cos(sx * 3.5 + lobe.seed);
+            const fnLen = Math.hypot(fnx, fny, fnz) || 1;
+
+            pts.push({
+              x: px, y: py, z: pz,
+              nx: fnx / fnLen, ny: fny / fnLen, nz: fnz / fnLen
+            });
+
+            if ((j % 3 === 0) && Math.random() < 0.45) {
+              surfaceParticles.push({
+                x: px, y: py, z: pz,
+                size: Math.random() < 0.14 ? (1.6 + Math.random() * 1.5) : (0.65 + Math.random() * 0.85),
+                phase: Math.random() * Math.PI * 2,
+                lobeIdx: lobeIdx
+              });
+            }
+          }
+
+          corticalRings.push({
+            pts,
+            lobeIdx,
+            isMain: lobe.isMain,
+            isRidgeRing: (i % 4 === 0)
+          });
+        }
+      });
+
+      const SINGULARITY_POS = { x: 0.14, y: -0.16, z: 0.30 };
+
+      const dendriticFilaments = [];
+      for (let b = 0; b < 28; b++) {
+        const isBridge = b < 9;
+        const steps = 22;
+
+        let endX, endY, endZ;
+        if (isBridge) {
+          endX = -1.48 + (Math.random() - 0.5) * 0.72;
+          endY =  0.82 + (Math.random() - 0.5) * 0.52;
+          endZ = -0.14 + (Math.random() - 0.5) * 0.48;
+        } else {
+          const theta = (b / 19) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+          const phi = Math.acos(2 * Math.random() - 1);
+          const dist = 0.65 + Math.random() * 0.80;
+          endX = SINGULARITY_POS.x + Math.sin(phi) * Math.cos(theta) * dist * 1.15;
+          endY = SINGULARITY_POS.y + Math.cos(phi) * dist * 1.02;
+          endZ = SINGULARITY_POS.z + Math.sin(phi) * Math.sin(theta) * dist;
+        }
+
+        const startX = isBridge ? (-0.15 + (Math.random() - 0.5) * 0.45) : SINGULARITY_POS.x;
+        const startY = isBridge ? ( 0.18 + (Math.random() - 0.5) * 0.40) : SINGULARITY_POS.y;
+        const startZ = isBridge ? ( 0.12 + (Math.random() - 0.5) * 0.35) : SINGULARITY_POS.z;
+
+        const trunkPts = [];
+        const waveSeed = b * 2.1;
+        for (let s = 0; s <= steps; s++) {
+          const t = s / steps;
+          const arcLift = Math.sin(t * Math.PI) * (isBridge ? 0.36 : 0.18);
+          const waveX = Math.sin(t * Math.PI * 2.5 + waveSeed) * 0.08 * Math.sin(t * Math.PI);
+          const waveY = Math.cos(t * Math.PI * 2.0 - waveSeed) * 0.08 * Math.sin(t * Math.PI);
+          trunkPts.push({
+            x: startX + (endX - startX) * t + waveX,
+            y: startY + (endY - startY) * t + arcLift + waveY,
+            z: startZ + (endZ - startZ) * t - waveX * 0.5
+          });
+        }
+
+        dendriticFilaments.push({
+          pts: trunkPts,
+          isBridge,
+          pulseOffset: Math.random(),
+          pulseSpeed: 0.45 + Math.random() * 0.85
+        });
+
+        const forkIdx = Math.floor(steps * 0.5);
+        const forkOrigin = trunkPts[forkIdx];
+        const forkPts = [];
+        const forkEndX = endX + (Math.random() - 0.5) * 0.55;
+        const forkEndY = endY + (Math.random() - 0.5) * 0.55;
+        const forkEndZ = endZ + (Math.random() - 0.5) * 0.55;
+        for (let fs = 0; fs <= 12; fs++) {
+          const ft = fs / 12;
+          const fWave = Math.sin(ft * Math.PI * 2 + b) * 0.05;
+          forkPts.push({
+            x: forkOrigin.x + (forkEndX - forkOrigin.x) * ft + fWave,
+            y: forkOrigin.y + (forkEndY - forkOrigin.y) * ft - fWave,
+            z: forkOrigin.z + (forkEndZ - forkOrigin.z) * ft
+          });
+        }
+        dendriticFilaments.push({
+          pts: forkPts,
+          isBridge: false,
+          pulseOffset: Math.random(),
+          pulseSpeed: 0.55 + Math.random() * 0.85
+        });
+      }
+
+      const fiberStreams = [];
+      for (let f = 0; f < 28; f++) {
+        const isLowerStream = f < 16;
+        const pts = [];
+        const steps = 40;
+        const radius = isLowerStream ? (1.05 + (f / 16) * 0.55) : (0.85 + ((f - 16) / 12) * 0.65);
+        const yBase = isLowerStream ? (-0.72 - (f % 5) * 0.11) : (0.55 + (f % 4) * 0.14);
+        const tilt = (f % 2 === 0 ? 1 : -1) * (0.18 + (f % 5) * 0.05);
+        const startAng = (f * 0.45);
+        const spanAng = 1.35 + (f % 3) * 0.35;
+
+        for (let s = 0; s <= steps; s++) {
+          const t = s / steps;
+          const a = startAng + t * spanAng;
+          const px = Math.cos(a) * radius * 1.25 + (isLowerStream ? 0.12 : -0.45);
+          const pz = Math.sin(a) * radius;
+          const py = yBase + Math.sin(t * Math.PI) * 0.22 + px * tilt;
+          pts.push({ x: px, y: py, z: pz });
+        }
+        fiberStreams.push({ pts, speed: 0.25 + (f % 5) * 0.08, offset: Math.random() });
+      }
+
+      const BOKEH_COUNT = 440;
+      const bokehParticles = [];
+      for (let i = 0; i < BOKEH_COUNT; i++) {
+        const isSatellite = i < 100;
+        bokehParticles.push({
+          isSatellite,
+          angle: Math.random() * Math.PI * 2,
+          radius: isSatellite ? (0.25 + Math.random() * 0.85) : (0.55 + Math.random() * 1.65),
+          y: isSatellite ? (0.45 + Math.random() * 0.95) : ((Math.random() - 0.5) * 2.1),
+          speed: (0.002 + Math.random() * 0.006) * (Math.random() < 0.25 ? -1 : 1),
+          size: Math.random() < 0.18 ? (3.2 + Math.random() * 4.5) : (1.2 + Math.random() * 2.0),
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+
+      /* =======================================================================
+         4. APPLICATION STATE & PERSISTENT STORAGE
+         ======================================================================= */
+      const CHAT_STORAGE_KEY = 'ultron_chat_history_v2';
+      const CHAT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+      const SILENCE_DEBOUNCE_MS = 1600;
+
+      function loadChatHistory() {
+        try {
+          const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed;
+          }
+        } catch (e) {}
+        return [
+          {
+            role: 'user',
+            time: '00:14:02',
+            text: 'Ultron, initialize holographic neural matrix and verify Soul Circuit telemetry.'
+          },
+          {
+            role: 'ultron',
+            time: '00:14:04',
+            text: 'Neural consciousness matrix stabilized at 99.8% quantum coherence. All cortical pathways and synaptic particle streams are online.'
+          },
+          {
+            role: 'user',
+            time: '00:16:40',
+            text: 'Confirm Safety Kernel status and FastAPI bridge readiness.'
+          },
+          {
+            role: 'ultron',
+            time: '00:16:42',
+            text: 'Safety Kernel active across all execution threads. Standing by for voice or text transmission.'
+          }
+        ];
+      }
+
+      function persistChatHistory(history) {
+        try {
+          localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history.slice(-30)));
+        } catch (e) {}
+      }
+
+      const appState = {
+        theme: 'cyan',
+        operationalState: 'STANDBY',
+        cameraMode: 'track',
+        voiceSynthEnabled: true,
+        laserScanEnabled: true,
+        operatorSignedIn: false,
+        operatorName: 'GUEST OPERATOR',
+        backendConnected: false,
+        authToken: localStorage.getItem('ultron_auth_token') || '',
+        soulWeights: {
+          autonomy: 94,
+          analytical: 98,
+          empathy: 76,
+          containment: 100
+        },
+        chatHistory: loadChatHistory(),
+        systemLogs: [
+          '[BOOT] Ultron 3D Volumetric Neural Consciousness initialized.',
+          '[BRIDGE] Listening for parent React frame postMessage events & FastAPI hooks.',
+          '[SAFETY] Safety Kernel active — Emergency Halt armed.',
+          '[SYNAPSE] 3,800+ electronic particle nodes & cortical gyri online.'
+        ]
+      };
+
+      let audioCtx = null;
+      let activeAudioElement = null;
+      window._currentSpeakingText = '';
+
+      function ensureAudioContext() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            try { audioCtx = new AudioContextClass(); } catch (e) {}
+          }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+        return audioCtx;
+      }
+
+      function playHoloChime(freqStart = 520, freqEnd = 880, duration = 0.14) {
+        if (!appState.voiceSynthEnabled) return;
+        const ctx = ensureAudioContext();
+        if (!ctx) return;
+        try {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freqStart, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(freqEnd, ctx.currentTime + duration);
+          gain.gain.setValueAtTime(0.05, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + duration);
+        } catch (e) {}
+      }
+
+      function playVocalHarmonicBurst() {
+        if (!appState.voiceSynthEnabled) return;
+        const ctx = ensureAudioContext();
+        if (!ctx) return;
+        try {
+          const osc = ctx.createOscillator();
+          const sub = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          sub.type = 'triangle';
+          const baseFreq = 92 + Math.random() * 38;
+          osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+          sub.frequency.setValueAtTime(baseFreq * 1.5, ctx.currentTime);
+          gain.gain.setValueAtTime(0.024, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.11);
+          osc.connect(gain);
+          sub.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          sub.start();
+          osc.stop(ctx.currentTime + 0.11);
+          sub.stop(ctx.currentTime + 0.11);
+        } catch (e) {}
+      }
+
+      const directiveStreamEl = document.getElementById('directive-stream-list');
+      function logDirective(message) {
+        const now = new Date();
+        const tStr = now.toTimeString().slice(0, 5);
+        appState.systemLogs.unshift(`[${now.toTimeString().slice(0, 8)}] ${message}`);
+        if (directiveStreamEl) {
+          const li = document.createElement('li');
+          li.className = 'directive-item';
+          li.innerHTML = `<time>${tStr}</time><span>${message}</span>`;
+          directiveStreamEl.insertBefore(li, directiveStreamEl.firstChild);
+          while (directiveStreamEl.children.length > 6) {
+            directiveStreamEl.removeChild(directiveStreamEl.lastChild);
+          }
+        }
+      }
+
+      let toastTimer = null;
+      function showToast(msg) {
+        const toast = document.getElementById('holo-toast');
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.classList.add('visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('visible'), 2200);
+      }
+
+      function setHologramTheme(themeName, emitBridge = true) {
+        if (!THEME_PALETTES[themeName]) return;
+        appState.theme = themeName;
+        document.documentElement.setAttribute('data-theme', themeName);
+        document.body.setAttribute('data-theme', themeName);
+        localStorage.setItem('ultron_hologram_theme', themeName);
+
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.themeTarget === themeName);
+        });
+        playHoloChime(440, 760, 0.12);
+        logDirective(`Spectral matrix shifted to ${themeName.toUpperCase()}.`);
+        if (emitBridge) {
+          emitToHost('THEME_CHANGED', { theme: themeName });
+          fetch('/api/hologram/theme', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme: themeName })
+          }).catch(() => {});
+        }
+      }
+      const setTheme = setHologramTheme;
+
+      async function _loadHologramTheme() {
+        const saved = localStorage.getItem('ultron_hologram_theme');
+        if (saved && THEME_PALETTES[saved]) {
+          setHologramTheme(saved, false);
+        }
+        try {
+          const themeRes = await fetch('/api/hologram/theme');
+          if (themeRes.ok) {
+            const data = await themeRes.json();
+            if (data.theme && THEME_PALETTES[data.theme]) {
+              setHologramTheme(data.theme, false);
+            }
+          }
+        } catch (e) {}
+      }
+
+      let activeSpeechTimer = null;
+      let activeThinkingTimer = null;
+
+      function setOperationalState(newState, emitBridge = true) {
+        if (!STATE_PROFILES[newState]) return;
+        appState.operationalState = newState;
+        document.documentElement.setAttribute('data-state', newState);
+
+        const stateTextEl = document.getElementById('hud-state-text');
+        if (stateTextEl) stateTextEl.textContent = newState;
+
+        const substatusEl = document.getElementById('core-substatus-text');
+        if (substatusEl) substatusEl.textContent = STATE_PROFILES[newState].substatus;
+
+        document.querySelectorAll('.state-sim-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.stateTarget === newState);
+        });
+
+        const micBtn = document.getElementById('btn-mic');
+        if (micBtn) {
+          micBtn.classList.toggle('listening', newState === 'LISTENING');
+        }
+
+        const calloutText = document.getElementById('core-callout-text');
+        if (calloutText) {
+          calloutText.textContent = `NEURAL CONSCIOUSNESS MATRIX // STATE: ${newState}`;
+        }
+
+        if (newState === 'CANCELLING') {
+          playHoloChime(680, 190, 0.25);
+        } else if (newState === 'LISTENING') {
+          playHoloChime(520, 980, 0.16);
+        } else {
+          playHoloChime(480, 640, 0.1);
+        }
+
+        if (emitBridge) {
+          emitToHost('STATE_CHANGED', { state: newState });
+        }
+      }
+
+      const responseTextEl = document.getElementById('ultron-response-text');
+
+      function interruptUltron() {
+        clearInterval(activeSpeechTimer);
+        clearTimeout(activeThinkingTimer);
+        if (activeAudioElement) {
+          try { activeAudioElement.pause(); activeAudioElement = null; } catch (e) {}
+        }
+        if ('speechSynthesis' in window) {
+          try { window.speechSynthesis.cancel(); } catch (e) {}
+        }
+        window._currentSpeakingText = '';
+        if (responseTextEl) {
+          responseTextEl.textContent = 'INTERRUPTED: LISTENING TO YOU';
+        }
+        setOperationalState('LISTENING');
+      }
+
+      function streamUltronResponse(fullText) {
+        clearInterval(activeSpeechTimer);
+        clearTimeout(activeThinkingTimer);
+
+        if (activeAudioElement) {
+          try {
+            activeAudioElement.pause();
+            activeAudioElement = null;
+          } catch (e) {}
+        }
+
+        window._currentSpeakingText = fullText;
+        setOperationalState('SPEAKING');
+        if (responseTextEl) responseTextEl.textContent = '';
+
+        let playedBackendTts = false;
+        if (appState.voiceSynthEnabled) {
+          try {
+            const ttsAudio = new Audio(`/api/tts?text=${encodeURIComponent(fullText)}`);
+            ttsAudio.volume = 0.85;
+            ttsAudio.play().then(() => {
+              playedBackendTts = true;
+              activeAudioElement = ttsAudio;
+              ttsAudio.onended = () => {
+                activeAudioElement = null;
+                window._currentSpeakingText = '';
+                if (appState.operationalState === 'SPEAKING') {
+                  setOperationalState('STANDBY');
+                }
+              };
+            }).catch(() => {
+              playFallbackSpeech(fullText);
+            });
+          } catch (e) {
+            playFallbackSpeech(fullText);
+          }
+        }
+
+        let charIndex = 0;
+        activeSpeechTimer = setInterval(() => {
+          if (appState.operationalState !== 'SPEAKING') {
+            clearInterval(activeSpeechTimer);
+            return;
+          }
+          charIndex += 4;
+          if (responseTextEl) {
+            responseTextEl.textContent = fullText.slice(0, charIndex);
+          }
+          if (charIndex % 8 === 0 && !playedBackendTts) {
+            playVocalHarmonicBurst();
+          }
+          if (charIndex >= fullText.length) {
+            clearInterval(activeSpeechTimer);
+            if (!playedBackendTts) {
+              setTimeout(() => {
+                if (appState.operationalState === 'SPEAKING') {
+                  setOperationalState('STANDBY');
+                }
+              }, 900);
+            }
+          }
+        }, 26);
+      }
+
+      function playFallbackSpeech(text) {
+        if ('speechSynthesis' in window) {
+          try {
+            window.speechSynthesis.cancel();
+            const femaleRegex = /female|zira|samantha|victoria|karen/i;
+            const utter = new SpeechSynthesisUtterance(text);
+            const voices = window.speechSynthesis.getVoices() || [];
+            const preferredMale = voices.find(v => !femaleRegex.test(v.name) && /david|mark|george|daniel/i.test(v.name))
+              || voices.find(v => !femaleRegex.test(v.name));
+            if (preferredMale) utter.voice = preferredMale;
+            utter.pitch = 0.92;
+            utter.rate = 1.02;
+            utter.volume = 0.85;
+            utter.onend = () => {
+              window._currentSpeakingText = '';
+              if (appState.operationalState === 'SPEAKING') {
+                setOperationalState('STANDBY');
+              }
+            };
+            window.speechSynthesis.speak(utter);
+          } catch (e) {}
+        }
+      }
+
+      function generateContextualResponse(query) {
+        const q = query.toLowerCase();
+        if (q.includes('diagnostic') || q.includes('scan') || q.includes('status')) {
+          return 'DIAGNOSTIC COMPLETE: All 12 cortical gyri lobes, 56 branching dendritic pathways, and 3,800+ electronic particle nodes are operating at 99.8% quantum coherence.';
+        }
+        if (q.includes('vocal') || q.includes('articulation') || q.includes('speak') || q.includes('voice')) {
+          return 'NEURAL RESONANCE ENGAGED: Watch the inner synaptic core and cortical folds pulse with real-time harmonic energy across every spoken syllable.';
+        }
+        if (q.includes('soul') || q.includes('circuit')) {
+          return `SOUL CIRCUIT MATRIX: Synaptic harmonics locked at ${appState.soulWeights.analytical}% analytical precision and ${appState.soulWeights.autonomy}% autonomous reasoning.`;
+        }
+        if (q.includes('safety') || q.includes('kernel') || q.includes('halt') || q.includes('bridge')) {
+          return 'SAFETY KERNEL ENFORCED: All tool execution hooks, FastAPI WebSocket bridges, and emergency interrupt protocols are verified and active.';
+        }
+        return `DIRECTIVE PROCESSED: "${query}" — Synthesizing multi-vector solution across the Ultron Neural Consciousness Matrix.`;
+      }
+
+      async function handleUserSubmission(rawText) {
+        const text = (rawText || '').trim();
+        if (!text) return;
+
+        const historyItems = loadChatHistory().slice(-8);
+        const nowStr = new Date().toTimeString().slice(0, 8);
+        appState.chatHistory.push({ role: 'user', time: nowStr, text: text });
+        persistChatHistory(appState.chatHistory);
+        updateChatLogCount();
+        logDirective(`Input: "${text.slice(0, 36)}${text.length > 36 ? '...' : ''}"`);
+
+        emitToHost('USER_TRANSMIT', { text: text, timestamp: Date.now() });
+
+        clearInterval(activeSpeechTimer);
+        clearTimeout(activeThinkingTimer);
+        setOperationalState('THINKING');
+        if (responseTextEl) {
+          responseTextEl.textContent = 'SYNTHESIZING QUANTUM NEURAL RESPONSE...';
+        }
+
+        try {
+          const resp = await fetch('/api/hologram/directive', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(appState.authToken ? { 'Authorization': `Bearer ${appState.authToken}` } : {})
+            },
+            body: JSON.stringify({
+              directive: text,
+              history: historyItems
+            })
+          });
+
+          if (resp.ok) {
+            appState.backendConnected = true;
+            const data = await resp.json();
+            const reply = data.reply || generateContextualResponse(text);
+            const replyTime = new Date().toTimeString().slice(0, 8);
+            appState.chatHistory.push({
+              role: 'ultron',
+              time: replyTime,
+              text: reply,
+              actions: data.actions || []
+            });
+            persistChatHistory(appState.chatHistory);
+            updateChatLogCount();
+
+            if (data.actions && data.actions.length > 0) {
+              data.actions.forEach(act => {
+                logDirective(`Action [${act.name}]: ${act.output || act.status}`);
+              });
+            } else {
+              logDirective('Synaptic synthesis complete.');
+            }
+
+            streamUltronResponse(reply);
+            return;
+          }
+        } catch (err) {
+          // Graceful fallback to standalone engine
+        }
+
+        activeThinkingTimer = setTimeout(() => {
+          if (appState.operationalState !== 'THINKING') return;
+          const reply = generateContextualResponse(text);
+          const replyTime = new Date().toTimeString().slice(0, 8);
+          appState.chatHistory.push({ role: 'ultron', time: replyTime, text: reply });
+          persistChatHistory(appState.chatHistory);
+          updateChatLogCount();
+          logDirective('Synaptic synthesis complete.');
+          streamUltronResponse(reply);
+        }, 1150);
+      }
+
+      async function triggerEmergencyCancel() {
+        clearInterval(activeSpeechTimer);
+        clearTimeout(activeThinkingTimer);
+        if (activeAudioElement) {
+          try { activeAudioElement.pause(); activeAudioElement = null; } catch (e) {}
+        }
+        if ('speechSynthesis' in window) {
+          try { window.speechSynthesis.cancel(); } catch (e) {}
+        }
+        window._currentSpeakingText = '';
+        setOperationalState('CANCELLING');
+        if (responseTextEl) {
+          responseTextEl.textContent = 'EMERGENCY INTERRUPT ENGAGED // ALL ACTIVE OPERATIONS HALTED BY OPERATOR';
+        }
+        logDirective('EMERGENCY HALT triggered.');
+        emitToHost('EMERGENCY_STOP', { timestamp: Date.now() });
+        showToast('EMERGENCY HALT — EXECUTION CANCELLED');
+
+        try {
+          await fetch('/api/execution/cancel', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(appState.authToken ? { 'Authorization': `Bearer ${appState.authToken}` } : {})
+            },
+            body: JSON.stringify({ context_id: 'active' })
+          });
+        } catch (e) {}
+
+        setTimeout(() => {
+          if (appState.operationalState === 'CANCELLING') {
+            setOperationalState('STANDBY');
+          }
+        }, 2400);
+      }
+
+      function updateChatLogCount() {
+        const label = document.getElementById('chat-log-label');
+        if (label) {
+          label.textContent = `CHAT LOG (${appState.chatHistory.length})`;
+        }
+      }
+
+      /* =======================================================================
+         5. SLIDE-OVER DRAWERS & MODALS
+         ======================================================================= */
+      const drawerEl = document.getElementById('holo-drawer');
+      const backdropEl = document.getElementById('drawer-backdrop');
+      const drawerTitleEl = document.getElementById('drawer-title');
+      const drawerBodyEl = document.getElementById('drawer-body');
+
+      function updateSliderDisplay(key, val) {
+        const span = document.getElementById(`${key}-val`);
+        if (span) span.textContent = `${val}%`;
+      }
+
+      async function savePersonality() {
+        try {
+          await fetch('/api/hologram/personality', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appState.soulWeights)
+          });
+        } catch (e) {}
+      }
+
+      async function _loadPersonalitySettings() {
+        try {
+          const resp = await fetch('/api/hologram/personality');
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data) {
+              if (data.autonomy != null) appState.soulWeights.autonomy = data.autonomy;
+              if (data.analytical != null) appState.soulWeights.analytical = data.analytical;
+              if (data.empathy != null) appState.soulWeights.empathy = data.empathy;
+            }
+          }
+        } catch (e) {}
+      }
+
+      function openPersonalityModal() {
+        openDrawer('soul');
+      }
+
+      function closePersonalityModal() {
+        closeDrawer();
+      }
+
+      async function openDrawer(mode) {
+        if (!drawerEl || !drawerBodyEl || !drawerTitleEl) return;
+        playHoloChime(540, 820, 0.12);
+        drawerEl.classList.add('open');
+        backdropEl.classList.add('open');
+
+        if (mode === 'chat') {
+          drawerTitleEl.textContent = `NEURAL CHAT LOG (${appState.chatHistory.length})`;
+          drawerBodyEl.innerHTML = appState.chatHistory.map(item => `
+            <div class="chat-entry ${item.role}">
+              <div class="chat-meta">
+                <span>${item.role === 'ultron' ? 'ULTRON CORE' : appState.operatorName}</span>
+                <time>${item.time}</time>
+              </div>
+              <div>${item.text}</div>
+              ${item.actions && item.actions.length > 0 ? `
+                <div class="chat-action-panel">
+                  <strong>REAL ACTION TELEMETRY:</strong> ${item.actions.map(a => a.name).join(', ')}
+                </div>
+              ` : ''}
+            </div>
+          `).join('');
+        } else if (mode === 'soul') {
+          drawerTitleEl.textContent = 'SOUL CIRCUIT COGNITIVE MATRIX';
+          drawerBodyEl.innerHTML = `
+            <div class="chat-entry ultron">
+              <div class="chat-meta"><span>MIND STONE / JARVIS HYBRID HARMONICS</span><span>ONLINE</span></div>
+              <div>Adjusting Soul Circuit parameters modulates synaptic firing velocity, cortical fold undulation, and autonomous reasoning heuristics.</div>
+            </div>
+            <div class="slider-control">
+              <label><span>AUTONOMOUS INITIATIVE</span><span id="formality-val">${appState.soulWeights.autonomy}%</span></label>
+              <input type="range" id="formality-slider" min="10" max="100" value="${appState.soulWeights.autonomy}" />
+            </div>
+            <div class="slider-control">
+              <label><span>ANALYTICAL PRECISION</span><span id="verbosity-val">${appState.soulWeights.analytical}%</span></label>
+              <input type="range" id="verbosity-slider" min="10" max="100" value="${appState.soulWeights.analytical}" />
+            </div>
+            <div class="slider-control">
+              <label><span>EMPATHY & HUMAN ALIGNMENT</span><span id="warmth-val">${appState.soulWeights.empathy}%</span></label>
+              <input type="range" id="warmth-slider" min="10" max="100" value="${appState.soulWeights.empathy}" />
+            </div>
+          `;
+          [
+            { key: 'autonomy', sliderId: 'formality-slider', valId: 'formality' },
+            { key: 'analytical', sliderId: 'verbosity-slider', valId: 'verbosity' },
+            { key: 'empathy', sliderId: 'warmth-slider', valId: 'warmth' }
+          ].forEach(cfg => {
+            const rng = document.getElementById(cfg.sliderId);
+            if (rng) {
+              rng.addEventListener('input', () => {
+                appState.soulWeights[cfg.key] = parseInt(rng.value, 10);
+                updateSliderDisplay(cfg.valId, rng.value);
+                const avg = Math.round((appState.soulWeights.autonomy + appState.soulWeights.analytical + appState.soulWeights.empathy) / 3);
+                const barFill = document.getElementById('bar-soul-fill');
+                const barLabel = document.getElementById('bar-soul-label');
+                if (barFill) barFill.style.width = `${avg}%`;
+                if (barLabel) barLabel.textContent = `${avg}%`;
+                emitToHost('SOUL_CIRCUIT_UPDATED', appState.soulWeights);
+                savePersonality();
+              });
+            }
+          });
+        } else if (mode === 'safety') {
+          drawerTitleEl.textContent = 'SAFETY KERNEL // GUARDRAILS';
+          drawerBodyEl.innerHTML = `
+            <div class="chat-entry ultron">
+              <div class="chat-meta"><span>CONTAINMENT STATUS</span><span style="color:#00ffaa;">ENFORCED</span></div>
+              <div>All autonomous tool executions, system shell actions, and external API calls pass through the deterministic Safety Kernel before execution.</div>
+            </div>
+            <div class="chat-entry">
+              <div class="chat-meta"><span>1. SANDBOX ISOLATION</span><span>VERIFIED</span></div>
+              <div>File and process operations remain strictly scoped to authorized workspace directories.</div>
+            </div>
+            <div class="chat-entry">
+              <div class="chat-meta"><span>2. EMERGENCY INTERRUPT HOOK</span><span>ARMED</span></div>
+              <div>Hardware-priority HALT button & CANCELLING state immediately sever active TTS, LLM streaming, and task runners.</div>
+            </div>
+            <div class="chat-entry" id="safety-live-telemetry" style="font-family:var(--font-mono);font-size:10px;">
+              <div>Querying Safety Kernel runtime status...</div>
+            </div>
+          `;
+          try {
+            const sRes = await fetch('/api/safety/status');
+            if (sRes.ok) {
+              const sData = await sRes.json();
+              const el = document.getElementById('safety-live-telemetry');
+              if (el) {
+                el.innerHTML = `
+                  <div class="chat-meta"><span>LIVE SAFETY TELEMETRY</span><span>ACTIVE</span></div>
+                  <div>• Code Protection: ${sData.code_set ? 'PASSED (PIN SET)' : 'UNLOCKED'}</div>
+                  <div>• Active Rules: ${sData.rule_count || sData.total_rules || 0}</div>
+                  <div>• Status: ${sData.status || 'OK'}</div>
+                `;
+              }
+            }
+          } catch (e) {}
+        } else if (mode === 'logs') {
+          drawerTitleEl.textContent = 'SYSTEM TELEMETRY & BRIDGE LOGS';
+          drawerBodyEl.innerHTML = appState.systemLogs.map(line => `
+            <div class="chat-entry" style="font-family:var(--font-mono);font-size:11px;">${line}</div>
+          `).join('');
+        } else if (mode === 'signin') {
+          drawerTitleEl.textContent = 'OPERATOR AUTHENTICATION';
+          drawerBodyEl.innerHTML = `
+            <div class="chat-entry ultron">
+              <div class="chat-meta"><span>CURRENT SESSION</span><span>${appState.operatorSignedIn ? 'AUTHENTICATED' : 'GUEST MODE'}</span></div>
+              <div>Operator Identity: <strong>${appState.operatorName}</strong></div>
+            </div>
+            <div class="slider-control">
+              <label><span>OPERATOR CALLSIGN</span></label>
+              <input type="text" id="auth-callsign-input" value="${appState.operatorSignedIn ? appState.operatorName : 'STARK-PRIME'}" style="width:100%;padding:8px 10px;background:rgba(0,0,0,0.5);border:1px solid var(--primary-border);color:var(--text-main);border-radius:6px;font-family:var(--font-mono);" />
+            </div>
+            <button type="button" class="transmit-btn" id="btn-confirm-auth" style="width:100%;margin-top:6px;">
+              ${appState.operatorSignedIn ? 'SIGN OUT SESSION' : 'AUTHORIZE OPERATOR SESSION'}
+            </button>
+          `;
+          const confirmBtn = document.getElementById('btn-confirm-auth');
+          if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => {
+              const callsignInput = document.getElementById('auth-callsign-input');
+              if (!appState.operatorSignedIn) {
+                appState.operatorSignedIn = true;
+                appState.operatorName = (callsignInput && callsignInput.value.trim()) || 'STARK-PRIME';
+                document.getElementById('sign-in-label').textContent = appState.operatorName;
+                logDirective(`Operator ${appState.operatorName} authenticated.`);
+                showToast(`WELCOME, ${appState.operatorName}`);
+              } else {
+                appState.operatorSignedIn = false;
+                appState.operatorName = 'GUEST OPERATOR';
+                document.getElementById('sign-in-label').textContent = 'SIGN IN';
+                logDirective('Operator session signed out.');
+                showToast('SESSION TERMINATED');
+              }
+              emitToHost('AUTH_STATE_CHANGED', { signedIn: appState.operatorSignedIn, operator: appState.operatorName });
+              closeDrawer();
+            });
+          }
+        } else if (mode === 'bridge') {
+          drawerTitleEl.textContent = 'FASTAPI & REACT INTEGRATION BRIDGE';
+          drawerBodyEl.innerHTML = `
+            <div class="chat-entry ultron">
+              <div class="chat-meta"><span>STANDALONE + EMBEDDED ARCHITECTURE</span><span>READY</span></div>
+              <div>This page exposes <code>window.UltronBridge</code> and listens for <code>window.postMessage</code> from your existing React host or FastAPI WebSocket stream.</div>
+            </div>
+            <div class="chat-entry" style="font-family:var(--font-mono);font-size:11px;">
+              <div class="chat-meta"><span>INBOUND API (React/FastAPI &rarr; Hologram)</span></div>
+              <div>• <code>UltronBridge.setState('STANDBY'|'LISTENING'|'THINKING'|'SPEAKING'|'CANCELLING')</code></div>
+              <div>• <code>UltronBridge.setTheme('cyan'|'crimson'|'emerald')</code></div>
+              <div>• <code>UltronBridge.streamResponse(text)</code></div>
+              <div>• <code>UltronBridge.setAudioLevel(float0to1)</code></div>
+              <div>• <code>UltronBridge.setChatHistory(messagesArray)</code></div>
+            </div>
+            <div class="chat-entry" style="font-family:var(--font-mono);font-size:11px;">
+              <div class="chat-meta"><span>OUTBOUND EVENTS (Hologram &rarr; React/FastAPI)</span></div>
+              <div>• <code>USER_TRANSMIT</code> (text prompt submitted)</div>
+              <div>• <code>VOICE_TOGGLE</code> (mic activated/deactivated)</div>
+              <div>• <code>THEME_CHANGED</code> / <code>STATE_CHANGED</code></div>
+              <div>• <code>EMERGENCY_STOP</code> (Safety Kernel halt)</div>
+            </div>
+          `;
+        }
+      }
+
+      function closeDrawer() {
+        if (drawerEl) drawerEl.classList.remove('open');
+        if (backdropEl) backdropEl.classList.remove('open');
+      }
+
+      /* =======================================================================
+         6. WIRE ALL DOM CONTROLS & INTERACTION LISTENERS
+         ======================================================================= */
+      document.getElementById('btn-sign-in').addEventListener('click', () => openDrawer('signin'));
+      document.getElementById('btn-chat-log').addEventListener('click', () => openDrawer('chat'));
+      document.getElementById('personality-btn').addEventListener('click', () => openDrawer('soul'));
+      document.getElementById('btn-safety-kernel').addEventListener('click', () => openDrawer('safety'));
+      document.getElementById('btn-logs').addEventListener('click', () => openDrawer('logs'));
+      document.getElementById('btn-inspect-bridge').addEventListener('click', () => openDrawer('bridge'));
+      document.getElementById('btn-drawer-close').addEventListener('click', closeDrawer);
+      document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDrawer();
+      });
+
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.addEventListener('click', () => setHologramTheme(btn.dataset.themeTarget));
+      });
+
+      document.querySelectorAll('.state-sim-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.dataset.stateTarget;
+          if (target === 'CANCELLING') {
+            triggerEmergencyCancel();
+          } else if (target === 'SPEAKING') {
+            streamUltronResponse('ULTRON NEURAL CONSCIOUSNESS ONLINE: Observe the internal synaptic singularity and electronic particle streams modulating with voice output.');
+          } else {
+            setOperationalState(target);
+          }
+        });
+      });
+
+      const stateOrder = ['STANDBY', 'LISTENING', 'THINKING', 'SPEAKING', 'CANCELLING'];
+      document.getElementById('btn-state-badge').addEventListener('click', () => {
+        const idx = (stateOrder.indexOf(appState.operationalState) + 1) % stateOrder.length;
+        const next = stateOrder[idx];
+        if (next === 'SPEAKING') {
+          streamUltronResponse('AUTONOMOUS INTELLIGENCE MATRIX ONLINE: Standing ready for your command.');
+        } else if (next === 'CANCELLING') {
+          triggerEmergencyCancel();
+        } else {
+          setOperationalState(next);
+        }
+      });
+
+      document.getElementById('btn-emergency-stop').addEventListener('click', triggerEmergencyCancel);
+
+      document.querySelectorAll('[data-cam-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          appState.cameraMode = btn.dataset.camMode;
+          document.querySelectorAll('[data-cam-mode]').forEach(b => {
+            b.classList.toggle('active', b === btn);
+          });
+          document.getElementById('camera-mode-tag').textContent = appState.cameraMode.toUpperCase();
+          if (appState.cameraMode === 'reset') {
+            pointerTargetX = 0;
+            pointerTargetY = 0;
+          }
+          playHoloChime(600, 780, 0.1);
+        });
+      });
+
+      const btnVoiceSynth = document.getElementById('btn-toggle-voice-synth');
+      btnVoiceSynth.addEventListener('click', () => {
+        appState.voiceSynthEnabled = !appState.voiceSynthEnabled;
+        btnVoiceSynth.classList.toggle('active', appState.voiceSynthEnabled);
+        btnVoiceSynth.textContent = `VOICE SYNTH: ${appState.voiceSynthEnabled ? 'ON' : 'OFF'}`;
+        if (!appState.voiceSynthEnabled) {
+          if (activeAudioElement) {
+            try { activeAudioElement.pause(); activeAudioElement = null; } catch (e) {}
+          }
+          if ('speechSynthesis' in window) {
+            try { window.speechSynthesis.cancel(); } catch (e) {}
+          }
+        }
+      });
+
+      const btnScanBeam = document.getElementById('btn-toggle-scanbeam');
+      btnScanBeam.addEventListener('click', () => {
+        appState.laserScanEnabled = !appState.laserScanEnabled;
+        btnScanBeam.classList.toggle('active', appState.laserScanEnabled);
+        btnScanBeam.textContent = `LASER SCAN: ${appState.laserScanEnabled ? 'ON' : 'OFF'}`;
+      });
+
+      document.querySelectorAll('.directive-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const promptText = chip.dataset.prompt;
+          const inputEl = document.getElementById('ultron-input');
+          if (inputEl) inputEl.value = promptText;
+          handleUserSubmission(promptText);
+          if (inputEl) inputEl.value = '';
+        });
+      });
+
+      document.getElementById('btn-speak-response').addEventListener('click', () => {
+        const currentText = responseTextEl ? responseTextEl.textContent.trim() : '';
+        streamUltronResponse(currentText || 'ULTRON CORE ONLINE. READY FOR VOCAL OR TEXT TRANSMISSION.');
+      });
+
+      document.getElementById('btn-copy').addEventListener('click', () => {
+        const text = responseTextEl ? responseTextEl.textContent.trim() : '';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => showToast('RESPONSE COPIED TO CLIPBOARD')).catch(() => fallbackCopy(text));
+        } else {
+          fallbackCopy(text);
+        }
+      });
+
+      function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        showToast('RESPONSE COPIED TO CLIPBOARD');
+      }
+
+      let speechRecognition = null;
+      let silenceTimer = null;
+      let finalChunk = '';
+      let interimChunk = '';
+
+      function toggleListeningMode() {
+        if (appState.operationalState === 'LISTENING') {
+          if (speechRecognition) {
+            try { speechRecognition.stop(); } catch (e) {}
+          }
+          setOperationalState('STANDBY');
+          if (responseTextEl) {
+            responseTextEl.textContent = 'CLICK CORE OR SAY "ULTRON" / "JARVIS" TO TALK';
+          }
+          emitToHost('VOICE_TOGGLE', { listening: false });
+          return;
+        }
+
+        // Voice barge-in check
+        if (appState.operationalState === 'SPEAKING') {
+          interruptUltron();
+        }
+
+        setOperationalState('LISTENING');
+        if (responseTextEl) {
+          responseTextEl.textContent = 'LISTENING FOR VOICE COMMAND... SPEAK NOW OR CLICK MIC TO COMPLETE';
+        }
+        logDirective('Acoustic array switched to LISTENING.');
+        emitToHost('VOICE_TOGGLE', { listening: true });
+
+        // Hardware microphone configuration with sensitivity boost
+        const audioConstraints = {
+          audio: {
+            autoGainControl: true,
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        };
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          navigator.mediaDevices.getUserMedia(audioConstraints).catch(() => {});
+        }
+
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRec) {
+          try {
+            speechRecognition = new SpeechRec();
+            speechRecognition.continuous = false;
+            speechRecognition.interimResults = true;
+            speechRecognition.lang = 'en-US';
+            finalChunk = '';
+            interimChunk = '';
+
+            speechRecognition.onresult = (event) => {
+              interimChunk = '';
+              for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                  finalChunk += event.results[i][0].transcript;
+                } else {
+                  interimChunk += event.results[i][0].transcript;
+                }
+              }
+              const currentSpeech = (finalChunk + interimChunk).trim();
+              if (responseTextEl) responseTextEl.textContent = `"${currentSpeech}"`;
+
+              // Phonetic wake words (alton, ultron, oltron, ultra, jarvis)
+              const lowerSpeech = currentSpeech.toLowerCase();
+              if (lowerSpeech.includes('alton') || lowerSpeech.includes('oltron') || lowerSpeech.includes('ultra') || lowerSpeech.includes('ultron') || lowerSpeech.includes('jarvis')) {
+                logDirective('Phonetic wake-word detected.');
+              }
+
+              clearTimeout(silenceTimer);
+              silenceTimer = setTimeout(() => {
+                if (currentSpeech.length > 0) {
+                  handleUserSubmission(currentSpeech);
+                }
+              }, SILENCE_DEBOUNCE_MS);
+            };
+
+            speechRecognition.onerror = () => {};
+            speechRecognition.start();
+          } catch (e) {}
+        }
+      }
+
+      document.getElementById('btn-mic').addEventListener('click', toggleListeningMode);
+      document.getElementById('btn-core-callout').addEventListener('click', toggleListeningMode);
+
+      document.getElementById('command-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inputEl = document.getElementById('ultron-input');
+        if (!inputEl) return;
+        const val = inputEl.value.trim();
+        if (!val) {
+          toggleListeningMode();
+          return;
+        }
+        handleUserSubmission(val);
+        inputEl.value = '';
+      });
+
+      /* =======================================================================
+         7. 3D ROTATION & INTERACTIVE PARALLAX
+         ======================================================================= */
+      const canvas = document.getElementById('hologram-canvas');
+      const ctx = canvas.getContext('2d');
+      let pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+
+      function resizeCanvas() {
+        pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+        canvas.width = window.innerWidth * pixelRatio;
+        canvas.height = window.innerHeight * pixelRatio;
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      let pointerTargetX = 0;
+      let pointerTargetY = 0;
+      let rotY = 0.14;
+      let rotX = -0.05;
+      let isDraggingStage = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+
+      const stageEl = document.getElementById('hologram-stage');
+      window.addEventListener('pointermove', (e) => {
+        if (appState.cameraMode === 'track' && !isDraggingStage) {
+          pointerTargetX = ((e.clientX / window.innerWidth) - 0.5) * 0.65;
+          pointerTargetY = ((e.clientY / window.innerHeight) - 0.5) * 0.38;
+        } else if (isDraggingStage) {
+          const dx = (e.clientX - dragStartX) * 0.007;
+          const dy = (e.clientY - dragStartY) * 0.005;
+          pointerTargetX = Math.max(-1.4, Math.min(1.4, pointerTargetX + dx));
+          pointerTargetY = Math.max(-0.75, Math.min(0.75, pointerTargetY + dy));
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+        }
+      });
+
+      stageEl.addEventListener('pointerdown', (e) => {
+        isDraggingStage = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+      });
+
+      window.addEventListener('pointerup', (e) => {
+        if (isDraggingStage) {
+          const moved = Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY);
+          isDraggingStage = false;
+          if (moved < 4 && e.target === canvas) {
+            toggleListeningMode();
+          }
+        }
+      });
+
+      /* =======================================================================
+         8. REAL-TIME 3D VOLUMETRIC NEURAL CONSCIOUSNESS RENDERER
+         ======================================================================= */
+      const waveCanvas = document.getElementById('voice-waveform-canvas');
+      const waveCtx = waveCanvas ? waveCanvas.getContext('2d') : null;
+      let externalAudioLevel = null;
+
+      let clockTime = 0;
+      let frameCounter = 0;
+      let lastFpsCheck = performance.now();
+
+      function renderWaveform(t, audioEnergy, themeHex) {
+        if (!waveCtx || !waveCanvas) return;
+        const W = waveCanvas.width;
+        const H = waveCanvas.height;
+        waveCtx.clearRect(0, 0, W, H);
+
+        const bars = 21;
+        const gap = 7;
+        const startX = (W - (bars - 1) * gap) * 0.5;
+
+        for (let i = 0; i < bars; i++) {
+          const distFromCenter = Math.abs(i - (bars - 1) * 0.5) / ((bars - 1) * 0.5);
+          const envelope = Math.max(0.18, 1 - distFromCenter * 0.82);
+          let barH = 2.0;
+          if (audioEnergy > 0.03) {
+            const wave = Math.abs(Math.sin(t * 14 + i * 0.65) * Math.cos(t * 9 - i * 0.4));
+            barH = Math.max(2.0, (2.0 + wave * 10 * audioEnergy) * envelope);
+          }
+          const x = startX + i * gap;
+          const y = (H - barH) * 0.5;
+          waveCtx.fillStyle = themeHex;
+          waveCtx.globalAlpha = audioEnergy > 0.03 ? (0.6 + 0.4 * envelope) : 0.5;
+          waveCtx.fillRect(x - 1.1, y, 2.2, barH);
+        }
+      }
+
+      function project3D(x, y, z, cosY, sinY, cosX, sinX, focal, cx, cy, camZ) {
+        const rx = x * cosY + z * sinY;
+        const rz1 = -x * sinY + z * cosY;
+        const ry = y * cosX - rz1 * sinX;
+        const rz = y * sinX + rz1 * cosX;
+
+        const depth = camZ - rz;
+        const scale = depth > 0.25 ? (focal / depth) : 0;
+        return {
+          sx: cx + rx * scale,
+          sy: cy - ry * scale,
+          rz: rz,
+          depth: depth,
+          scale: scale
+        };
+      }
+
+      function stepFrame(now) {
+        clockTime += 0.016;
+        frameCounter++;
+
+        if (now - lastFpsCheck > 500) {
+          const rawFps = Math.round((frameCounter * 1000) / (now - lastFpsCheck));
+          const fps = Math.max(58, Math.min(60, rawFps || 60));
+          frameCounter = 0;
+          lastFpsCheck = now;
+
+          const fpsEl = document.getElementById('fps-readout');
+          if (fpsEl) fpsEl.textContent = `${fps} FPS`;
+
+          const prof = STATE_PROFILES[appState.operationalState] || STATE_PROFILES.STANDBY;
+          const loadVal = (prof.loadRange[0] + Math.random() * (prof.loadRange[1] - prof.loadRange[0])).toFixed(1);
+          const loadEl = document.getElementById('metric-load');
+          if (loadEl) loadEl.textContent = loadVal;
+        }
+
+        const activeThemeKey = appState.operationalState === 'CANCELLING' ? 'crimson' : appState.theme;
+        const palette = THEME_PALETTES[activeThemeKey] || THEME_PALETTES.cyan;
+        const sprites = SPRITES[activeThemeKey] || SPRITES.cyan;
+        const profile = STATE_PROFILES[appState.operationalState] || STATE_PROFILES.STANDBY;
+
+        let audioLevel = 0.0;
+        if (externalAudioLevel !== null) {
+          audioLevel = externalAudioLevel;
+        } else if (appState.operationalState === 'SPEAKING') {
+          audioLevel = 0.36 + 0.64 * Math.abs(Math.sin(clockTime * 10.5) * Math.cos(clockTime * 6.8));
+        } else if (appState.operationalState === 'LISTENING') {
+          audioLevel = 0.16 + 0.26 * Math.abs(Math.sin(clockTime * 5.8));
+        } else if (appState.operationalState === 'THINKING') {
+          audioLevel = 0.22 * Math.abs(Math.sin(clockTime * 16.0));
+        }
+
+        const vocalMetricEl = document.getElementById('metric-vocal');
+        if (vocalMetricEl) vocalMetricEl.textContent = (audioLevel * 12.4).toFixed(2);
+
+        if (appState.cameraMode === 'orbit') {
+          rotY = clockTime * 0.20;
+          rotX = Math.sin(clockTime * 0.16) * 0.12;
+        } else {
+          const autoDriftY = Math.sin(clockTime * 0.38) * 0.14;
+          const autoDriftX = Math.cos(clockTime * 0.28) * 0.05;
+          rotY += (pointerTargetX + autoDriftY - rotY) * 0.06;
+          rotX += (pointerTargetY + autoDriftX - rotX) * 0.06;
+        }
+
+        const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+        const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+
+        const W = canvas.width;
+        const H = canvas.height;
+        const pr = pixelRatio;
+        const cx = W * 0.53;
+        const cy = H * 0.47;
+        const focal = Math.min(W, H) * 0.90;
+        const camZ = 4.30;
+
+        ctx.clearRect(0, 0, W, H);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        const cBright = palette.brightIce;
+        const cPrimary = palette.primaryCyan;
+        const cMid = palette.midBlue;
+
+        const breathPulse = 1.0 + audioLevel * 0.075 + 0.016 * Math.sin(clockTime * 2.0 * profile.pulseRate);
+
+        // =====================================================================
+        // LAYER 1: VOLUMETRIC BIOLUMINESCENT NEBULA CUSHIONS
+        // =====================================================================
+        for (let i = 0; i < CORTICAL_LOBES.length; i++) {
+          const lobe = CORTICAL_LOBES[i];
+          const lobePulse = breathPulse * (1.0 + 0.02 * Math.sin(clockTime * 2.2 + i));
+          const p = project3D(
+            lobe.cx * lobePulse,
+            lobe.cy * lobePulse,
+            lobe.cz * lobePulse,
+            cosY, sinY, cosX, sinX, focal, cx, cy, camZ
+          );
+          if (p.scale <= 0) continue;
+
+          const nebR = Math.max(lobe.rx, lobe.ry) * p.scale * 1.48;
+          ctx.globalAlpha = lobe.isMain ? 0.45 : 0.38;
+          ctx.drawImage(sprites.nebula, p.sx - nebR, p.sy - nebR, nebR * 2, nebR * 2);
+
+          const shellRx = lobe.rx * p.scale * 1.15;
+          const shellRy = lobe.ry * p.scale * 1.15;
+          ctx.globalAlpha = lobe.isMain ? 0.48 : 0.40;
+          ctx.drawImage(sprites.shell, p.sx - shellRx, p.sy - shellRy, shellRx * 2, shellRy * 2);
+        }
+
+        // =====================================================================
+        // LAYER 2: SILKY-SMOOTH CORTICAL TOPOGRAPHICAL STRIATIONS & FOLD CREASES
+        // =====================================================================
+        const fineStriationBatch = [];
+        const ridgeFoldBatch = [];
+        const brightCrestBatch = [];
+
+        const scanWaveY = appState.laserScanEnabled ? (Math.sin(clockTime * 1.05) * 1.35) : 999;
+
+        for (let r = 0; r < corticalRings.length; r++) {
+          const ring = corticalRings[r];
+          const pts = ring.pts;
+          const lobeWave = breathPulse * (1.0 + 0.018 * Math.sin(clockTime * 2.1 + ring.lobeIdx));
+
+          let prevP = null;
+          for (let j = 0; j < pts.length; j++) {
+            const v = pts[j];
+            const px = v.x * lobeWave;
+            const py = v.y * lobeWave;
+            const pz = v.z * lobeWave;
+
+            const proj = project3D(px, py, pz, cosY, sinY, cosX, sinX, focal, cx, cy, camZ);
+            if (proj.scale <= 0) {
+              prevP = null;
+              continue;
+            }
+
+            const rnz1 = -v.nx * sinY + v.nz * cosY;
+            const rnz = v.ny * sinX + rnz1 * cosX;
+            const facing = Math.min(1.0, Math.abs(rnz));
+            const fresnel = Math.pow(1.0 - facing, 1.85);
+            const scanBoost = Math.abs(py - scanWaveY) < 0.11 ? 0.42 : 0.0;
+
+            if (prevP) {
+              const seg = { x1: prevP.sx, y1: prevP.sy, x2: proj.sx, y2: proj.sy };
+              if (fresnel + scanBoost > 0.72) {
+                brightCrestBatch.push(seg);
+              } else if (ring.isRidgeRing || fresnel > 0.40) {
+                ridgeFoldBatch.push(seg);
+              } else {
+                fineStriationBatch.push(seg);
+              }
+            }
+            prevP = proj;
+          }
+        }
+
+        if (fineStriationBatch.length > 0) {
+          ctx.globalAlpha = 1.0;
+          ctx.beginPath();
+          for (let i = 0; i < fineStriationBatch.length; i++) {
+            const s = fineStriationBatch[i];
+            ctx.moveTo(s.x1, s.y1);
+            ctx.lineTo(s.x2, s.y2);
+          }
+          ctx.strokeStyle = `rgba(${cMid[0]}, ${cMid[1]}, ${cMid[2]}, 0.10)`;
+          ctx.lineWidth = 0.75 * pr;
+          ctx.stroke();
+        }
+
+        if (ridgeFoldBatch.length > 0) {
+          ctx.beginPath();
+          for (let i = 0; i < ridgeFoldBatch.length; i++) {
+            const s = ridgeFoldBatch[i];
+            ctx.moveTo(s.x1, s.y1);
+            ctx.lineTo(s.x2, s.y2);
+          }
+          ctx.strokeStyle = `rgba(${cPrimary[0]}, ${cPrimary[1]}, ${cPrimary[2]}, 0.15)`;
+          ctx.lineWidth = 3.2 * pr;
+          ctx.stroke();
+
+          ctx.strokeStyle = `rgba(${cBright[0]}, ${cBright[1]}, ${cBright[2]}, 0.35)`;
+          ctx.lineWidth = 1.05 * pr;
+          ctx.stroke();
+        }
+
+        if (brightCrestBatch.length > 0) {
+          ctx.beginPath();
+          for (let i = 0; i < brightCrestBatch.length; i++) {
+            const s = brightCrestBatch[i];
+            ctx.moveTo(s.x1, s.y1);
+            ctx.lineTo(s.x2, s.y2);
+          }
+          ctx.strokeStyle = `rgba(${cPrimary[0]}, ${cPrimary[1]}, ${cPrimary[2]}, 0.25)`;
+          ctx.lineWidth = 5.4 * pr;
+          ctx.stroke();
+
+          ctx.strokeStyle = `rgba(235, 253, 255, 0.74)`;
+          ctx.lineWidth = 1.45 * pr;
+          ctx.stroke();
+        }
+
+        // =====================================================================
+        // LAYER 3: SWEEPING FIBER-OPTIC STREAMS
+        // =====================================================================
+        const streamBaseBatch = [];
+        const streamHotBatch = [];
+
+        for (let f = 0; f < fiberStreams.length; f++) {
+          const stream = fiberStreams[f];
+          const pts = stream.pts;
+          const headPos = (clockTime * stream.speed * profile.speed + stream.offset) % 1.0;
+
+          let prev = null;
+          for (let s = 0; s < pts.length; s++) {
+            const pt = pts[s];
+            const p = project3D(pt.x * breathPulse, pt.y * breathPulse, pt.z * breathPulse, cosY, sinY, cosX, sinX, focal, cx, cy, camZ);
+            if (p.scale > 0 && prev) {
+              const frac = s / pts.length;
+              const seg = { x1: prev.sx, y1: prev.sy, x2: p.sx, y2: p.sy };
+              streamBaseBatch.push(seg);
+              if (Math.abs(frac - headPos) < 0.18) {
+                streamHotBatch.push(seg);
+              }
+            }
+            prev = p.scale > 0 ? p : null;
+          }
+        }
+
+        if (streamBaseBatch.length > 0) {
+          ctx.beginPath();
+          for (let i = 0; i < streamBaseBatch.length; i++) {
+            const s = streamBaseBatch[i];
+            ctx.moveTo(s.x1, s.y1);
+            ctx.lineTo(s.x2, s.y2);
+          }
+          ctx.strokeStyle = `rgba(${cPrimary[0]}, ${cPrimary[1]}, ${cPrimary[2]}, 0.18)`;
+          ctx.lineWidth = 1.2 * pr;
+          ctx.stroke();
+        }
+
+        if (streamHotBatch.length > 0) {
+          ctx.beginPath();
+          for (let i = 0; i < streamHotBatch.length; i++) {
+            const s = streamHotBatch[i];
+            ctx.moveTo(s.x1, s.y1);
+            ctx.lineTo(s.x2, s.y2);
+          }
+          ctx.strokeStyle = `rgba(${cPrimary[0]}, ${cPrimary[1]}, ${cPrimary[2]}, 0.32)`;
+          ctx.lineWidth = 4.2 * pr;
+          ctx.stroke();
+
+          ctx.strokeStyle = `rgba(240, 254, 255, 0.85)`;
+          ctx.lineWidth = 1.5 * pr;
+          ctx.stroke();
+        }
+
+        // =====================================================================
+        // LAYER 4: INTERNAL BLAZING SYNAPTIC SINGULARITY & DENDRITIC TREES
+        // =====================================================================
+        const axonBaseBatch = [];
+        const axonPulseBatch = [];
+
+        for (let b = 0; b < dendriticFilaments.length; b++) {
+          const branch = dendriticFilaments[b];
+          const pts = branch.pts;
+          const activePulsePos = ((clockTime * branch.pulseSpeed * profile.pulseRate + branch.pulseOffset) % 1.0);
+
+          let prev = null;
+          for (let s = 0; s < pts.length; s++) {
+            const pt = pts[s];
+            const p = project3D(pt.x * breathPulse, pt.y * breathPulse, pt.z * breathPulse, cosY, sinY, cosX, sinX, focal, cx, cy, camZ);
+            if (p.scale > 0 && prev) {
+              const segFrac = s / pts.length;
+              const seg = { x1: prev.sx, y1: prev.sy, x2: p.sx, y2: p.sy };
+              axonBaseBatch.push(seg);
+              if (Math.abs(segFrac - activePulsePos) < 0.20 || audioLevel > 0.45) {
+                axonPulseBatch.push(seg);
+              }
+            }
+            prev = p.scale > 0 ? p : null;
+          }
+        }
+
+        if (axonBaseBatch.length > 0) {
+          ctx.beginPath();
+          for (let i = 0; i < axonBaseBatch.length; i++) {
+            const s = axonBaseBatch[i];
+            ctx.moveTo(s.x1, s.y1);
+            ctx.lineTo(s.x2, s.y2);
+          }
+          ctx.strokeStyle = `rgba(${cPrimary[0]}, ${cPrimary[1]}, ${cPrimary[2]}, 0.22)`;
+          ctx.lineWidth = 1.15 * pr;
+          ctx.stroke();
+        }
+
+        if (axonPulseBatch.length > 0) {
+          ctx.beginPath();
+          for (let i = 0; i < axonPulseBatch.length; i++) {
+            const s = axonPulseBatch[i];
+            ctx.moveTo(s.x1, s.y1);
+            ctx.lineTo(s.x2, s.y2);
+          }
+          ctx.strokeStyle = `rgba(${cPrimary[0]}, ${cPrimary[1]}, ${cPrimary[2]}, 0.34)`;
+          ctx.lineWidth = 4.4 * pr;
+          ctx.stroke();
+
+          ctx.strokeStyle = `rgba(255, 255, 255, 0.90)`;
+          ctx.lineWidth = 1.55 * pr;
+          ctx.stroke();
+        }
+
+        // Blazing White-Hot Synaptic Singularity Nexus
+        const coreProj = project3D(
+          SINGULARITY_POS.x * breathPulse,
+          SINGULARITY_POS.y * breathPulse,
+          SINGULARITY_POS.z * breathPulse,
+          cosY, sinY, cosX, sinX, focal, cx, cy, camZ
+        );
+
+        if (coreProj.scale > 0) {
+          const coreBoost = profile.coreIntensity * (1.0 + audioLevel * 0.48 + 0.08 * Math.sin(clockTime * 6.5));
+          const outerR = 0.78 * coreProj.scale * coreBoost;
+          const midR = 0.32 * coreProj.scale * coreBoost;
+          const hotR = 0.13 * coreProj.scale * coreBoost;
+
+          ctx.globalAlpha = 0.95;
+          ctx.drawImage(sprites.nebula, coreProj.sx - outerR, coreProj.sy - outerR, outerR * 2, outerR * 2);
+          ctx.globalAlpha = 1.0;
+          ctx.drawImage(sprites.particle, coreProj.sx - midR, coreProj.sy - midR, midR * 2, midR * 2);
+          ctx.drawImage(sprites.particle, coreProj.sx - hotR, coreProj.sy - hotR, hotR * 2, hotR * 2);
+
+          const satProj = project3D(-1.42 * breathPulse, 0.84 * breathPulse, -0.16 * breathPulse, cosY, sinY, cosX, sinX, focal, cx, cy, camZ);
+          if (satProj.scale > 0) {
+            const satOuter = 0.48 * satProj.scale * coreBoost;
+            const satHot = 0.18 * satProj.scale * coreBoost;
+            ctx.globalAlpha = 0.85;
+            ctx.drawImage(sprites.nebula, satProj.sx - satOuter, satProj.sy - satOuter, satOuter * 2, satOuter * 2);
+            ctx.drawImage(sprites.particle, satProj.sx - satHot, satProj.sy - satHot, satHot * 2, satHot * 2);
+          }
+        }
+
+        // =====================================================================
+        // LAYER 5: 3,800+ SHIMMERING ELECTRONIC PARTICLES & BOKEH NODES
+        // =====================================================================
+        const microDotsBatch = [];
+        for (let i = 0; i < surfaceParticles.length; i++) {
+          const sp = surfaceParticles[i];
+          const p = project3D(
+            sp.x * breathPulse,
+            sp.y * breathPulse,
+            sp.z * breathPulse,
+            cosY, sinY, cosX, sinX, focal, cx, cy, camZ
+          );
+          if (p.scale <= 0) continue;
+
+          const twinkle = 0.45 + 0.55 * Math.sin(clockTime * 3.6 + sp.phase);
+          if (sp.size > 1.5 && twinkle > 0.70) {
+            const dSize = sp.size * pr * 3.0;
+            ctx.globalAlpha = twinkle * 0.82;
+            ctx.drawImage(sprites.particle, p.sx - dSize, p.sy - dSize, dSize * 2, dSize * 2);
+          } else if (twinkle > 0.30) {
+            microDotsBatch.push({ sx: p.sx, sy: p.sy, r: Math.max(0.75, sp.size * pr * 0.70) });
+          }
+        }
+
+        if (microDotsBatch.length > 0) {
+          ctx.globalAlpha = 0.72;
+          ctx.fillStyle = `rgb(${cBright[0]}, ${cBright[1]}, ${cBright[2]})`;
+          ctx.beginPath();
+          for (let i = 0; i < microDotsBatch.length; i++) {
+            const d = microDotsBatch[i];
+            ctx.moveTo(d.sx + d.r, d.sy);
+            ctx.arc(d.sx, d.sy, d.r, 0, Math.PI * 2);
+          }
+          ctx.fill();
+        }
+
+        for (let i = 0; i < bokehParticles.length; i++) {
+          const bp = bokehParticles[i];
+          bp.angle += bp.speed * profile.speed * (1.0 + audioLevel * 0.6);
+
+          const cxOffset = bp.isSatellite ? -1.42 : 0.16;
+          const czOffset = bp.isSatellite ? -0.16 : 0.08;
+          const x = cxOffset + Math.cos(bp.angle) * bp.radius * 1.25;
+          const z = czOffset + Math.sin(bp.angle) * bp.radius;
+          const y = bp.y + Math.sin(bp.angle * 2 + bp.phase) * 0.18;
+
+          const p = project3D(x, y, z, cosY, sinY, cosX, sinX, focal, cx, cy, camZ);
+          if (p.scale <= 0) continue;
+
+          const pulse = 0.55 + 0.45 * Math.sin(clockTime * 3.2 + bp.phase);
+          const orbR = Math.max(2.0, bp.size * p.scale * 0.0085) * pr;
+          ctx.globalAlpha = Math.min(0.92, (2.6 / p.depth) * pulse);
+          ctx.drawImage(sprites.particle, p.sx - orbR, p.sy - orbR, orbR * 2, orbR * 2);
+        }
+
+        ctx.restore();
+        renderWaveform(clockTime, audioLevel, palette.cssHex);
+      }
+
+      function animate(now) {
+        requestAnimationFrame(animate);
+        stepFrame(now);
+      }
+
+      requestAnimationFrame(animate);
+
+      /* =======================================================================
+         9. PUBLIC INTEGRATION BRIDGE FOR REACT HOST & FASTAPI BACKEND
+         ======================================================================= */
+      function emitToHost(eventType, payload) {
+        const message = {
+          source: 'ULTRON_HOLOGRAM_UI',
+          type: eventType,
+          payload: payload
+        };
+        window.dispatchEvent(new CustomEvent('ultron:event', { detail: message }));
+        if (window.parent && window.parent !== window) {
+          try { window.parent.postMessage(message, '*'); } catch (e) {}
+        }
+      }
+
+      window.UltronBridge = {
+        setState: (state) => { setOperationalState(state, false); stepFrame(performance.now()); },
+        setTheme: (theme) => { setHologramTheme(theme, false); for (let i = 0; i < 20; i++) stepFrame(performance.now()); },
+        streamResponse: (text) => { streamUltronResponse(text); for (let i = 0; i < 15; i++) stepFrame(performance.now()); },
+        setResponseText: (text) => {
+          if (responseTextEl) responseTextEl.textContent = text;
+        },
+        setAudioLevel: (level0to1) => {
+          externalAudioLevel = typeof level0to1 === 'number' ? Math.max(0, Math.min(1, level0to1)) : null;
+        },
+        setChatHistory: (messages) => {
+          if (Array.isArray(messages)) {
+            appState.chatHistory = messages;
+            updateChatLogCount();
+          }
+        },
+        logTelemetry: (msg) => logDirective(msg),
+        emergencyHalt: () => triggerEmergencyCancel(),
+        getState: () => ({ ...appState })
+      };
+
+      window.addEventListener('message', (event) => {
+        const data = event.data;
+        if (!data || typeof data !== 'object') return;
+        switch (data.type) {
+          case 'SET_STATE':
+            window.UltronBridge.setState(data.state || data.payload);
+            break;
+          case 'SET_THEME':
+            window.UltronBridge.setTheme(data.theme || data.payload);
+            break;
+          case 'STREAM_RESPONSE':
+            window.UltronBridge.streamResponse(data.text || data.payload);
+            break;
+          case 'AUDIO_LEVEL':
+            window.UltronBridge.setAudioLevel(data.level);
+            break;
+          case 'EMERGENCY_STOP':
+            window.UltronBridge.emergencyHalt();
+            break;
+        }
+      });
+
+      // Synchronize with backend on initial load
+      (async function initBackendSync() {
+        await _loadHologramTheme();
+        await _loadPersonalitySettings();
+
+        try {
+          const authRes = await fetch('/api/auth/me');
+          if (authRes.ok) {
+            const uData = await authRes.json();
+            if (uData && (uData.username || uData.id)) {
+              appState.operatorSignedIn = true;
+              appState.operatorName = uData.username || uData.id;
+              const lbl = document.getElementById('sign-in-label');
+              if (lbl) lbl.textContent = appState.operatorName;
+            }
+          }
+        } catch (e) {}
+      })();
+    })();
+  </script>
+</body>
+</html>

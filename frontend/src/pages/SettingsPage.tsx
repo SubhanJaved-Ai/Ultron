@@ -1082,7 +1082,14 @@ export function SettingsPage() {
 
           {/* Connection */}
           <Section title="Connection">
-            <SettingRow label="Server status" description={serverInfo ? `${serverInfo.engine} / ${serverInfo.model}` : 'Not connected'}>
+            <SettingRow
+              label="Server status"
+              description={
+                serverInfo
+                  ? `${typeof serverInfo.engine === 'string' ? serverInfo.engine : 'local'} / ${typeof serverInfo.model === 'string' ? serverInfo.model : 'default'}`
+                  : 'Not connected'
+              }
+            >
               <div className="flex items-center gap-2">
                 <span
                   className="w-2 h-2 rounded-full"

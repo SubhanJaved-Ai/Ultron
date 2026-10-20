@@ -337,15 +337,21 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
           </div>
           <div style={styles.row}>
             <span style={styles.label}>Engine</span>
-            <span style={styles.value}>{serverInfo?.engine || 'N/A'}</span>
+            <span style={styles.value}>
+              {typeof serverInfo?.engine === 'string' && serverInfo.engine ? serverInfo.engine : 'N/A'}
+            </span>
           </div>
           <div style={styles.row}>
             <span style={styles.label}>Model</span>
-            <span style={styles.value}>{serverInfo?.model || 'N/A'}</span>
+            <span style={styles.value}>
+              {typeof serverInfo?.model === 'string' && serverInfo.model ? serverInfo.model : 'N/A'}
+            </span>
           </div>
           <div style={styles.row}>
             <span style={styles.label}>Agent</span>
-            <span style={styles.value}>{serverInfo?.agent || 'N/A'}</span>
+            <span style={styles.value}>
+              {typeof serverInfo?.agent === 'string' && serverInfo.agent ? serverInfo.agent : 'N/A'}
+            </span>
           </div>
         </div>
 
@@ -354,7 +360,9 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
           <div style={styles.cardTitle}>System Info</div>
           <div style={styles.row}>
             <span style={styles.label}>Version</span>
-            <span style={styles.value}>{serverInfo?.version || '0.1.0'}</span>
+            <span style={styles.value}>
+              {typeof serverInfo?.version === 'string' && serverInfo.version ? serverInfo.version : '0.1.0'}
+            </span>
           </div>
           <div style={styles.row}>
             <span style={styles.label}>Uptime</span>

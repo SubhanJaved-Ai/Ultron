@@ -212,8 +212,15 @@ def create_app(
             engine.engine_id = "mock"
             engine.health.return_value = True
             engine.list_models.return_value = ["jarvis-v2"]
-    if not model:
-        model = getattr(engine, "_model", "") or "jarvis-v2"
+            engine._model = "jarvis-v2"
+            if not engine_name:
+                engine_name = "mock"
+    if not isinstance(model, str) or not model:
+        raw_model = getattr(engine, "_model", "")
+        if isinstance(raw_model, str) and raw_model:
+            model = raw_model
+        else:
+            model = "jarvis-v2"
 
     original_engine = engine
     security_enabled = config is not None and getattr(

@@ -585,16 +585,31 @@ export const useAppStore = create<AppState>((set, get) => {
     setSelectedModel: (model: string) => set({ selectedModel: model }),
     setServerInfo: (info: ServerInfo | null) =>
       set((state) => {
+        if (!info) return { serverInfo: null };
+        const modelStr =
+          typeof info.model === 'string' && info.model.trim() ? info.model.trim() : 'jarvis-v2';
+        const engineStr =
+          typeof info.engine === 'string' ? info.engine : '';
+        const agentStr =
+          typeof info.agent === 'string' ? info.agent : '';
+        const sanitizedInfo: ServerInfo = {
+          ...info,
+          model: modelStr,
+          engine: engineStr,
+          agent: agentStr,
+        };
+
         const shouldSync =
-          !!info?.model &&
+          typeof info.model === 'string' &&
+          !!info.model.trim() &&
           (!state.selectedModel ||
             (info.engine === 'gemini' &&
               (state.selectedModel === 'gemini-2.5-pro' ||
                 state.selectedModel === 'gemini-2.5-flash')));
 
         return {
-          serverInfo: info,
-          ...(shouldSync ? { selectedModel: info.model } : {}),
+          serverInfo: sanitizedInfo,
+          ...(shouldSync ? { selectedModel: modelStr } : {}),
         };
       }),
     setSavings: (data: SavingsData | null) => set({ savings: data }),

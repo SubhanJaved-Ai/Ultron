@@ -67,16 +67,18 @@ export function Sidebar() {
   const modelLoading = useAppStore((s) => s.modelLoading);
   const deepResearch = useAppStore((s) => s.deepResearch);
 
+  const serverModel = typeof serverInfo?.model === 'string' ? serverInfo.model : '';
+  const currentSelected = typeof selectedModel === 'string' ? selectedModel : '';
   const isConfirmed =
-    !!serverInfo?.model &&
-    (selectedModel === serverInfo.model || !selectedModel);
+    !!serverModel &&
+    (currentSelected === serverModel || !currentSelected);
   const isPending =
-    !!serverInfo?.model &&
-    !!selectedModel &&
-    selectedModel !== serverInfo.model;
+    !!serverModel &&
+    !!currentSelected &&
+    currentSelected !== serverModel;
 
-  const rawModel = selectedModel || serverInfo?.model;
-  const activeModelId = typeof rawModel === 'string' && rawModel ? rawModel : 'Local Model';
+  const rawModel = currentSelected || serverModel;
+  const activeModelId = rawModel || 'Local Model';
   const promptTokens = savings?.total_prompt_tokens ?? 0;
   const completionTokens = savings?.total_completion_tokens ?? 0;
   const costResult = calculateModelCost(activeModelId, promptTokens, completionTokens, savings?.local_cost ?? 0);
@@ -202,7 +204,7 @@ export function Sidebar() {
               >
                 {deepResearch
                   ? 'Deep Research'
-                  : selectedModel || serverInfo?.model || 'Select model'}
+                  : currentSelected || serverModel || 'Select model'}
               </span>
               {!modelLoading && (
                 <span
@@ -217,9 +219,9 @@ export function Sidebar() {
                   }}
                   title={
                     isConfirmed
-                      ? `Active & Confirmed (${serverInfo?.model})`
+                      ? `Active & Confirmed (${serverModel})`
                       : isPending
-                      ? `Selected: ${selectedModel} (Server: ${serverInfo?.model || 'unknown'})`
+                      ? `Selected: ${currentSelected} (Server: ${serverModel || 'unknown'})`
                       : 'Connecting to server...'
                   }
                 />

@@ -65,8 +65,12 @@ export function SystemPanel() {
 
   const selectedModel = useAppStore((s) => s.selectedModel);
   const serverInfo = useAppStore((s) => s.serverInfo);
-  const rawModel = selectedModel || telemetry?.active_model || serverInfo?.model;
-  const activeModelId = typeof rawModel === 'string' && rawModel ? rawModel : 'Local Model';
+  const rawModel =
+    (typeof selectedModel === 'string' && selectedModel) ||
+    (typeof telemetry?.active_model === 'string' && telemetry.active_model) ||
+    (typeof serverInfo?.model === 'string' && serverInfo.model) ||
+    '';
+  const activeModelId = rawModel || 'Local Model';
 
   const totalRequests = savings?.total_calls ?? telemetry?.total_requests ?? 0;
   const promptTokens = (savings?.total_prompt_tokens && savings.total_prompt_tokens > 0)

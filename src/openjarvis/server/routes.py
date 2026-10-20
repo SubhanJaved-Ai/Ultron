@@ -1611,10 +1611,15 @@ async def server_info(request: Request):
     # Fall back to configured agent name if agent didn't instantiate
     if agent_id is None:
         agent_id = getattr(request.app.state, "agent_name", None)
+    raw_model = getattr(request.app.state, "model", "")
+    model_str = raw_model if isinstance(raw_model, str) and raw_model else "jarvis-v2"
+    raw_engine = getattr(request.app.state, "engine_name", "")
+    engine_str = raw_engine if isinstance(raw_engine, str) else "mock"
+    agent_str = str(agent_id) if agent_id and isinstance(agent_id, str) else "simple"
     return {
-        "model": getattr(request.app.state, "model", ""),
-        "agent": agent_id,
-        "engine": getattr(request.app.state, "engine_name", ""),
+        "model": model_str,
+        "agent": agent_str,
+        "engine": engine_str,
     }
 
 

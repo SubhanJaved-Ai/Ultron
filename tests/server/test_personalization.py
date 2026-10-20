@@ -19,6 +19,10 @@ def _clean_personalization_env(monkeypatch, tmp_path):
     config_dir = tmp_path / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(
+        "openjarvis.core.paths.get_config_dir",
+        lambda: config_dir,
+    )
+    monkeypatch.setattr(
         "openjarvis.core.user_preferences.USER_PREFERENCES_PATH",
         config_dir / "user_preferences.json",
     )

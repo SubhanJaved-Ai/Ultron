@@ -18,6 +18,81 @@
 
 ---
 
+## 🏛️ Project Origin, Attribution & Evolution
+
+### A. Project Origin
+
+**Ultron** is an independently maintained downstream derivative of **[OpenJarvis](https://github.com/open-jarvis/OpenJarvis)**, an open-source personal AI agent framework originally developed by **The OpenJarvis Authors** at Stanford University under the [Apache License 2.0](LICENSE).
+
+Ultron is maintained and extended by **Subhan Javed** ([@SubhanJaved-Ai](https://github.com/SubhanJaved-Ai)). It is an independent downstream project and is not an official OpenJarvis release, nor is it endorsed or sponsored by the upstream OpenJarvis authors or Stanford University.
+
+Key provenance and licensing references:
+- **Upstream Repository:** [https://github.com/open-jarvis/OpenJarvis](https://github.com/open-jarvis/OpenJarvis)
+- **Software License:** [Apache License 2.0](LICENSE) (`Copyright 2025 The OpenJarvis Authors`)
+- **Attribution & Notices:** [NOTICE](NOTICE) (`Copyright 2026 Subhan Javed for Ultron-specific modifications`)
+- **Foundational Research Paper:** Jon Saad-Falcon et al., *"OpenJarvis: Personal AI, On Personal Devices"*, Stanford SAIL / Hazy Research / Scaling Intelligence Lab ([arXiv:2605.17172](https://arxiv.org/abs/2605.17172))
+
+*Provenance Note on Upstream Git History:* The Ultron repository was initialized from an imported snapshot reflecting OpenJarvis post-release v1.0.2 (May 2026). Because the upstream Git commit graph was not imported during the initial repository setup, no exact upstream commit SHA is claimed or fabricated.
+
+---
+
+### B. Capabilities in the OpenJarvis Baseline
+
+Based on source verification of the imported baseline snapshot, the original OpenJarvis framework provided the following foundational capabilities prior to Ultron-specific development:
+
+1. **Five-Primitives Architecture:** Composable modular architecture separating intelligence into *Intelligence* (`openjarvis.intelligence`), *Engine* (`openjarvis.engine`), *Agents* (`openjarvis.agents`), *Tools & Memory* (`openjarvis.tools`, `openjarvis.memory`), and *Learning* (`openjarvis.learning`).
+2. **Python Framework, API Server & CLI:** Core Python backend runtime (`openjarvis`), asynchronous FastAPI server (`openjarvis.server`), and Click-driven terminal CLI (`jarvis`).
+3. **Agent, Tool & Evaluation Infrastructure:** Foundational ReAct and planner agent loops, shell/filesystem/search tool primitives, FAISS/ColBERT/BM25 local memory indexing, and research benchmark suites (TauBench, WebChoreArena, ToolCall-15, LifelongAgentBench, PinchBench).
+4. **Hardware Energy Telemetry & Rust Extensions:** Real-time hardware energy and FLOPs telemetry across NVIDIA GPUs (NVML) and Apple Silicon (RAPL/ANE via `zeus-apple-silicon`), accompanied by a native Rust workspace (`rust/crates/openjarvis-*`) providing PyO3 bindings for token mathematics, loop guards, and SQLite FTS5 search.
+5. **Messaging Connectors & Baseline Skill Sources:** Connectors for Telegram, WhatsApp, Slack, Discord, and iMessage (`openjarvis.channels`), alongside external skill loaders for OpenClaw and Hermes.
+6. **Baseline Desktop Shell & Chat Frontend:** Foundational Tauri v2 desktop shell and React chat interface.
+
+---
+
+### C. What Ultron Adds
+
+> **Scope Note:** The comparison below is made specifically against the imported OpenJarvis baseline snapshot. Upstream OpenJarvis continues to evolve independently, and these comparisons do not claim that features are permanently absent from all past, concurrent, or future upstream versions.
+
+| Capability | OpenJarvis Baseline | Ultron-Specific Development |
+| :--- | :--- | :--- |
+| **3D Holographic WebGL/PWA Interface & Voice Barge-In** | 2D React chat interface and standard settings dashboard (`frontend/src/pages/ChatPage.tsx`). | Single-file 3D WebGL particle core ([`hologram.html`](src/openjarvis/server/static/hologram.html)), offline PWA service worker ([`sw.js`](src/openjarvis/server/static/sw.js)), audio-reactive visualization, ambient wake-word recognition, and real-time voice interruption/barge-in ([`hologram_routes.py`](src/openjarvis/server/hologram_routes.py), [`test_hologram.py`](tests/server/test_hologram.py)). |
+| **Global Emergency Stop & Cancellation Architecture** | Ephemeral per-agent cancellation flags within task loops; no centralized process-tree termination. | Dual-mode `CancellationToken` framework (`threading.Event` + `asyncio.Event`), thread-safe `ActiveExecutionContextStore` ([`cancellation.py`](src/openjarvis/server/cancellation.py)), authenticated REST cancellation route ([`cancellation_routes.py`](src/openjarvis/server/cancellation_routes.py)), OS process-tree termination (`kill_process_tree`), browser teardown binding, and native global hotkey hook (`Ctrl+Alt+Escape`) in desktop shell ([`test_cancellation_wiring.py`](tests/server/test_cancellation_wiring.py)). |
+| **Ultron Safety Kernel & Execution Guardrails** | AST parsing, basic capability lists, and static tool policy checks. | Centralized `SafetyKernel` with 4-tier risk classification (Tier 0 Safe to Tier 3 Critical), PBKDF2 safety passcodes, safe quarantine fallback, zero-deletion guardrails, and Windows root directory modification blockades ([`kernel.py`](src/openjarvis/security/kernel.py), [`safety_routes.py`](src/openjarvis/server/safety_routes.py), [`test_safety_kernel.py`](tests/security/test_safety_kernel.py)). |
+| **Desktop Application Discovery, Catalog RAG & Orchestration** | Standard command-line execution via `shell_exec`. | `SystemCatalogRAG` indexing local installed applications, Chrome profiles, and Start Menu shortcuts ([`catalog_rag.py`](src/openjarvis/desktop/catalog_rag.py)), integrated with `DesktopOrchestrator` for native application launching, window focus management, and desktop automation primitives ([`orchestrator.py`](src/openjarvis/desktop/orchestrator.py), [`test_desktop_orchestrator.py`](tests/server/test_desktop_orchestrator.py)). |
+| **Browser Automation & Desktop Runtime Packaging** | Playwright declared as an optional library dependency in `pyproject.toml`. | Integrated Playwright tool loop ([`browser.py`](src/openjarvis/tools/browser.py)) with session-to-cancellation binding, automated Chromium bundling scripts, and standalone Windows desktop packaging with embedded portable Python 3.12 runtime. |
+| **Persistent Task Execution & DAG Skill Composition** | In-memory agent loop; task state lost upon process exit or disconnect. | SQLite-backed persistent task runner (`tasks` and `task_steps` tables), state machine lifecycle (`QUEUED` -> `RUNNING` -> `COMPLETED`/`FAILED`) ([`runner.py`](src/openjarvis/tasks/runner.py), [`store.py`](src/openjarvis/tasks/store.py)), DAG skill composition engine with cycle detection ([`composition.py`](src/openjarvis/skills/composition.py)), and dedicated Task Center UI ([`test_persistent_task_runner.py`](tests/tasks/test_persistent_task_runner.py)). |
+| **Cloud Usage/Cost Ledger & Resource Controls** | Hardware energy telemetry (NVML / Apple Silicon) and raw token accounting in engine. | Auditable SQLite `cloud_usage_ledger` recording token usage, provider pricing registry (`2026-10-v1`), request-id idempotency, CSV export ([`usage_ledger.py`](src/openjarvis/traces/usage_ledger.py), [`pricing.py`](src/openjarvis/intelligence/pricing.py)), and token-bucket RPM/TPM resource limiter ([`resource_limiter.py`](src/openjarvis/engine/resource_limiter.py), [`test_usage_ledger.py`](tests/traces/test_usage_ledger.py)). |
+| **Multilingual Speech Routing & Additional TTS Integrations** | Local Kokoro TTS, Faster-Whisper, and basic voice I/O. | Dynamic multilingual speech router supporting English, Urdu, and Hindi directives with truthful local vs. cloud capability reporting ([`router.py`](src/openjarvis/speech/router.py), [`test_multilingual_router.py`](tests/speech/test_multilingual_router.py)), and ElevenLabs cloud TTS backend ([`elevenlabs_tts.py`](src/openjarvis/speech/elevenlabs_tts.py), [`test_elevenlabs_provider.py`](tests/speech/test_elevenlabs_provider.py)). |
+| **Pluggable Supabase/PostgreSQL/MongoDB Memory Adapters** | Local SQLite FTS5 and vector indices (FAISS, BM25). | Pluggable remote database storage adapter for private user-attached Supabase (PostgreSQL with `pgvector`) and MongoDB instances with strict tenant isolation and credential masking ([`memory_backend.py`](src/openjarvis/storage/memory_backend.py), [`memory_backend_manage.py`](src/openjarvis/tools/memory_backend_manage.py), [`test_tenant_isolation.py`](tests/security/test_tenant_isolation.py)). |
+| **Additional n8n & Community Skill Integrations** | Built-in local skills and external source loaders (OpenClaw, Hermes). | Inbound event webhooks (`/webhooks/trigger/{slug}`), dedicated n8n automation bridge tool ([`n8n_tool.py`](src/openjarvis/tools/n8n_tool.py)), and ClawHub community skill tools ([`clawhub_tools.py`](src/openjarvis/tools/clawhub_tools.py)). |
+
+---
+
+### D. Design Direction and Difference
+
+While **OpenJarvis** was developed as a foundational personal AI research framework exploring intelligence efficiency, on-device models, energy benchmarking, and primitive composability, **Ultron** directs its architecture toward an action-first personal execution assistant:
+
+- **Action-Oriented Execution:** Prioritizes completing tasks directly via OS tools, subagents, and automations rather than generating conversational explanations.
+- **Holographic & Audio-First Presence:** Introduces a lightweight 3D WebGL particle core with natural voice barge-in, allowing seamless conversational interruption.
+- **Fail-Closed Execution Safety:** Enforces strict execution guardrails through the Safety Kernel and a global emergency stop mechanism to prevent unauthorized system modifications or runaway operations.
+- **Resilient Workflows:** Employs SQLite-persisted task state machines and DAG composition, allowing long-running multi-step jobs to survive disconnects and system restarts.
+- **Expanded Ecosystem Integration:** Connects desktop workflows directly to third-party automation tools (n8n, webhooks) and isolated cloud databases (Supabase, MongoDB).
+
+---
+
+### E. Author and Research Attribution
+
+- **Ultron Development & Maintenance:** Ultron's downstream enhancements and ongoing maintenance are conducted by **Subhan Javed** ([@SubhanJaved-Ai](https://github.com/SubhanJaved-Ai) / `AirLuc`). All Ultron-specific additions are copyright 2026 Subhan Javed, subject to original and third-party notices.
+- **Original OpenJarvis Collective Copyright:** The underlying OpenJarvis framework is Copyright 2025 The OpenJarvis Authors and is distributed under the [Apache License 2.0](LICENSE). Copyright over inherited OpenJarvis code has not transferred to Subhan Javed.
+- **OpenJarvis Research Paper Authors:** The foundational academic work behind OpenJarvis is documented in the research paper *"OpenJarvis: Personal AI, On Personal Devices"* ([arXiv:2605.17172](https://arxiv.org/abs/2605.17172)). The authors of this research publication are:
+  > Jon Saad-Falcon, Avanika Narayan, Robby Manihani, Tanvir Bhathal, Herumb Shandilya, Hakki Orhun Akengin, Gabriel Bo, Andrew Park, Matthew Hart, Caia Costello, Chuan Li, Christopher Ré, and Azalia Mirhoseini.
+  
+  *(Note: This list identifies the authors of the academic research paper affiliated with Stanford SAIL, Hazy Research, and the Scaling Intelligence Lab, and is recognized for academic context. It is not presented as an exhaustive legal register of software copyright holders.)*
+
+For complete licensing terms, see [LICENSE](LICENSE). For full attribution records, see [NOTICE](NOTICE).
+
+---
+
 ## ⚡ What is Ultron?
 
 Unlike conventional chatbots that simply generate conversational text, **Ultron** is an autonomous, action-first personal AI system designed to do real work. Ultron speaks concisely, executes tasks directly, delegates to subagents, orchestrates multi-step automations, and runs 24/7 on your own hardware or free cloud instances without paid API lock-in.
@@ -339,4 +414,6 @@ OpenJarvis is part of [Intelligence Per Watt](https://www.intelligence-per-watt.
 
 ## License
 
-[Apache 2.0](LICENSE)
+This project is licensed under the [Apache License 2.0](LICENSE).  
+See the [NOTICE](NOTICE) file for original OpenJarvis attribution, Stanford research acknowledgments, and Ultron-specific copyright notices.
+

@@ -1,0 +1,48 @@
+Ultron
+Copyright 2026 Subhan Javed for Ultron-specific modifications, subject to the original and third-party notices applicable to the relevant code.
+
+This product includes software developed by and derived from OpenJarvis
+(https://github.com/open-jarvis/OpenJarvis).
+
+OpenJarvis
+Copyright 2025 The OpenJarvis Authors
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+OpenJarvis was originally developed as part of the Intelligence Per Watt research
+initiative at Stanford University by researchers affiliated with the Stanford
+Artificial Intelligence Laboratory (Stanford SAIL), Hazy Research, and the
+Scaling Intelligence Lab.
+
+Original OpenJarvis Research Authors (as documented in arXiv:2605.17172):
+Jon Saad-Falcon, Avanika Narayan, Robby Manihani, Tanvir Bhathal,
+Herumb Shandilya, Hakki Orhun Akengin, Gabriel Bo, Andrew Park,
+Matthew Hart, Caia Costello, Chuan Li, Christopher Ré, and Azalia Mirhoseini.
+(Note: This paper author list is recognized for academic research context and
+is not a verified exhaustive list of all software copyright holders.)
+
+Derivative Work and Ultron-Specific Development:
+Ultron is an independently maintained downstream derivative work of OpenJarvis.
+It is not an official OpenJarvis release and has not been endorsed by the
+upstream OpenJarvis authors or Stanford University.
+
+Copyright over original, unmodified OpenJarvis source material remains with
+The OpenJarvis Authors and has not transferred to Subhan Javed.
+
+Ultron-specific enhancements developed and maintained by Subhan Javed include:
+- 3D Holographic WebGL/PWA interface, audio-reactive visual particle core, and voice barge-in architecture.
+- Global emergency stop mechanism, CancellationToken framework, and authenticated REST execution cancellation.
+- Ultron Safety Kernel featuring 4-tier risk classification, PBKDF2 safety passcodes, safe quarantine, and zero-deletion guardrails.
+- Desktop application discovery, SystemCatalogRAG, and DesktopOrchestrator integration.
+- Real browser automation runtime packaging and standalone desktop bundles.
+- Persistent task execution engine with SQLite-backed state machines and DAG skill composition.
+- Auditable cloud usage and cost ledger, rate limiting, and resource controls.
+- Multilingual speech routing (English, Urdu, Hindi) and ElevenLabs TTS provider integration.
+- Pluggable private memory adapters for dedicated Supabase (PostgreSQL with pgvector) and MongoDB instances.
+- Additional n8n workflow management, inbound event webhooks, and community skill tools.
+
+For terms and conditions of use, reproduction, and distribution, please refer to
+the LICENSE file in the root directory of this repository.

@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { ConversationList } from './ConversationList';
 import { useAppStore } from '../../lib/store';
-import { calculateModelCost } from '../../lib/model-pricing';
+import { calculateModelCost, formatModelName } from '../../lib/model-pricing';
 
 function fmtCost(n: number): string {
   if (n >= 1000) return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -106,14 +106,12 @@ export function Sidebar() {
   const navItems = [
     { path: '/', icon: MessageSquare, label: 'Chat' },
     { path: '/tasks', icon: ListTodo, label: 'Tasks' },
+    { path: '/agents', icon: Bot, label: 'Agents' },
     { path: '/memory-skills', icon: Brain, label: 'Memory & Skills' },
     { path: '/hologram', icon: Orbit, label: '3D Hologram' },
     { path: '/dashboard', icon: BarChart3, label: 'Dashboard' },
-    { path: '/data-sources', icon: Database, label: 'Data Sources' },
-    { path: '/agents', icon: Bot, label: 'Agents' },
     { path: '/logs', icon: ScrollText, label: 'Logs' },
     { path: '/settings', icon: Settings, label: 'Settings' },
-    { path: '/get-started', icon: Rocket, label: 'Get Started' },
   ];
 
   return (
@@ -145,37 +143,37 @@ export function Sidebar() {
         }}
       >
         <div className="flex flex-col h-full w-[260px]">
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 pt-3 pb-2">
-            <button
-              onClick={toggleSidebar}
-              className="p-2 rounded-lg transition-colors cursor-pointer"
-              style={{ color: 'var(--color-text-secondary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-            >
-              <PanelLeftClose size={18} />
-            </button>
+          {/* Brand Header */}
+          <div className="flex items-center justify-between px-3 pt-3 pb-2.5 border-b border-zinc-800/60 mb-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/40 flex items-center justify-center shadow-sm shrink-0">
+                <Cpu size={15} className="text-cyan-400" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-base tracking-tight text-zinc-100">Ultron</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap">v1.0</span>
+              </div>
+            </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => updateSettings({ theme: nextTheme })}
-                className="p-2 rounded-lg transition-colors cursor-pointer"
-                style={{ color: 'var(--color-text-secondary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                className="p-1 rounded-md transition-colors cursor-pointer text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
                 title={`Theme: ${settings.theme} (click for ${nextTheme})`}
               >
-                <ThemeIcon size={16} />
+                <ThemeIcon size={14} />
               </button>
               <button
                 onClick={handleNewChat}
-                className="p-2 rounded-lg transition-colors cursor-pointer"
-                style={{ color: 'var(--color-text-secondary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                className="p-1 rounded-md transition-colors cursor-pointer text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
                 title="New chat"
               >
-                <Plus size={18} />
+                <Plus size={15} />
+              </button>
+              <button
+                onClick={toggleSidebar}
+                className="p-1 rounded-md transition-colors cursor-pointer text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+              >
+                <PanelLeftClose size={15} />
               </button>
             </div>
           </div>
@@ -204,7 +202,9 @@ export function Sidebar() {
               >
                 {deepResearch
                   ? 'Deep Research'
-                  : currentSelected || serverModel || 'Select model'}
+                  : currentSelected
+                  ? formatModelName(currentSelected)
+                  : 'Select model'}
               </span>
               {!modelLoading && (
                 <span

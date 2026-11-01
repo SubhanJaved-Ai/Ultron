@@ -695,11 +695,19 @@ class DenseMemory(MemoryBackend):
 
         emb = self._get_embedder()
         q_vec = emb.embed([query])  # shape (1, dim), normalized
-        # Compute against the bounded physical matrix, then mask tombstoned
-        # scores in-place. Advanced row indexing would copy an O(n * dim)
-        # active matrix on every query; compaction keeps the extra dot-product
-        # work below the named tombstone threshold without that allocation.
-        scores = matrix_snapshot @ q_vec[0]  # shape (n_physical,)
+        # Dimension guard: check embedding dimensionality before dot product
+        if matrix_snapshot.shape[1] != q_vec.shape[1]:
+            logger.warning(
+                "DenseMemory dimensionality mismatch: matrix has %d dims, query embedder returned %d dims. Gracefully falling back.",
+                matrix_snapshot.shape[1],
+                q_vec.shape[1],
+            )
+            return []
+        try:
+            scores = matrix_snapshot @ q_vec[0]  # shape (n_physical,)
+        except Exception as exc:
+            logger.warning("DenseMemory calculation failed: %s", exc)
+            return []
         active_mask = np.asarray(active, dtype=bool)
         scores[~active_mask] = -np.inf
 

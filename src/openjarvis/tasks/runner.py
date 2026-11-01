@@ -515,31 +515,54 @@ class PersistentTaskRunner:
                 if dep not in step_ids:
                     raise ValueError(f"Task plan validation failed: Step '{s_id}' depends on non-existent step '{dep}'.")
 
-        # 3. DAG Structure & Circular Dependency Detection (DFS 3-color)
-        state: Dict[str, int] = {s_id: 0 for s_id in step_ids}  # 0=unvisited, 1=visiting, 2=visited
-        path: List[str] = []
+        # 3. DAG Structure & Circular Dependency Detection (Kahn's in-degree topological sort + DFS cycle path reporting)
+        from collections import deque
+        in_degree: Dict[str, int] = {s.step_id: len(s.dependencies) for s in steps}
+        forward_adj: Dict[str, List[str]] = {s_id: [] for s_id in step_ids}
+        for s in steps:
+            for dep in s.dependencies:
+                if dep in forward_adj:
+                    forward_adj[dep].append(s.step_id)
 
-        def dfs(node: str) -> Optional[List[str]]:
-            state[node] = 1
-            path.append(node)
-            for neighbor in adj.get(node, []):
-                if state.get(neighbor) == 1:
-                    cycle_start = path.index(neighbor)
-                    return path[cycle_start:] + [neighbor]
-                if state.get(neighbor) == 0:
-                    cycle = dfs(neighbor)
+        kahn_queue = deque([s_id for s_id, deg in in_degree.items() if deg == 0])
+        visited_kahn_count = 0
+        while kahn_queue:
+            curr = kahn_queue.popleft()
+            visited_kahn_count += 1
+            for dependent_step in forward_adj.get(curr, []):
+                in_degree[dependent_step] -= 1
+                if in_degree[dependent_step] == 0:
+                    kahn_queue.append(dependent_step)
+
+        # If Kahn's traversal did not reach all steps, a cycle is guaranteed
+        if visited_kahn_count < len(step_ids):
+            state: Dict[str, int] = {s_id: 0 for s_id in step_ids}
+            path: List[str] = []
+
+            def dfs(node: str) -> Optional[List[str]]:
+                state[node] = 1
+                path.append(node)
+                for neighbor in adj.get(node, []):
+                    if state.get(neighbor) == 1:
+                        cycle_start = path.index(neighbor)
+                        return path[cycle_start:] + [neighbor]
+                    if state.get(neighbor) == 0:
+                        cycle = dfs(neighbor)
+                        if cycle:
+                            return cycle
+                path.pop()
+                state[node] = 2
+                return None
+
+            cycle_nodes = []
+            for s_id in step_ids:
+                if state[s_id] == 0:
+                    cycle = dfs(s_id)
                     if cycle:
-                        return cycle
-            path.pop()
-            state[node] = 2
-            return None
-
-        for s_id in step_ids:
-            if state[s_id] == 0:
-                cycle = dfs(s_id)
-                if cycle:
-                    cycle_str = " -> ".join(cycle)
-                    raise ValueError(f"Task plan validation failed: Circular dependency detected in DAG: {cycle_str}")
+                        cycle_nodes = cycle
+                        break
+            cycle_str = " -> ".join(cycle_nodes) if cycle_nodes else ", ".join(s_id for s_id, deg in in_degree.items() if deg > 0)
+            raise ValueError(f"Task plan validation failed: Circular dependency detected in DAG: {cycle_str}")
 
         # 4. Capability Policy & Safety Kernel Pre-Flight Checks
         for step in steps:
@@ -1014,26 +1037,32 @@ class PersistentTaskRunner:
                     return
 
                 # Find candidate steps whose dependencies are all COMPLETED
-                executable_step: Optional[TaskStep] = None
+                ready_candidates: List[TaskStep] = []
                 for s in steps:
                     if s.status == StepStatus.PENDING:
-                        # Check dependencies
                         deps_ok = True
                         for dep_id in s.dependencies:
                             dep = step_map.get(dep_id)
                             if not dep or dep.status != StepStatus.COMPLETED:
                                 deps_ok = False
                                 if dep and dep.status in (StepStatus.FAILED, StepStatus.CANCELLED, StepStatus.SKIPPED):
-                                    # Downstream dependency cannot run! Mark skipped
+                                    # Downstream dependency cannot run! Mark skipped with rollback metadata
                                     s.status = StepStatus.SKIPPED
                                     s.error = f"Dependency '{dep_id}' was {dep.status.value}"
-                                    self.store.save_step(s)
+                                    s.metadata["is_blocked"] = True
+                                    s.metadata["rollback_guidance"] = {
+                                        "cause_step_id": dep_id,
+                                        "cause_status": dep.status.value,
+                                        "remediation": "Review upstream failure or configure compensation handler",
+                                        "blocked_at": time.time(),
+                                    }
+                                    with getattr(self, "_store_lock", self._lock):
+                                        self.store.save_step(s)
                                 break
                         if deps_ok and s.status == StepStatus.PENDING:
-                            executable_step = s
-                            break
+                            ready_candidates.append(s)
 
-                if executable_step is None:
+                if not ready_candidates:
                     # No pending step can execute. Check if any step failed or is waiting
                     has_failed = any(s.status == StepStatus.FAILED for s in steps)
                     has_waiting = any(s.status == StepStatus.WAITING_APPROVAL for s in steps)
@@ -1056,21 +1085,52 @@ class PersistentTaskRunner:
                     self._on_task_completed(task)
                     return
 
-                # Update current step index
-                self.store.update_task_status(
-                    task_id, TaskStatus.RUNNING, current_step_index=executable_step.step_index
-                )
-
-                # Execute this step
-                step_res = self._execute_step(task, executable_step, cancel_ev)
-                if step_res == StepStatus.WAITING_APPROVAL:
-                    # Halt loop until approval
-                    return
-                elif step_res in (StepStatus.FAILED, StepStatus.CANCELLED):
-                    # Check if error is fatal
-                    task_after = self.store.get_task(task_id)
-                    if task_after and task_after.status in (TaskStatus.FAILED, TaskStatus.CANCELLED):
+                # Bounded concurrency: execute ready candidate steps (up to MAX_PARALLEL_STEPS = 4)
+                MAX_PARALLEL_STEPS = 4
+                if len(ready_candidates) == 1:
+                    executable_step = ready_candidates[0]
+                    self.store.update_task_status(
+                        task_id, TaskStatus.RUNNING, current_step_index=executable_step.step_index
+                    )
+                    step_res = self._execute_step(task, executable_step, cancel_ev)
+                    if step_res == StepStatus.WAITING_APPROVAL:
                         return
+                    elif step_res in (StepStatus.FAILED, StepStatus.CANCELLED):
+                        task_after = self.store.get_task(task_id)
+                        for s in (task_after.steps if task_after else []):
+                            if s.status == StepStatus.PENDING and executable_step.step_id in s.dependencies:
+                                s.status = StepStatus.SKIPPED
+                                s.error = f"Dependency '{executable_step.step_id}' was {step_res.value}"
+                                s.metadata["is_blocked"] = True
+                                s.metadata["rollback_guidance"] = {
+                                    "cause_step_id": executable_step.step_id,
+                                    "cause_status": step_res.value,
+                                    "remediation": "Review upstream failure or configure compensation handler",
+                                    "blocked_at": time.time(),
+                                }
+                                with getattr(self, "_store_lock", self._lock):
+                                    self.store.save_step(s)
+                        if task_after and task_after.status in (TaskStatus.FAILED, TaskStatus.CANCELLED):
+                            return
+                else:
+                    import concurrent.futures
+                    wave = ready_candidates[:MAX_PARALLEL_STEPS]
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=len(wave)) as executor:
+                        def _run_single(step_to_run: TaskStep) -> StepStatus:
+                            with getattr(self, "_store_lock", self._lock):
+                                self.store.update_task_status(
+                                    task_id, TaskStatus.RUNNING, current_step_index=step_to_run.step_index
+                                )
+                            return self._execute_step(task, step_to_run, cancel_ev)
+
+                        futures = [executor.submit(_run_single, st) for st in wave]
+                        results = [f.result() for f in futures]
+                        if any(r == StepStatus.WAITING_APPROVAL for r in results):
+                            return
+                        if any(r in (StepStatus.FAILED, StepStatus.CANCELLED) for r in results):
+                            task_after = self.store.get_task(task_id)
+                            if task_after and task_after.status in (TaskStatus.FAILED, TaskStatus.CANCELLED):
+                                return
 
         except Exception as exc:
             logger.exception("Fatal error in task loop for %s: %s", task_id, exc)
@@ -1959,6 +2019,20 @@ class PersistentTaskRunner:
         self.store.save_step(step)
 
         # Cancel remaining downstream dependent steps
+        all_steps = self.store.get_steps_for_task(task_id)
+        for s in all_steps:
+            if s.status == StepStatus.PENDING:
+                s.status = StepStatus.SKIPPED
+                s.error = f"Upstream step '{step_id}' was rejected"
+                s.metadata["is_blocked"] = True
+                s.metadata["rollback_guidance"] = {
+                    "cause_step_id": step_id,
+                    "cause_status": "rejected",
+                    "remediation": "Review step rejection or authorize override",
+                    "blocked_at": time.time(),
+                }
+                self.store.save_step(s)
+
         self.store.update_task_status(
             task_id, TaskStatus.FAILED, error=f"Task aborted: Step '{step.title}' was rejected."
         )

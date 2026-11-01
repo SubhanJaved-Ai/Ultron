@@ -277,13 +277,8 @@ export function ApprovalBell() {
                           <button
                             onClick={() => handleApprove(action.id)}
                             disabled={isLoading || isBlockedByConfirm}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity cursor-pointer disabled:opacity-40"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 bg-emerald-600 hover:bg-emerald-500 text-white"
                             title={isBlockedByConfirm ? "Operator confirmation of duplicate risk required" : "Approve action"}
-                            style={{
-                              background: 'color-mix(in srgb, var(--color-success) 12%, transparent)',
-                              color: 'var(--color-success)',
-                              border: '1px solid color-mix(in srgb, var(--color-success) 22%, transparent)',
-                            }}
                           >
                             <CheckCircle size={12} />
                             Approve
@@ -291,12 +286,7 @@ export function ApprovalBell() {
                           <button
                             onClick={() => handleDeny(action.id)}
                             disabled={isLoading}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity cursor-pointer disabled:opacity-40"
-                            style={{
-                              background: 'color-mix(in srgb, var(--color-error) 12%, transparent)',
-                              color: 'var(--color-error)',
-                              border: '1px solid color-mix(in srgb, var(--color-error) 22%, transparent)',
-                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
                           >
                             <XCircle size={12} />
                             Deny

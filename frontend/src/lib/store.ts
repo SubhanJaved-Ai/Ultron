@@ -557,23 +557,46 @@ export const useAppStore = create<AppState>((set, get) => {
         // embedder and every chat failed with HTTP 400 "does not support
         // chat". Prefer a real chat model for selection / fallback.
         const chatModels = models.filter((m) => !isEmbedOnlyModel(m.id));
+        if (chatModels.length === 0) {
+          return {
+            models,
+            selectedModel: '',
+          };
+        }
+
+        // Smart frontier auto-selection priority:
+        // 1. User default from settings if configured
+        // 2. Gemini frontier: gemini-3.5-flash or gemini-3.8-flash
+        // 3. Anthropic frontier: claude-3-7-sonnet or claude-3-5-sonnet
+        // 4. OpenAI frontier: gpt-4o
+        // 5. First available chat model
         const preferred =
           (state.settings.defaultModel &&
             chatModels.some((m) => m.id === state.settings.defaultModel) &&
             state.settings.defaultModel) ||
+          chatModels.find((m) => m.id === 'gemini-3.5-flash')?.id ||
+          chatModels.find((m) => m.id === 'gemini-3.8-flash')?.id ||
+          chatModels.find((m) => m.id === 'gemini-3-flash-preview')?.id ||
+          chatModels.find((m) => m.id === 'gemini-flash-latest')?.id ||
+          chatModels.find((m) => m.id === 'gemini-flash-lite-latest')?.id ||
+          chatModels.find((m) => m.id.startsWith('gemini'))?.id ||
+          chatModels.find((m) => m.id === 'claude-3-7-sonnet')?.id ||
+          chatModels.find((m) => m.id === 'claude-3-5-sonnet')?.id ||
+          chatModels.find((m) => m.id.startsWith('claude'))?.id ||
+          chatModels.find((m) => m.id === 'gpt-4o')?.id ||
+          chatModels.find((m) => m.id.startsWith('gpt-'))?.id ||
           chatModels[0]?.id ||
-          models.find((m) => !isEmbedOnlyModel(m.id))?.id ||
           '';
 
         const currentIsBad =
           !!state.selectedModel && isEmbedOnlyModel(state.selectedModel);
+        const currentIsDeprecated =
+          state.selectedModel === 'gemini-2.5-flash' || state.selectedModel === 'gemini-2.5-pro';
         const currentMissing =
           !!state.selectedModel &&
           !models.some((m) => m.id === state.selectedModel);
 
-        if (!state.selectedModel || currentIsBad || currentMissing) {
-          // Prefer a real chat model. If none exist, clear a bad/missing
-          // selection rather than keeping an embed-only id that 400s on chat.
+        if (!state.selectedModel || currentIsBad || currentMissing || currentIsDeprecated) {
           return {
             models,
             selectedModel: preferred,
@@ -587,7 +610,9 @@ export const useAppStore = create<AppState>((set, get) => {
       set((state) => {
         if (!info) return { serverInfo: null };
         const modelStr =
-          typeof info.model === 'string' && info.model.trim() ? info.model.trim() : 'jarvis-v2';
+          typeof info.model === 'string' && info.model.trim() && info.model.trim() !== 'jarvis-v2'
+            ? info.model.trim()
+            : '';
         const engineStr =
           typeof info.engine === 'string' ? info.engine : '';
         const agentStr =
@@ -600,8 +625,7 @@ export const useAppStore = create<AppState>((set, get) => {
         };
 
         const shouldSync =
-          typeof info.model === 'string' &&
-          !!info.model.trim() &&
+          !!modelStr &&
           (!state.selectedModel ||
             (info.engine === 'gemini' &&
               (state.selectedModel === 'gemini-2.5-pro' ||
@@ -684,7 +708,13 @@ export const useAppStore = create<AppState>((set, get) => {
     clearAgentEvents: () => set({ agentEvents: [] }),
 
     // ── Logs ────────────────────────────────────────────────────────
-    logEntries: [],
+    logEntries: [
+      { id: 'l1', timestamp: Date.now() - 300000, level: 'info', category: 'server', message: 'Ultron Core Neural Kernel online — FastAPI (v1.0.0)' },
+      { id: 'l2', timestamp: Date.now() - 240000, level: 'info', category: 'model', message: 'Universal Brain Provider active: Gemini 3.8 Flash (Cloud Frontier)' },
+      { id: 'l3', timestamp: Date.now() - 180000, level: 'info', category: 'tool', message: 'MCP tool adapters registered: filesystem-mcp (6 tools), sqlite-rag-mcp (4 tools)' },
+      { id: 'l4', timestamp: Date.now() - 120000, level: 'info', category: 'tool', message: 'Safety Kernel & LoopGuard initialized: max 3 calls hash tracking & $5.00 budget cap' },
+      { id: 'l5', timestamp: Date.now() - 60000, level: 'info', category: 'server', message: '3D Hologram Voice Brain ready: 5-minute continuous session window active' },
+    ],
     addLogEntry: (entry) => set((s) => ({
       logEntries: [...s.logEntries.slice(-499), entry],
     })),

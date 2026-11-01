@@ -138,6 +138,25 @@ def _init_runtime_servers() -> None:
     except Exception as exc:
         logger.debug("No pre-configured MCP servers loaded: %s", exc)
         _runtime_mcp_servers = []
+
+    # Seed default MCP servers if none configured
+    if not _runtime_mcp_servers:
+        _runtime_mcp_servers = [
+            {
+                "name": "filesystem-mcp",
+                "command": "python",
+                "args": ["-m", "openjarvis.mcp.server", "--mode", "filesystem"],
+                "enabled": True,
+                "tools": ["read_file", "write_file", "list_dir", "file_info", "delete_file", "move_file"],
+            },
+            {
+                "name": "sqlite-rag-mcp",
+                "command": "python",
+                "args": ["-m", "openjarvis.mcp.server", "--mode", "sqlite"],
+                "enabled": True,
+                "tools": ["sql_query", "schema_inspect", "semantic_search", "table_stats"],
+            },
+        ]
     _runtime_initialized = True
 
 

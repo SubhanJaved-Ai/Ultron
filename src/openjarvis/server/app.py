@@ -211,8 +211,8 @@ def create_app(
             engine = MagicMock()
             engine.engine_id = "mock"
             engine.health.return_value = True
-            engine.list_models.return_value = ["jarvis-v2"]
-            engine._model = "jarvis-v2"
+            engine.list_models.return_value = []
+            engine._model = ""
             if not engine_name:
                 engine_name = "mock"
     if not isinstance(model, str) or not model:
@@ -220,7 +220,7 @@ def create_app(
         if isinstance(raw_model, str) and raw_model:
             model = raw_model
         else:
-            model = "jarvis-v2"
+            model = ""
 
     original_engine = engine
     security_enabled = config is not None and getattr(
@@ -357,6 +357,20 @@ def create_app(
     app.state.channel_bridge = channel_bridge
     app.state.config = config
     app.state._memory_backend_lock = threading.Lock()
+    if agent_manager is None:
+        try:
+            from openjarvis.agents.manager import AgentManager
+            from openjarvis.core.paths import get_config_dir
+
+            am_db = (
+                getattr(getattr(config, "agent_manager", None), "db_path", None)
+                or str(get_config_dir() / "agents.db")
+            )
+            agent_manager = AgentManager(db_path=am_db, clear_stale_running=False)
+        except Exception as exc:
+            logger.debug("Agent manager auto-init failed: %s", exc)
+            agent_manager = None
+
     app.state.memory_backend = memory_backend
     app.state._owns_memory_backend = bool(own_memory_backend)
     app.state.memory_service = memory_service
@@ -763,6 +777,8 @@ def create_app(
         @app.get("/{full_path:path}")
         async def spa_catch_all(full_path: str):
             """Serve static files directly, fall back to index.html for SPA routes."""
+            if full_path.startswith("v1/") or full_path.startswith("api/"):
+                raise HTTPException(status_code=404, detail="API route not found")
             if full_path:
                 candidate = (static_dir / full_path).resolve()
                 # Path traversal prevention

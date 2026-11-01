@@ -1672,56 +1672,40 @@ export function MemorySkillsPage() {
           <>
             {/* Stats Overview Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-              <div
-                className="p-3.5 rounded-xl border flex flex-col gap-1"
-                style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
-              >
-                <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  Total Facts
-                </span>
-                <span className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                  {memoryStats.total_facts}
-                </span>
-              </div>
-              <div
-                className="p-3.5 rounded-xl border flex flex-col gap-1"
-                style={{ background: 'var(--color-bg-secondary)', borderColor: 'rgba(16, 185, 129, 0.25)' }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-emerald-400">Trusted</span>
-                  <ShieldCheck size={14} className="text-emerald-400" />
+              <div className="p-3.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 flex flex-col justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-zinc-400" />
+                  <span className="text-[11px] font-medium text-zinc-400">Total Facts</span>
                 </div>
-                <span className="text-2xl font-bold text-emerald-400">{memoryStats.trusted_count}</span>
+                <span className="text-xl font-bold mt-1 text-zinc-100">{memoryStats.total_facts}</span>
               </div>
-              <div
-                className="p-3.5 rounded-xl border flex flex-col gap-1"
-                style={{ background: 'var(--color-bg-secondary)', borderColor: 'rgba(56, 189, 248, 0.25)' }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-sky-400">Auto-Extracted</span>
-                  <Brain size={14} className="text-sky-400" />
+              <div className="p-3.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 flex flex-col justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-[11px] font-medium text-zinc-400">Trusted</span>
                 </div>
-                <span className="text-2xl font-bold text-sky-400">{memoryStats.auto_count}</span>
+                <span className="text-xl font-bold mt-1 text-zinc-100">{memoryStats.trusted_count}</span>
               </div>
-              <div
-                className="p-3.5 rounded-xl border flex flex-col gap-1"
-                style={{ background: 'var(--color-bg-secondary)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-rose-400">Quarantined</span>
-                  <ShieldAlert size={14} className="text-rose-400" />
+              <div className="p-3.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 flex flex-col justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-sky-400" />
+                  <span className="text-[11px] font-medium text-zinc-400">Auto-Extracted</span>
                 </div>
-                <span className="text-2xl font-bold text-rose-400">{memoryStats.untrusted_count}</span>
+                <span className="text-xl font-bold mt-1 text-zinc-100">{memoryStats.auto_count}</span>
               </div>
-              <div
-                className="p-3.5 rounded-xl border flex flex-col gap-1 col-span-2 sm:col-span-1"
-                style={{ background: 'var(--color-bg-secondary)', borderColor: 'rgba(168, 85, 247, 0.25)' }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-purple-400">Verified</span>
-                  <CheckCircle2 size={14} className="text-purple-400" />
+              <div className="p-3.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 flex flex-col justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-400" />
+                  <span className="text-[11px] font-medium text-zinc-400">Quarantined</span>
                 </div>
-                <span className="text-2xl font-bold text-purple-400">{memoryStats.verified_count}</span>
+                <span className="text-xl font-bold mt-1 text-zinc-100">{memoryStats.untrusted_count}</span>
+              </div>
+              <div className="p-3.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 flex flex-col justify-between col-span-2 sm:col-span-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-purple-400" />
+                  <span className="text-[11px] font-medium text-zinc-400">Verified</span>
+                </div>
+                <span className="text-xl font-bold mt-1 text-zinc-100">{memoryStats.verified_count}</span>
               </div>
             </div>
 
@@ -1835,15 +1819,14 @@ export function MemorySkillsPage() {
                 <button
                   onClick={loadMemories}
                   disabled={memoryLoading}
-                  className="p-1.5 rounded-lg border text-xs hover:bg-slate-800 transition-colors cursor-pointer"
-                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                  className="p-1.5 rounded-md border border-zinc-800 text-xs bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors cursor-pointer"
                   title="Refresh Memories"
                 >
                   <RefreshCw size={14} className={memoryLoading ? 'animate-spin' : ''} />
                 </button>
                 <button
                   onClick={() => setCreateMemoryOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-500 hover:bg-sky-600 text-white transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-900 hover:bg-white transition-colors cursor-pointer"
                 >
                   <Plus size={14} />
                   <span>Add Memory</span>
@@ -1881,13 +1864,11 @@ export function MemorySkillsPage() {
                   return (
                     <div
                       key={mem.id}
-                      className="p-4 rounded-xl border transition-all"
-                      style={{
-                        background: 'var(--color-bg-secondary)',
-                        borderColor: isQuarantined
-                          ? 'rgba(239, 68, 68, 0.4)'
-                          : 'var(--color-border)',
-                      }}
+                      className={`p-4 rounded-xl border transition-all ${
+                        isQuarantined
+                          ? 'border-amber-500/30 bg-zinc-900/70'
+                          : 'border-zinc-800/80 bg-zinc-900/60'
+                      }`}
                     >
                       {/* Top Header Row */}
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -1945,8 +1926,8 @@ export function MemorySkillsPage() {
 
                       {/* Quarantined Warning Alert */}
                       {isQuarantined && (
-                        <div className="mb-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-start gap-2 text-xs text-rose-300">
-                          <ShieldAlert size={15} className="shrink-0 mt-0.5 text-rose-400" />
+                        <div className="mb-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-2 text-xs text-amber-300">
+                          <ShieldAlert size={15} className="shrink-0 mt-0.5 text-amber-400" />
                           <div>
                             <span className="font-semibold">Security Quarantine:</span> This entry contains
                             instruction-like or suspicious prompt content. It is strictly isolated from model planning
@@ -1961,10 +1942,10 @@ export function MemorySkillsPage() {
                       </p>
 
                       {/* Bottom Controls / Expandable Details */}
-                      <div className="flex items-center justify-between mt-3 pt-2 border-t text-xs" style={{ borderColor: 'var(--color-border)' }}>
+                      <div className="flex items-center justify-between mt-3 pt-2 border-t text-xs border-zinc-800/80">
                         <button
                           onClick={() => setExpandedMemoryId(isExpanded ? null : mem.id)}
-                          className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer"
+                          className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200 cursor-pointer"
                         >
                           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           <span>{isExpanded ? 'Hide Details' : 'View Provenance & Metadata'}</span>
@@ -1976,14 +1957,14 @@ export function MemorySkillsPage() {
                               navigator.clipboard.writeText(mem.text);
                               toast.success('Memory text copied to clipboard');
                             }}
-                            className="p-1 text-slate-400 hover:text-slate-200 cursor-pointer"
+                            className="p-1 text-zinc-400 hover:text-zinc-200 cursor-pointer"
                             title="Copy memory text"
                           >
                             <Copy size={13} />
                           </button>
                           <button
                             onClick={() => openEditModal(mem)}
-                            className="flex items-center gap-1 px-2 py-1 rounded text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer text-[11px]"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded text-zinc-400 hover:text-zinc-200 bg-zinc-800/60 border border-zinc-700/60 transition-colors cursor-pointer text-[11px]"
                           >
                             <Edit3 size={11} />
                             <span>Edit</span>
@@ -1993,7 +1974,7 @@ export function MemorySkillsPage() {
                               setDeletingMemoryId(mem.id);
                               setDeleteMemoryOpen(true);
                             }}
-                            className="flex items-center gap-1 px-2 py-1 rounded text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer text-[11px]"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded text-zinc-400 hover:text-zinc-200 bg-zinc-800/60 border border-zinc-700/60 transition-colors cursor-pointer text-[11px]"
                           >
                             <Trash2 size={11} />
                             <span>Delete</span>
@@ -2933,14 +2914,14 @@ export function MemorySkillsPage() {
                 <button
                   type="button"
                   onClick={() => setCreateMemoryOpen(false)}
-                  className="px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingMemory}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-medium transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-xs font-medium transition-colors cursor-pointer"
                 >
                   {submittingMemory ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={14} />}
                   <span>Save Fact</span>
@@ -3074,14 +3055,14 @@ export function MemorySkillsPage() {
                 <button
                   type="button"
                   onClick={() => setEditMemoryOpen(false)}
-                  className="px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingMemory}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-medium transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-xs font-medium transition-colors cursor-pointer"
                 >
                   {submittingMemory ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
                   <span>Save Changes</span>
@@ -3124,14 +3105,14 @@ export function MemorySkillsPage() {
                   setDeleteMemoryOpen(false);
                   setDeletingMemoryId(null);
                 }}
-                className="px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 text-xs transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteMemory}
                 disabled={submittingMemory}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition-colors cursor-pointer"
               >
                 {submittingMemory ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 <span>Delete Permanently</span>

@@ -105,24 +105,18 @@ function ApiKeyInput({
   const [saved, setSaved] = useState(false);
   const [hasKey, setHasKey] = useState(false);
   const [error, setError] = useState('');
-  const desktopKeyStorage = isTauri();
-  const serverToolStorage = !desktopKeyStorage && !!toolName;
-  const canManage = desktopKeyStorage || serverToolStorage;
+  const canManage = true;
 
   const refresh = useCallback(async () => {
-    if (!canManage) {
-      setHasKey(false);
-      return;
-    }
     try {
-      const status = desktopKeyStorage
-        ? await getCloudKeyStatus()
-        : await fetchToolCredentialStatus(toolName!);
+      const status = toolName
+        ? await fetchToolCredentialStatus(toolName)
+        : await getCloudKeyStatus();
       setHasKey(!!status[keyName]);
     } catch {
       setHasKey(false);
     }
-  }, [canManage, desktopKeyStorage, keyName, toolName]);
+  }, [keyName, toolName]);
 
   useEffect(() => {
     void refresh();
@@ -135,12 +129,10 @@ function ApiKeyInput({
     if (!next) return;
     setError('');
     try {
-      if (desktopKeyStorage) {
-        await saveCloudKey(keyName, next);
-      } else if (toolName) {
+      if (toolName) {
         await saveToolCredentials(toolName, { [keyName]: next });
       } else {
-        return;
+        await saveCloudKey(keyName, next);
       }
       setValue('');
       setHasKey(true);
@@ -155,12 +147,10 @@ function ApiKeyInput({
   const remove = async () => {
     setError('');
     try {
-      if (desktopKeyStorage) {
-        await saveCloudKey(keyName, '');
-      } else if (toolName) {
+      if (toolName) {
         await deleteToolCredential(toolName, keyName);
       } else {
-        return;
+        await saveCloudKey(keyName, '');
       }
       setValue('');
       setHasKey(false);
@@ -172,48 +162,52 @@ function ApiKeyInput({
     }
   };
 
+  const isGeminiWarning = keyName === 'GEMINI_API_KEY' && value.trim().startsWith('AQ.');
+
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="password"
-        value={value}
-        onChange={e => setValue(e.target.value)}
-        onBlur={() => { if (value.trim()) void save(value); }}
-        placeholder={hasKey ? (desktopKeyStorage ? 'Saved in secure storage' : 'Saved by local server') : placeholder}
-        disabled={!canManage}
-        className="w-48 px-2 py-1 rounded text-xs"
-        style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
-      {hasKey && (
-        <button
-          onClick={() => void remove()}
-          className="px-2 py-1 rounded text-[10px] cursor-pointer"
-          style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)' }}
-        >
-          Remove
-        </button>
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <input
+          type="password"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onBlur={() => { if (value.trim()) void save(value); }}
+          placeholder={hasKey ? 'Configured' : placeholder}
+          disabled={false}
+          className="w-48 px-2 py-1 rounded text-xs"
+          style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
+        {hasKey && (
+          <button
+            onClick={() => void remove()}
+            className="px-2 py-1 rounded text-[10px] cursor-pointer"
+            style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)' }}
+          >
+            Remove
+          </button>
+        )}
+        {saved && <span className="text-[10px]" style={{ color: 'var(--color-success)' }}>Saved</span>}
+        {error && <span className="text-[10px]" style={{ color: 'var(--color-error)' }}>{error}</span>}
+      </div>
+      {isGeminiWarning && (
+        <span className="text-[10px] text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded flex items-center gap-1">
+          ⚠ Caution: Key starts with 'AQ.'. Gemini API keys typically start with 'AIzaSy...'. An OAuth/temporary token may cause 404/401 errors.
+        </span>
       )}
-      {saved && <span className="text-[10px]" style={{ color: 'var(--color-success)' }}>Saved</span>}
-      {error && <span className="text-[10px]" style={{ color: 'var(--color-error)' }}>{error}</span>}
     </div>
   );
 }
 
 function CloudProviderStatus({ label, keyName }: { label: string; keyName: string }) {
   const [hasKey, setHasKey] = useState(false);
-  const desktopKeyStorage = isTauri();
 
   const refresh = useCallback(async () => {
-    if (!desktopKeyStorage) {
-      setHasKey(false);
-      return;
-    }
     try {
       const status = await getCloudKeyStatus();
       setHasKey(!!status[keyName]);
     } catch {
       setHasKey(false);
     }
-  }, [desktopKeyStorage, keyName]);
+  }, [keyName]);
 
   useEffect(() => {
     void refresh();
@@ -1410,26 +1404,11 @@ export function SettingsPage() {
 
             <SettingRow
               label="Voice Gender / Timbre"
-              description="Speech output voice timbre (Ultron's visual hologram is always the canonical Electron)"
+              description="Speech output voice timbre (Canonical Neutral)"
             >
-              <div className="flex gap-1.5 p-0.5 rounded-lg" style={{ background: 'var(--color-bg-secondary)' }}>
-                {(['masculine', 'feminine', 'neutral'] as const).map((p) => {
-                  const isActive = (settings.voiceGender || settings.voicePresentation || 'masculine') === p;
-                  return (
-                    <button
-                      key={p}
-                      onClick={() => handlePresentationChange(p)}
-                      className="px-3 py-1.5 rounded-md text-xs font-medium capitalize cursor-pointer transition-colors"
-                      style={{
-                        background: isActive ? 'var(--color-surface)' : 'transparent',
-                        color: isActive ? 'var(--color-text)' : 'var(--color-text-tertiary)',
-                        boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
-                      }}
-                    >
-                      {p}
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)' }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                <span>Neutral (Canonical)</span>
               </div>
             </SettingRow>
 

@@ -269,6 +269,16 @@ async def _stream_openai(
                                     payload.pop("stream_options", None)
                                     continue
 
+                                # Automatic migration if deprecated Gemini 2.5 is requested
+                                if (
+                                    resp.status_code == 404
+                                    and provider == "google"
+                                    and "gemini-2.5" in str(payload.get("model", ""))
+                                ):
+                                    logger.warning("Gemini 2.5 is deprecated by Google (404), auto-migrating to gemini-3.5-flash")
+                                    payload["model"] = "gemini-3.5-flash"
+                                    continue
+
                                 if (
                                     not yielded_any_token
                                     and attempt < max_retries
@@ -680,7 +690,7 @@ async def list_local_models() -> list[str]:
     """Return Ollama model names directly from the Ollama API."""
     host = _ollama_host()
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=1.0) as client:
             resp = await client.get(f"{host}/api/tags")
             resp.raise_for_status()
             data = resp.json()

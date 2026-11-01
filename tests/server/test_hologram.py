@@ -72,7 +72,7 @@ class TestHologramRoutes:
 
         resp = client.get("/api/tts?text=Systems+operational")
         assert resp.status_code == 200
-        assert resp.headers.get("content-type") == "audio/wav"
+        assert resp.headers.get("content-type") in ("audio/wav", "audio/mpeg")
         assert len(resp.content) > 1000
 
     def test_hologram_directive_executes_via_jarvis_system(self):

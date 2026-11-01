@@ -123,6 +123,16 @@ class TraceStore:
             )
         except sqlite3.OperationalError:
             pass  # Column already exists
+        # Sliding-window retention: auto-prune to 10,000 trace cap
+        try:
+            self._conn.execute(
+                "DELETE FROM trace_steps WHERE trace_id NOT IN (SELECT trace_id FROM traces ORDER BY started_at DESC LIMIT 10000)"
+            )
+            self._conn.execute(
+                "DELETE FROM traces WHERE trace_id NOT IN (SELECT trace_id FROM traces ORDER BY started_at DESC LIMIT 10000)"
+            )
+        except Exception:
+            pass
         self._conn.commit()
 
     @_db_locked

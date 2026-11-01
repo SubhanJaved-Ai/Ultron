@@ -19,7 +19,7 @@ _SENSITIVE_PARAM_NAMES = {
 }
 
 _CREDENTIAL_PATTERNS: List[Tuple[str, re.Pattern[str]]] = [
-    ("google_gemini_key", re.compile(r"(?:AIza[0-9A-Za-z\-_]{35}|AQ\.[0-9A-Za-z\-_]{30,})")),
+    ("google_gemini_key", re.compile(r"(?:AIza[0-9A-Za-z\-_]{20,45}|AQ\.[0-9A-Za-z\-_]{20,})")),
     ("api_key", re.compile(r"sk-[a-zA-Z0-9_\-]{20,}")),
     ("aws_key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("github_token", re.compile(r"(?:ghp|gho|ghs|ghr|github_pat)_[a-zA-Z0-9_]{36,}")),
@@ -93,3 +93,19 @@ def wrap_tool_output(tool_name: str, content: str, success: bool = True) -> str:
     status = "success" if success else "error"
     header = f'<tool_result name="{tool_name}" status="{status}">'
     return f"{header}\n{content}\n</tool_result>"
+
+
+def scrub_secrets(text: str) -> str:
+    """Mask API keys (AIzaSy..., sk-..., AQ...., Bearer..., passwords, tokens) with [REDACTED_SECRET]."""
+    if not text:
+        return ""
+    result = sanitize_error_message(text)
+    # Normalize redaction markers
+    result = re.sub(r"\[REDACTED:[^\]]+\]", "[REDACTED_SECRET]", result)
+    result = re.sub(r"\bAIza[0-9A-Za-z\-_]{20,45}\b", "[REDACTED_SECRET]", result)
+    result = re.sub(r"\bAQ\.[0-9A-Za-z\-_]{20,}\b", "[REDACTED_SECRET]", result)
+    result = re.sub(r"(?:sk-|oj_sk_|sk-ant-)[a-zA-Z0-9_\-]{15,}", "[REDACTED_SECRET]", result, flags=re.IGNORECASE)
+    result = re.sub(r"\bAKIA[0-9A-Z]{16}\b", "[REDACTED_SECRET]", result)
+    result = re.sub(r"gh[pousr]_[a-zA-Z0-9]{30,}", "[REDACTED_SECRET]", result, flags=re.IGNORECASE)
+    result = re.sub(r"\bxox[baprs]-[0-9a-zA-Z-]{10,}\b", "[REDACTED_SECRET]", result)
+    return result

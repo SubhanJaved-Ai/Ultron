@@ -1,13 +1,13 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
 import { StreamingDots } from './StreamingDots';
+import { ModelSelector } from './ModelSelector';
 import { useAppStore } from '../../lib/store';
 import { shouldAutoplayFinishedReply, useTtsStore } from '../../lib/tts';
 import { stripThinkTags } from '../../lib/message-text';
-import { Sparkles, PanelRightOpen, PanelRightClose, Database, MessageSquare, X, Orbit } from 'lucide-react';
-import { listConnectors } from '../../lib/connectors-api';
+import { Sparkles, PanelRightOpen, PanelRightClose, Layers, ShieldCheck } from 'lucide-react';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -90,16 +90,6 @@ export function ChatArea() {
   }, [activeId, messages, isStreaming, isCurrentChatStreaming, voiceOutputEnabled, voiceAutoplay]);
   const currentStreamContent = isCurrentChatStreaming ? streamContent : '';
 
-  // Check if any data sources are connected
-  const [hasConnectedSources, setHasConnectedSources] = useState<boolean | null>(null);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-
-  useEffect(() => {
-    listConnectors()
-      .then((list) => setHasConnectedSources(list.some((c) => c.connected)))
-      .catch(() => setHasConnectedSources(null));
-  }, []);
-
   useEffect(() => {
     // Sending a message always pins the view to the bottom, even if the
     // user had scrolled up to read earlier messages.
@@ -137,30 +127,11 @@ export function ChatArea() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toggle bar */}
-      <div className="flex items-center justify-end px-3 py-1.5 shrink-0 gap-1.5">
-        <button
-          onClick={() => navigate('/hologram')}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer"
-          style={{
-            background: 'rgba(56, 189, 248, 0.10)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            color: '#38bdf8',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(56, 189, 248, 0.2)';
-            e.currentTarget.style.boxShadow = '0 0 10px rgba(56, 189, 248, 0.3)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(56, 189, 248, 0.10)';
-            e.currentTarget.style.boxShadow = 'none';
-          }}
-          title="Switch to 3D Hologram Voice Matrix"
-        >
-          <Orbit size={13} className="animate-spin-slow" />
-          <span>3D Hologram</span>
-        </button>
-
+      {/* Header bar with Model Selector (ChatGPT/Antigravity style) & Panel Toggle */}
+      <div className="flex items-center justify-between px-3 py-1.5 shrink-0 gap-1.5 border-b border-zinc-800/40">
+        <div className="flex items-center gap-2">
+          <ModelSelector />
+        </div>
         <button
           onClick={toggleSystemPanel}
           className="p-1.5 rounded-md transition-colors cursor-pointer"
@@ -171,35 +142,6 @@ export function ChatArea() {
         </button>
       </div>
 
-      {/* Data sources banner */}
-      {hasConnectedSources === false && !bannerDismissed && (
-        <div
-          className="mx-4 mb-2 flex items-center gap-3 px-4 py-3 rounded-lg text-sm shrink-0"
-          style={{
-            background: 'var(--color-accent-subtle)',
-            border: '1px solid var(--color-border)',
-          }}
-        >
-          <Database size={16} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
-          <span style={{ color: 'var(--color-text-secondary)', flex: 1 }}>
-            Connect your data sources (Gmail, iMessage, Slack, etc.) to get personalized answers.
-          </span>
-          <button
-            onClick={() => navigate('/data-sources')}
-            className="px-3 py-1 rounded text-xs font-medium cursor-pointer"
-            style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)', border: 'none' }}
-          >
-            Connect
-          </button>
-          <button
-            onClick={() => setBannerDismissed(true)}
-            className="p-1 rounded cursor-pointer"
-            style={{ color: 'var(--color-text-tertiary)', background: 'transparent', border: 'none' }}
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
       <div
         ref={listRef}
         onScroll={handleScroll}
@@ -221,9 +163,9 @@ export function ChatArea() {
             </p>
 
             {/* Quick action hints */}
-            <div className="flex gap-3">
+            <div className="flex flex-wrap justify-center gap-3">
               <button
-                onClick={() => navigate('/data-sources')}
+                onClick={() => navigate('/tasks')}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs cursor-pointer transition-colors"
                 style={{
                   background: 'var(--color-bg-secondary)',
@@ -233,11 +175,11 @@ export function ChatArea() {
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
               >
-                <Database size={14} style={{ color: 'var(--color-accent)' }} />
-                Connect Data Sources
+                <Layers size={14} style={{ color: 'var(--color-accent)' }} />
+                Inspect DAG Tasks
               </button>
               <button
-                onClick={() => { navigate('/data-sources'); setTimeout(() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'messaging' })), 100); }}
+                onClick={() => navigate('/memory-skills')}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs cursor-pointer transition-colors"
                 style={{
                   background: 'var(--color-bg-secondary)',
@@ -247,8 +189,8 @@ export function ChatArea() {
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
               >
-                <MessageSquare size={14} style={{ color: 'var(--color-accent)' }} />
-                Set Up Messaging Channels
+                <ShieldCheck size={14} style={{ color: 'var(--color-accent)' }} />
+                Memory & Safety Firewall
               </button>
             </div>
           </div>

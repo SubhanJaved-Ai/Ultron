@@ -228,7 +228,15 @@ async def list_agents(request: Request):
     except ImportError:
         pass
 
-    return {"registered": registered, "running": running}
+    managed = []
+    manager = getattr(request.app.state, "agent_manager", None)
+    if manager is not None:
+        try:
+            managed = manager.list_agents()
+        except Exception:
+            pass
+
+    return {"registered": registered, "running": running, "agents": managed}
 
 
 @agents_router.post("")

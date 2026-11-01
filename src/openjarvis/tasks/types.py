@@ -55,6 +55,13 @@ class TaskStep:
     finished_at: Optional[float] = None
 
     @property
+    def metadata(self) -> Dict[str, Any]:
+        """Convenience property mapping step metadata and rollback guidance."""
+        if self.safety_decision is None:
+            self.safety_decision = {}
+        return self.safety_decision
+
+    @property
     def requires_user_input(self) -> bool:
         """True if the step is paused specifically waiting for missing user inputs."""
         return bool(self.safety_decision and self.safety_decision.get("requires_user_input"))

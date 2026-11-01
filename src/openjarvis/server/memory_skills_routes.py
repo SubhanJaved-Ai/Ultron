@@ -179,17 +179,6 @@ def _get_maintenance_manager(request: Request) -> MemoryMaintenanceManager:
 
 def _get_skill_learner(request: Request) -> WorkflowSkillLearner:
     """Retrieve or instantiate the WorkflowSkillLearner."""
-    # 1. From PersistentTaskRunner if present
-    task_runner = getattr(request.app.state, "task_runner", None)
-    if task_runner is not None and getattr(task_runner, "workflow_skill_learner", None) is not None:
-        return task_runner.workflow_skill_learner
-
-    # 2. Direct app state cache
-    learner = getattr(request.app.state, "workflow_skill_learner", None)
-    if learner is not None:
-        return learner
-
-    # 3. Fallback with SkillManager
     mgr = getattr(request.app.state, "skill_manager", None)
     if mgr is None:
         bus = getattr(request.app.state, "bus", None) or EventBus()
@@ -197,6 +186,26 @@ def _get_skill_learner(request: Request) -> WorkflowSkillLearner:
         mgr = SkillManager(bus=bus, capability_policy=cap_policy)
         request.app.state.skill_manager = mgr
 
+    # 1. From PersistentTaskRunner if present
+    task_runner = getattr(request.app.state, "task_runner", None)
+    if task_runner is not None and getattr(task_runner, "workflow_skill_learner", None) is not None:
+        learner = task_runner.workflow_skill_learner
+        if getattr(learner, "skill_manager", None) is None:
+            learner.skill_manager = mgr
+            if learner.ledger is None and hasattr(mgr, "get_ledger"):
+                learner.ledger = mgr.get_ledger()
+        return learner
+
+    # 2. Direct app state cache
+    learner = getattr(request.app.state, "workflow_skill_learner", None)
+    if learner is not None:
+        if getattr(learner, "skill_manager", None) is None:
+            learner.skill_manager = mgr
+            if learner.ledger is None and hasattr(mgr, "get_ledger"):
+                learner.ledger = mgr.get_ledger()
+        return learner
+
+    # 3. Fallback with SkillManager
     learner = WorkflowSkillLearner(
         skill_manager=mgr,
         ledger=getattr(mgr, "ledger", None) if hasattr(mgr, "ledger") else None,
@@ -380,7 +389,7 @@ def list_memory_facts(
     total_count = len(all_facts)
     trusted_count = sum(1 for f in all_facts if (f.trust or "").strip().lower() == TRUST_TRUSTED)
     auto_count = sum(1 for f in all_facts if (f.trust or "").strip().lower() == TRUST_AUTO)
-    untrusted_count = sum(1 for f in all_facts if (f.trust or "").strip().lower() == TRUST_UNTRUSTED)
+    untrusted_count = sum(1 for f in all_facts if (f.trust or "").strip().lower() in (TRUST_UNTRUSTED, "quarantined", "untrusted"))
     verified_count = sum(1 for f in all_facts if f.verified)
     unverified_count = total_count - verified_count
     available_projects = sorted(list({f.project for f in all_facts if f.project}))
@@ -398,7 +407,10 @@ def list_memory_facts(
 
     if trust and trust != "*" and trust != "all":
         t_lower = trust.strip().lower()
-        filtered = [f for f in filtered if (f.trust or "").strip().lower() == t_lower]
+        if t_lower in ("untrusted", "quarantined"):
+            filtered = [f for f in filtered if (f.trust or "").strip().lower() in ("untrusted", "quarantined") or f.metadata.get("quarantined", False)]
+        else:
+            filtered = [f for f in filtered if (f.trust or "").strip().lower() == t_lower]
 
     if verified is not None:
         filtered = [f for f in filtered if f.verified == verified]
@@ -486,13 +498,43 @@ def create_memory_fact(body: CreateMemoryRequest, request: Request) -> Dict[str,
     if user_id:
         clean_meta["created_by"] = user_id
 
+    # Indirect Prompt Injection Firewall on Memory Write
+    from openjarvis.memory.store import _INJECTION_SIGNATURES, TRUST_QUARANTINED
+    is_injection = False
+    findings = []
+    try:
+        from openjarvis.security.injection_scanner import InjectionScanner
+        _scanner = InjectionScanner()
+        _scan_res = _scanner.scan(clean_text)
+        if _scan_res and not _scan_res.is_clean:
+            is_injection = True
+            findings.extend(f.pattern_name for f in getattr(_scan_res, "findings", []))
+    except Exception:
+        pass
+
+    if not is_injection:
+        for pat in _INJECTION_SIGNATURES:
+            if pat.search(clean_text):
+                is_injection = True
+                findings.append(pat.pattern)
+                break
+
+    if is_injection:
+        target_trust = TRUST_QUARANTINED
+        clean_meta["quarantined"] = True
+        clean_meta["is_untrusted"] = True
+        clean_meta["quarantine_reason"] = f"Prompt injection/security bypass detected: {findings}"
+        target_verified = False
+    else:
+        target_verified = body.verified
+
     success = store.add(
         text=clean_text,
         source=body.source,
         trust=target_trust,
         category=target_category,
         project=target_project,
-        verified=body.verified,
+        verified=target_verified,
         source_type=body.source_type or "",
         metadata=clean_meta,
     )

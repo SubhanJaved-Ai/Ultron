@@ -90,6 +90,11 @@ class TaskStore:
         self._closed = False
         self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        try:
+            self._conn.execute("PRAGMA journal_mode=WAL;")
+            self._conn.execute("PRAGMA busy_timeout=5000;")
+        except Exception:
+            pass
         self._init_schema()
 
     @_db_locked

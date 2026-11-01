@@ -39,11 +39,26 @@ def reciprocal_rank_fusion(
     scores: Dict[str, float] = {}
     best_result: Dict[str, RetrievalResult] = {}
 
+    import math
+    import time
     for weight, results in zip(weights, ranked_lists):
         for rank, result in enumerate(results):
             key = result.content
             rrf = weight / (k + rank + 1)
-            scores[key] = scores.get(key, 0.0) + rrf
+            
+            # 30-day exponential time-decay and confidence weighting
+            meta = result.metadata or {}
+            age_days = 0.0
+            ts = meta.get("created_at") or meta.get("timestamp")
+            if ts is not None:
+                try:
+                    age_days = max(0.0, (time.time() - float(ts)) / 86400.0)
+                except (ValueError, TypeError):
+                    age_days = 0.0
+            decay = math.exp(-0.023 * age_days)
+            conf = float(meta.get("confidence_score", meta.get("confidence", 1.0)))
+            fused_component = rrf * decay * conf
+            scores[key] = scores.get(key, 0.0) + fused_component
 
             # Keep the result with the highest original score
             if key not in best_result:
@@ -142,10 +157,14 @@ class HybridMemory(MemoryBackend):
             query,
             top_k=fetch_k,
         )
-        dense_results = self._dense.retrieve(
-            query,
-            top_k=fetch_k,
-        )
+        try:
+            dense_results = self._dense.retrieve(
+                query,
+                top_k=fetch_k,
+            )
+        except Exception as exc:
+            logger.warning("Dense retrieval failed in HybridMemory, falling back to sparse: %s", exc)
+            dense_results = []
 
         fused = reciprocal_rank_fusion(
             [sparse_results, dense_results],

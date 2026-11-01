@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -1606,6 +1607,40 @@ class TestModelsEndpoint:
         stream_cloud.assert_not_called()
         assert "Hello" in resp.text
         assert '"engine": "litellm"' in resp.text
+
+    def test_jarvis_v2_never_in_models_or_info(self, client):
+        """Regression test: 'jarvis-v2' must never appear as a model."""
+        resp = client.get("/v1/models")
+        assert resp.status_code == 200
+        ids = [m["id"] for m in resp.json()["data"]]
+        assert "jarvis-v2" not in ids
+
+        info_resp = client.get("/v1/info")
+        assert info_resp.status_code == 200
+        assert info_resp.json()["model"] != "jarvis-v2"
+
+    def test_cloud_keys_endpoints_and_model_exposure(self, client, tmp_path):
+        """Test GET /v1/cloud/keys, POST /v1/cloud/keys, and cloud model exposure."""
+        with patch.dict(os.environ, {}, clear=False):
+            # Save Gemini key
+            resp = client.post("/v1/cloud/keys", json={"key_name": "GEMINI_API_KEY", "key_value": "test-gemini-key"})
+            assert resp.status_code == 200
+
+            # Check key status
+            status_resp = client.get("/v1/cloud/keys")
+            assert status_resp.status_code == 200
+            assert status_resp.json()["GEMINI_API_KEY"] is True
+
+            # Models list should now include Gemini models
+            models_resp = client.get("/v1/models")
+            assert models_resp.status_code == 200
+            model_ids = [m["id"] for m in models_resp.json()["data"]]
+            assert "gemini-3.8-flash" in model_ids
+            assert "jarvis-v2" not in model_ids
+
+            # Delete key
+            del_resp = client.delete("/v1/cloud/keys/GEMINI_API_KEY")
+            assert del_resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------

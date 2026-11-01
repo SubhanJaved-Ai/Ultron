@@ -6,14 +6,10 @@ import {
   Check,
   ChevronRight,
   ChevronLeft,
-  Play,
-  Square,
   AlertTriangle,
   User,
   Mic,
   Languages,
-  ShieldCheck,
-  Info,
 } from 'lucide-react';
 import { UltronParticleCore } from '../Avatar/UltronParticleCore';
 import type { ParticleVariant, ParticleState } from '../Avatar/particle-avatar.types';
@@ -22,7 +18,6 @@ import {
   fetchPersonalization,
   updatePersonalization,
   fetchVoiceSettings,
-  previewVoiceUtterance,
   type VoiceSettings,
 } from '../../lib/api';
 import { useAppStore } from '../../lib/store';
@@ -110,8 +105,7 @@ export const PERSONA_PRESETS = [
 export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [userName, setUserName] = useState('Sir');
-  const [phone, setPhone] = useState('');
-  const [voiceGender, setVoiceGender] = useState<'masculine' | 'feminine' | 'neutral'>('masculine');
+  const voiceGender = 'neutral';
   const [persona, setPersona] = useState('jarvis');
   const [language, setLanguage] = useState<'en' | 'ur' | 'hi' | 'auto'>('en');
   const [provider, setProvider] = useState('system');
@@ -119,10 +113,6 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
   const [soundEnabled, setSoundEnabled] = useState(soundEffects.isEnabled());
   const [soundVolume, setSoundVolume] = useState(soundEffects.getVolume());
 
-  // Preview Audio State
-  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const [avatarState, setAvatarState] = useState<ParticleState>('idle');
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -135,14 +125,8 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
     fetchPersonalization()
       .then((data) => {
         if (data.user_name) setUserName(data.user_name);
-        if (data.voice_gender) {
-          setVoiceGender(data.voice_gender);
-        } else if (data.presentation && ['masculine', 'feminine', 'neutral'].includes(data.presentation)) {
-          setVoiceGender(data.presentation as 'masculine' | 'feminine' | 'neutral');
-        }
         if (data.persona) setPersona(data.persona);
         if (data.language) setLanguage(data.language);
-        if (data.phone_number) setPhone(data.phone_number);
         setSoundEnabled(data.sound_enabled);
         setSoundVolume(data.sound_volume);
         soundEffects.saveConfig({ enabled: data.sound_enabled, volume: data.sound_volume });
@@ -200,129 +184,7 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
-    setIsPlayingPreview(false);
-    setPreviewLoading(false);
     setAvatarState('idle');
-  };
-
-  const handlePreviewVoice = async (customText?: string) => {
-    soundEffects.playClick();
-    setPreviewError(null);
-
-    if (isPlayingPreview) {
-      stopAudioPlayback();
-      soundEffects.playPreviewStop();
-      return;
-    }
-
-    setPreviewLoading(true);
-    setAvatarState('thinking');
-    soundEffects.playLoadingCue();
-    soundEffects.playPreviewStart();
-
-    const currentPreset = PERSONA_PRESETS.find((p) => p.id === persona) || PERSONA_PRESETS[0];
-    const textToSpeak =
-      customText ||
-      (language === 'ur'
-        ? currentPreset.sampleUr
-        : currentPreset.sampleEn);
-
-    try {
-      const res = await previewVoiceUtterance({
-        provider,
-        voice_id: selectedVoiceId,
-        language: language === 'auto' ? 'en' : language,
-        voice_gender: voiceGender,
-        text: textToSpeak,
-      });
-
-      setPreviewLoading(false);
-      soundEffects.stopLoadingCue();
-
-      if (res.status === 'server_audio' && res.audioBlob) {
-        const audioUrl = URL.createObjectURL(res.audioBlob);
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-
-        audio.onplay = () => {
-          setIsPlayingPreview(true);
-          setAvatarState('speaking');
-        };
-
-        audio.onended = () => {
-          setIsPlayingPreview(false);
-          setAvatarState('idle');
-          soundEffects.playPreviewStop();
-          URL.revokeObjectURL(audioUrl);
-        };
-
-        audio.onerror = () => {
-          setIsPlayingPreview(false);
-          setAvatarState('error');
-          setPreviewError('Playback failed. Reverting to system audio.');
-          URL.revokeObjectURL(audioUrl);
-        };
-
-        await audio.play();
-      } else {
-        // Free Client Synthesis via Web Speech API
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(res.text || textToSpeak);
-          utterance.lang = language === 'ur' ? 'ur-PK' : language === 'hi' ? 'hi-IN' : 'en-US';
-
-          // Select appropriate gender voice if browser provides
-          const voices = window.speechSynthesis.getVoices();
-          if (voiceGender === 'feminine') {
-            const female = voices.find(
-              (v) =>
-                typeof v?.name === 'string' &&
-                (v.name.toLowerCase().includes('zira') ||
-                  v.name.toLowerCase().includes('female') ||
-                  v.name.toLowerCase().includes('susan')),
-            );
-            if (female) utterance.voice = female;
-          } else if (voiceGender === 'masculine') {
-            const male = voices.find(
-              (v) =>
-                typeof v?.name === 'string' &&
-                (v.name.toLowerCase().includes('david') ||
-                  v.name.toLowerCase().includes('male') ||
-                  v.name.toLowerCase().includes('george')),
-            );
-            if (male) utterance.voice = male;
-          }
-
-          utterance.onstart = () => {
-            setIsPlayingPreview(true);
-            setAvatarState('speaking');
-          };
-
-          utterance.onend = () => {
-            setIsPlayingPreview(false);
-            setAvatarState('idle');
-            soundEffects.playPreviewStop();
-          };
-
-          utterance.onerror = () => {
-            setIsPlayingPreview(false);
-            setAvatarState('idle');
-          };
-
-          window.speechSynthesis.speak(utterance);
-        } else {
-          setIsPlayingPreview(false);
-          setAvatarState('idle');
-          setPreviewError('Web Speech API is unavailable in this environment.');
-        }
-      }
-    } catch (err: any) {
-      setPreviewLoading(false);
-      soundEffects.stopLoadingCue();
-      setIsPlayingPreview(false);
-      setAvatarState('error');
-      setPreviewError(err?.message || 'Synthesis failed. Using silent default.');
-      soundEffects.playErrorTone();
-    }
   };
 
   const handleFinish = async () => {
@@ -335,10 +197,10 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
     try {
       await updatePersonalization({
         user_name: finalName,
-        phone_number: phone.trim(),
+        phone_number: '',
         presentation: 'neutral',
-        voice_presentation: voiceGender,
-        voice_gender: voiceGender,
+        voice_presentation: 'neutral',
+        voice_gender: 'neutral',
         persona,
         language,
         sound_enabled: soundEnabled,
@@ -352,11 +214,11 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
     // 2. Update frontend store
     updateSettings({
       userName: finalName,
-      voicePresentation: voiceGender,
-      voiceGender,
+      voicePresentation: 'neutral',
+      voiceGender: 'neutral',
       persona,
       language,
-      notificationPhone: phone.trim(),
+      notificationPhone: '',
       soundEnabled,
       soundVolume,
       onboardingCompleted: true,
@@ -475,23 +337,6 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
                   </p>
                 </div>
 
-                <div className="space-y-2 pt-3 border-t border-slate-200/80">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    Optional WhatsApp / SMS Alerts
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    onKeyDown={(e) => soundEffects.handleKeyInputEvent(e)}
-                    placeholder="e.g. +14155552671 (optional)"
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/90 border border-slate-200/90 focus:border-cyan-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-900 placeholder-slate-400 text-sm shadow-sm transition-all"
-                  />
-                  <div className="flex items-start gap-1.5 text-xs text-slate-500">
-                    <ShieldCheck size={14} className="text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Never required. Only used if you configure local autonomous task completion alerts.</span>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -631,41 +476,6 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
                   </div>
                 </div>
 
-                {/* Voice Gender / Timbre Switcher */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                      Voice Gender / Timbre
-                    </label>
-                    <span className="text-[10px] text-slate-400 font-mono">Speech Timbre Only</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['masculine', 'feminine', 'neutral'] as const).map((g) => {
-                      const isActive = voiceGender === g;
-                      return (
-                        <button
-                          key={g}
-                          type="button"
-                          onClick={() => {
-                            setVoiceGender(g);
-                            soundEffects.playClick();
-                          }}
-                          className={`py-2 px-3 rounded-xl border text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer text-center ${
-                            isActive
-                              ? 'border-cyan-500 bg-cyan-50 text-cyan-800 shadow-sm ring-1 ring-cyan-500/20'
-                              : 'border-slate-200 bg-white/80 text-slate-700 hover:border-cyan-300 hover:bg-white shadow-sm'
-                          }`}
-                        >
-                          {g}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Controls vocal timbre only. Ultron&apos;s hologram is always the canonical Electron core.
-                  </p>
-                </div>
-
                 {/* Free Provider vs Paid Cloud Notice */}
                 {language === 'ur' && provider === 'system' && (
                   <div className="p-3 rounded-xl border border-amber-300 bg-amber-50/95 text-xs text-amber-900 space-y-1 shadow-sm">
@@ -698,53 +508,6 @@ export function CinematicOnboarding({ onComplete, onSkip }: CinematicOnboardingP
                   </select>
                 </div>
 
-                {/* Voice Preview Player Card */}
-                <div className="p-4 rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50/80 to-blue-50/50 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs uppercase tracking-wider text-cyan-800 font-mono font-semibold">
-                        Channel Preview: {activePersonaObj.name} ({voiceGender})
-                      </span>
-                      <p className="text-xs text-slate-700 mt-0.5 line-clamp-1 italic font-medium">
-                        &quot;{language === 'ur' ? activePersonaObj.sampleUr : activePersonaObj.sampleEn}&quot;
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => handlePreviewVoice()}
-                      disabled={previewLoading}
-                      className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer transition-all ${
-                        isPlayingPreview
-                          ? 'bg-rose-50 border border-rose-300 text-rose-700 hover:bg-rose-100 shadow-sm'
-                          : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-md shadow-cyan-600/20'
-                      }`}
-                    >
-                      {previewLoading ? (
-                        <>
-                          <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          <span>SYNTHESIZING</span>
-                        </>
-                      ) : isPlayingPreview ? (
-                        <>
-                          <Square size={14} className="fill-current" />
-                          <span>STOP</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play size={14} className="fill-current" />
-                          <span>TEST VOICE</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {previewError && (
-                    <div className="flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 p-2 rounded-lg border border-rose-200">
-                      <Info size={14} />
-                      <span>{previewError}</span>
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </div>

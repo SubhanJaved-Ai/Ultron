@@ -184,7 +184,7 @@ export function InputArea() {
     const content = input.trim();
     if (!content || streamState.isStreaming) return;
     if (!selectedModel) {
-      toast.error('Pick a model first (⌘K)');
+      toast.error('Select a model from the dropdown or connect an API key in Settings');
       return;
     }
 
@@ -639,7 +639,7 @@ export function InputArea() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={selectedModel ? 'Message OpenJarvis...' : 'Pick a model first (⌘K)...'}
+          placeholder={selectedModel ? 'Message Ultron or dispatch a multi-step DAG task...' : 'Select a model or configure an API key...'}
           rows={1}
           className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
           style={{ color: 'var(--color-text)', maxHeight: '200px' }}
@@ -665,7 +665,7 @@ export function InputArea() {
             <button
               onClick={sendMessage}
               disabled={streamState.isStreaming || !input.trim() || modelLoading || !selectedModel}
-              title={selectedModel ? 'Send message' : 'Pick a model first (⌘K)'}
+              title={selectedModel ? 'Send message' : 'Select a model or configure an API key'}
               className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-default"
               style={{
                 background: input.trim() ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',

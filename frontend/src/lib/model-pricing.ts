@@ -47,8 +47,8 @@ export const KNOWN_MODEL_PRICING: ModelPricingTier[] = [
  * Resolve pricing for a model name. Defaults to standard lightweight rates.
  */
 export function getModelPricing(modelName?: string | unknown): ModelPricingTier {
-  if (!modelName || typeof modelName !== 'string') {
-    return { idPrefix: 'default', displayName: 'Standard Model', inputPerMillion: 0.15, outputPerMillion: 0.60 };
+  if (!modelName || typeof modelName !== 'string' || !modelName.trim()) {
+    return { idPrefix: 'none', displayName: 'No Active Model', inputPerMillion: 0, outputPerMillion: 0, isLocal: true };
   }
   const lower = modelName.toLowerCase();
   for (const tier of KNOWN_MODEL_PRICING) {
@@ -85,7 +85,7 @@ export function getModelPricing(modelName?: string | unknown): ModelPricingTier 
  * Formats model ID into clean human-readable title.
  */
 export function formatModelName(modelId?: string | unknown): string {
-  if (!modelId || typeof modelId !== 'string') return 'Default Model';
+  if (!modelId || typeof modelId !== 'string' || !modelId.trim()) return 'No Active Model';
   // Strip common prefixes
   let clean = modelId.replace(/^models\//, '').replace(/^openrouter\//, '');
   // Capitalize nicely

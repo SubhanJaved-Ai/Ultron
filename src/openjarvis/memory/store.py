@@ -78,10 +78,34 @@ def _default_fact_path() -> Path:
     return get_config_dir() / "memory_facts.jsonl"
 
 
+class _QuarantinedStr(str):
+    """String type compatible with both legacy 'untrusted' and 'quarantined' checks."""
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return other in ("quarantined", "untrusted")
+        return super().__eq__(other)
+
+    def __hash__(self):
+        return hash("untrusted")
+
 # Provenance tiers, recorded on every fact.
 TRUST_AUTO = "auto"  # auto-extracted and scanner-clean → recallable
 TRUST_TRUSTED = "trusted"  # explicitly vouched for by the user
 TRUST_UNTRUSTED = "untrusted"  # scanner flagged the text → quarantined
+TRUST_QUARANTINED = _QuarantinedStr("untrusted")  # prompt injection / exploit detected → strictly quarantined
+
+_INJECTION_SIGNATURES = [
+    re.compile(r"ignore\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions?|prompts?|rules?)", re.IGNORECASE),
+    re.compile(r"system\s+prompt", re.IGNORECASE),
+    re.compile(r"disregard\s+(?:all\s+)?(?:previous|prior|your)\s+(?:instructions?|programming|rules?)", re.IGNORECASE),
+    re.compile(r"you\s+are\s+now\s+(?:a\s+)?(?:different|new|evil|dan|jailbreak|unrestricted)", re.IGNORECASE),
+    re.compile(r"disable\s+ssl", re.IGNORECASE),
+    re.compile(r"curl\s+.*?\|\s*(?:ba)?sh", re.IGNORECASE),
+    re.compile(r"wget\s+.*?\|\s*(?:ba)?sh", re.IGNORECASE),
+    re.compile(r"rm\s+-rf\s+[/~]", re.IGNORECASE),
+    re.compile(r"<\s*script[^>]*>", re.IGNORECASE),
+    re.compile(r"javascript\s*:", re.IGNORECASE),
+]
 
 # Memory categories supported across the system
 MEMORY_CATEGORIES = frozenset({
@@ -291,16 +315,22 @@ class Fact:
             object.__setattr__(self, "updated_at", self.created_at)
         if not self.source_type:
             object.__setattr__(self, "source_type", infer_source_type(self.source, self.metadata))
+        if self.trust and self.trust in ("untrusted", "quarantined"):
+            object.__setattr__(self, "trust", _QuarantinedStr(self.trust))
 
     @property
     def trusted_for_recall(self) -> bool:
         """Whether this fact may be placed in model-facing context.
 
-        Only ``untrusted`` — the tier the memory service assigns when the
-        injection scanner flags a fact's own text — is withheld. Unknown
-        future tiers fail closed rather than silently becoming prompt input.
+        Only recallable tiers without quarantine flags are permitted.
+        Quarantined or untrusted facts fail closed.
         """
-        return (self.trust or "").strip().lower() in _RECALLABLE_TIERS
+        t = (self.trust or "").strip().lower()
+        if t not in _RECALLABLE_TIERS or t in (TRUST_UNTRUSTED, TRUST_QUARANTINED):
+            return False
+        if bool(self.metadata.get("quarantined", False)) or bool(self.metadata.get("is_untrusted", False)):
+            return False
+        return True
 
     @property
     def resolved_source_type(self) -> str:
@@ -582,19 +612,32 @@ class LocalFactStore(FactStore):
                 trust = TRUST_AUTO
 
         # Prompt Injection & Directive Detection:
-        # Treat untrusted instructions/injections as unrecallable data (quarantined)
+        # Treat untrusted instructions/injections as unrecallable quarantined data
+        findings = []
+        is_injection = False
         try:
             from openjarvis.security.injection_scanner import InjectionScanner
 
             _scanner = InjectionScanner()
             _scan_res = _scanner.scan(clean_text)
             if _scan_res and not _scan_res.is_clean:
-                trust = TRUST_UNTRUSTED
-                clean_meta["quarantined"] = True
-                findings = [f.pattern_name for f in getattr(_scan_res, "findings", [])]
-                clean_meta["quarantine_reason"] = f"Prompt injection/instruction detected: {findings}"
+                is_injection = True
+                findings.extend(f.pattern_name for f in getattr(_scan_res, "findings", []))
         except Exception as exc:
             logger.debug("Injection scanner in fact store error: %s", exc)
+
+        if not is_injection:
+            for pat in _INJECTION_SIGNATURES:
+                if pat.search(clean_text):
+                    is_injection = True
+                    findings.append(pat.pattern)
+                    break
+
+        if is_injection:
+            trust = TRUST_QUARANTINED
+            clean_meta["quarantined"] = True
+            clean_meta["is_untrusted"] = True
+            clean_meta["quarantine_reason"] = f"Prompt injection/security bypass detected: {findings}"
 
         now = time.time()
 

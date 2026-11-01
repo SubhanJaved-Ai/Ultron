@@ -118,13 +118,21 @@ def format_friendly_error(exc_or_text: Any, default_model: str = "") -> str:
         message = "The total conversation history exceeds the maximum context window of the selected model."
         suggestion = "Start a new chat using the '+' button in the sidebar or switch to a model with a larger context window."
 
-    # 5. Check for Connection / Timeout errors
+    # 5. Check for NIM / no-model unreachable
+    elif "NIM engine not reachable" in raw_text or ("not reachable" in raw_text and "engine" in raw_text.lower()):
+        err_type = "no_model_configured"
+        status_code = 503
+        title = "No AI Model Available"
+        message = "No local or cloud model is currently configured. The default engine could not be reached."
+        suggestion = "Open the model picker (top-left) → 'Cloud Models' tab and add your Google, OpenAI, or Anthropic API key. Or install Ollama and pull a local model."
+
+    # 6. Check for Connection / Timeout errors
     elif "ConnectError" in raw_text or "Timeout" in raw_text or "Connection refused" in raw_text:
         err_type = "connection_failed"
         status_code = 504
         title = "Connection Failed"
         message = "Could not connect to the inference server. It may be offline or unreachable."
-        suggestion = "Verify that the backend or local Ollama engine is running."
+        suggestion = "Verify that the backend or local Ollama engine is running. Alternatively, add a cloud API key in Settings → API Keys."
 
     else:
         # Fallback to sanitized message

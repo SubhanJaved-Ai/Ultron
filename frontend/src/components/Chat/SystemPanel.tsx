@@ -70,7 +70,8 @@ export function SystemPanel() {
     (typeof telemetry?.active_model === 'string' && telemetry.active_model) ||
     (typeof serverInfo?.model === 'string' && serverInfo.model) ||
     '';
-  const activeModelId = rawModel || 'Local Model';
+  const hasActiveModel = Boolean(rawModel);
+  const activeModelId = rawModel;
 
   const totalRequests = savings?.total_calls ?? telemetry?.total_requests ?? 0;
   const promptTokens = (savings?.total_prompt_tokens && savings.total_prompt_tokens > 0)
@@ -171,33 +172,63 @@ export function SystemPanel() {
           </h4>
 
           {/* Active Model Card */}
-          <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 mb-2.5"
-            style={{ background: 'var(--color-accent-subtle)', border: '1px solid var(--color-accent)' }}
-          >
-            <Cpu size={15} style={{ color: 'var(--color-accent)' }} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text)' }}>
-                  {activeCostResult.pricing.displayName}
-                </span>
-                <span
-                  className="text-[8.5px] uppercase px-1 py-0.2 rounded font-semibold shrink-0"
-                  style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
-                >
-                  Active
-                </span>
+          {hasActiveModel ? (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 mb-2.5"
+              style={{ background: 'var(--color-accent-subtle)', border: '1px solid var(--color-accent)' }}
+            >
+              <Cpu size={15} style={{ color: 'var(--color-accent)' }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text)' }}>
+                    {activeCostResult.pricing.displayName}
+                  </span>
+                  <span
+                    className="text-[8.5px] uppercase px-1 py-0.2 rounded font-semibold shrink-0"
+                    style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
+                  >
+                    Active
+                  </span>
+                </div>
+                <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  {isLocal ? 'On-Device · Zero API Cost' : 'Cloud Provider · Live Pay-Per-Token'}
+                </div>
               </div>
-              <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                {isLocal ? 'On-Device · Zero API Cost' : 'Cloud Provider · Live Pay-Per-Token'}
+              <div className="text-right shrink-0">
+                <div className="text-xs font-bold font-mono" style={{ color: isLocal ? 'var(--color-success)' : 'var(--color-text)' }}>
+                  ${activeModelCost.toFixed(4)}
+                </div>
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <div className="text-xs font-bold font-mono" style={{ color: isLocal ? 'var(--color-success)' : 'var(--color-text)' }}>
-                ${activeModelCost.toFixed(4)}
+          ) : (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 mb-2.5"
+              style={{ background: 'var(--color-bg-secondary)', border: '1px dashed var(--color-border)' }}
+            >
+              <Cpu size={15} style={{ color: 'var(--color-text-tertiary)' }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                    No Active Model
+                  </span>
+                  <span
+                    className="text-[8.5px] uppercase px-1 py-0.2 rounded font-medium shrink-0"
+                    style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-tertiary)' }}
+                  >
+                    Inactive
+                  </span>
+                </div>
+                <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Configure API key or run Ollama
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-xs font-mono" style={{ color: 'var(--color-text-tertiary)' }}>
+                  $0.0000
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Detailed Token Accounting Box */}
           <div

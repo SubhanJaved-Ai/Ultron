@@ -33,10 +33,16 @@ class MCPToolAdapter(BaseTool):
     def spec(self) -> ToolSpec:
         return self._spec
 
+    SUBPROCESS_TIMEOUT = 15.0
+
     def execute(self, **params: Any) -> ToolResult:
-        """Execute the remote MCP tool and return a ToolResult."""
+        """Execute the remote MCP tool and return a ToolResult within 15-second timeout."""
+        import concurrent.futures
         try:
-            result = self._client.call_tool(self._spec.name, params)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(self._client.call_tool, self._spec.name, params)
+                result = future.result(timeout=self.SUBPROCESS_TIMEOUT)
+
             content_parts = result.get("content", [])
             text = "\n".join(
                 p.get("text", "") for p in content_parts if isinstance(p, dict)
@@ -45,6 +51,12 @@ class MCPToolAdapter(BaseTool):
                 tool_name=self._spec.name,
                 content=text,
                 success=not result.get("isError", False),
+            )
+        except concurrent.futures.TimeoutError:
+            return ToolResult(
+                tool_name=self._spec.name,
+                content=f"MCP tool execution timed out after {self.SUBPROCESS_TIMEOUT}s.",
+                success=False,
             )
         except Exception as exc:
             return ToolResult(

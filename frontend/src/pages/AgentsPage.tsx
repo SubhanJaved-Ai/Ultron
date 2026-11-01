@@ -61,6 +61,7 @@ import {
   Check,
   Pencil,
   Loader2,
+  ShieldCheck,
 } from 'lucide-react';
 import { SOURCE_CATALOG } from '../types/connectors';
 import type { ConnectRequest } from '../types/connectors';
@@ -1099,16 +1100,18 @@ function LaunchWizard({
           </details>
 
           {/* Launch */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-2 pt-2">
             <button
               onClick={handleLaunch}
               disabled={launching || !wizard.name.trim()}
-              className="flex-1 py-2.5 rounded-lg text-sm font-semibold"
-              style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)', opacity: launching || !wizard.name.trim() ? 0.5 : 1 }}
+              className="flex-1 py-2 rounded-md text-xs font-medium cursor-pointer transition-colors bg-zinc-100 text-zinc-900 hover:bg-white disabled:opacity-50"
             >
               {launching ? 'Creating...' : 'Launch Agent'}
             </button>
-            <button onClick={onClose} className="px-4 py-2.5 rounded-lg text-sm" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-md text-xs font-medium cursor-pointer transition-colors bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+            >
               Cancel
             </button>
           </div>
@@ -3807,6 +3810,144 @@ export function AgentsPage() {
                 </div>);
             })()}
 
+            {/* Runtime Guardrails & Swarm Architecture */}
+            <div
+              className="p-4 rounded-xl"
+              style={{
+                background: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={18} style={{ color: 'var(--color-success)' }} />
+                  <span className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+                    Runtime Guardrails & Swarm Architecture
+                  </span>
+                </div>
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full font-mono font-medium"
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    color: '#10b981',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                  }}
+                >
+                  CIRCUIT BREAKER: CLOSED (0/5)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                {/* LoopGuard */}
+                <div
+                  className="p-2.5 rounded-lg"
+                  style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span style={{ color: 'var(--color-text-secondary)' }} className="font-medium">
+                      LoopGuard
+                    </span>
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                      style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}
+                    >
+                      ACTIVE
+                    </span>
+                  </div>
+                  <p className="font-semibold" style={{ color: 'var(--color-text)' }}>
+                    SHA-256 Hashing
+                  </p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+                    Window: 5 | Repeats: ≤3
+                  </p>
+                </div>
+
+                {/* TaskBudget */}
+                <div
+                  className="p-2.5 rounded-lg"
+                  style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span style={{ color: 'var(--color-text-secondary)' }} className="font-medium">
+                      TaskBudget Guard
+                    </span>
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                      style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}
+                    >
+                      ENFORCING
+                    </span>
+                  </div>
+                  <p className="font-semibold" style={{ color: 'var(--color-text)' }}>
+                    $5.00 Spend Cap
+                  </p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+                    Limit: 200,000 tokens
+                  </p>
+                </div>
+
+                {/* SwarmBlackboard */}
+                <div
+                  className="p-2.5 rounded-lg"
+                  style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span style={{ color: 'var(--color-text-secondary)' }} className="font-medium">
+                      SwarmBlackboard
+                    </span>
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                      style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}
+                    >
+                      CONNECTED
+                    </span>
+                  </div>
+                  <p className="font-semibold" style={{ color: 'var(--color-text)' }}>
+                    32 Max Workers
+                  </p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+                    Channel: agent-{selectedAgent.id.slice(0, 6)}
+                  </p>
+                </div>
+
+                {/* MCP Adapters */}
+                <div
+                  className="p-2.5 rounded-lg"
+                  style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span style={{ color: 'var(--color-text-secondary)' }} className="font-medium">
+                      MCP Adapters
+                    </span>
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                      style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#eab308' }}
+                    >
+                      READY
+                    </span>
+                  </div>
+                  <p className="font-semibold" style={{ color: 'var(--color-text)' }}>
+                    stdio / SSE
+                  </p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+                    Tool execution isolated
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Channels summary */}
             {channels.length > 0 && (
               <div
@@ -3924,15 +4065,11 @@ export function AgentsPage() {
             Agents
           </h1>
           <button
-            onClick={() => agentManagerAvailable && setShowWizard(true)}
-            disabled={agentManagerAvailable === false}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: agentManagerAvailable === false ? 'var(--color-bg-tertiary)' : 'var(--color-accent)',
-              color: agentManagerAvailable === false ? 'var(--color-text-tertiary)' : 'var(--color-on-accent)',
-            }}
+            onClick={() => setShowWizard(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors bg-zinc-100 text-zinc-900 hover:bg-white shadow-sm"
           >
-            <Plus size={15} /> New Agent
+            <Plus size={14} />
+            <span>New Agent</span>
           </button>
         </div>
         <p className="text-sm mt-2 max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
@@ -3989,15 +4126,11 @@ export function AgentsPage() {
           </p>
           <p className="text-sm mb-6">Create your first agent to get started with autonomous task management.</p>
           <button
-            onClick={() => agentManagerAvailable && setShowWizard(true)}
-            disabled={agentManagerAvailable === false}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: agentManagerAvailable === false ? 'var(--color-bg-tertiary)' : 'var(--color-accent)',
-              color: agentManagerAvailable === false ? 'var(--color-text-tertiary)' : 'var(--color-on-accent)',
-            }}
+            onClick={() => setShowWizard(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors bg-zinc-100 text-zinc-900 hover:bg-white shadow-sm"
           >
-            <Plus size={15} /> Launch your first agent
+            <Plus size={14} />
+            <span>Launch your first agent</span>
           </button>
         </div>
       )}

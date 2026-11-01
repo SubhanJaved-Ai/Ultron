@@ -93,13 +93,19 @@ class StdioTransport(MCPTransport):
         self._start()
 
     def _start(self) -> None:
-        """Start the subprocess."""
+        """Start the subprocess with sanitized environment."""
+        import os
+        sub_env = dict(os.environ)
+        for sensitive_key in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "ELEVENLABS_API_KEY"):
+            sub_env.pop(sensitive_key, None)
+
         self._process = subprocess.Popen(
             self._command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            env=sub_env,
         )
         self._reader_thread = threading.Thread(
             target=self._read_stdout,

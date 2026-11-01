@@ -34,25 +34,56 @@ export const isTauri = () => typeof window !== 'undefined' && !!window.__TAURI_I
 export type CloudKeyStatus = Record<string, boolean>;
 
 export async function getCloudKeyStatus(): Promise<CloudKeyStatus> {
-  if (!isTauri()) return {};
-  try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    const rows = await invoke<Array<{ key: string; set: boolean }>>('get_cloud_key_status');
-    return Object.fromEntries(rows.map((row) => [row.key, row.set]));
-  } catch (e: any) {
-    throw new Error(e?.message ?? e ?? 'Failed to read cloud key status');
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const rows = await invoke<Array<{ key: string; set: boolean }>>('get_cloud_key_status');
+      const status = Object.fromEntries(rows.map((row) => [row.key, row.set]));
+      if (Object.keys(status).length > 0) {
+        return status;
+      }
+    } catch {
+      // Fall through to server endpoint
+    }
   }
+  try {
+    const res = await apiFetch('/v1/cloud/keys');
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Ignore error and return empty status
+  }
+  return {};
 }
 
 export async function saveCloudKey(keyName: string, keyValue: string): Promise<void> {
-  if (!isTauri()) {
-    throw new Error('Cloud API keys can be saved in the desktop app only.');
+  let saved = false;
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('save_cloud_key', { keyName, keyValue });
+      saved = true;
+    } catch (e) {
+      console.warn('Tauri save_cloud_key failed, using server endpoint:', e);
+    }
   }
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('save_cloud_key', { keyName, keyValue });
+    const res = await apiFetch('/v1/cloud/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key_name: keyName, key_value: keyValue }),
+    });
+    if (res.ok) {
+      saved = true;
+    } else if (!saved) {
+      const err = await res.text();
+      throw new Error(`Failed to save cloud key: ${err}`);
+    }
   } catch (e: any) {
-    throw new Error(e?.message ?? e ?? 'Failed to save cloud key');
+    if (!saved) {
+      throw new Error(e?.message ?? 'Failed to save cloud key');
+    }
   }
 }
 
@@ -282,7 +313,7 @@ export async function deleteModel(modelName: string): Promise<void> {
   }
 }
 
-const _CLOUD_PREFIXES = ['gpt-', 'o1-', 'o3-', 'o4-', 'claude-', 'gemini-', 'openrouter/'];
+const _CLOUD_PREFIXES = ['gpt-', 'o1-', 'o3-', 'o4-', 'claude-', 'gemini-', 'openrouter/', 'atlascloud/', 'minimax', 'deepseek-'];
 
 export async function preloadModel(modelName: string, owner?: string): Promise<void> {
   // Cloud models don't need Ollama preloading

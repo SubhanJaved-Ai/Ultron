@@ -136,3 +136,5 @@ oj-debug.*.json
 
 # User protected assets
 screenshots/chrome_airluc_youtube.png
+
+.agents/

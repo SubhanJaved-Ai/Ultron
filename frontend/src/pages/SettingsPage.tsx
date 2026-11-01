@@ -858,6 +858,25 @@ export function SettingsPage() {
     }
   };
 
+
+  const handleDeleteApiKey = async () => {
+    try {
+      const updated = await updateVoiceSettings({ api_key: '' });
+      setVoiceSettings(updated);
+      setElevenLabsApiKeyInput('');
+      setElevenLabsVoices([]);
+      setElevenLabsModels([]);
+      setConnTestState({ status: 'unconfigured', message: 'API key permanently removed.' });
+      showSaved();
+      fetchTtsHealth().then(setTtsBackend).catch(() => setTtsBackend({ available: false }));
+    } catch (err) {
+      setConnTestState({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Failed to delete API key',
+      });
+    }
+  };
+
   const handleTestConnection = async () => {
     setConnTestState({ status: 'testing', message: 'Testing connection to ElevenLabs...' });
     try {
@@ -1718,7 +1737,21 @@ export function SettingsPage() {
                     >
                       Save Key
                     </button>
-                    <button
+                                        {voiceSettings?.has_api_key && (
+                      <button
+                        id="elevenlabs-delete-key-btn"
+                        onClick={handleDeleteApiKey}
+                        className="text-xs px-3 py-1.5 rounded-lg transition-colors font-medium cursor-pointer"
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                        }}
+                      >
+                        Remove Key
+                      </button>
+                    )}
+<button
                       id="elevenlabs-test-conn-btn"
                       onClick={handleTestConnection}
                       disabled={connTestState.status === 'testing' || (!voiceSettings?.has_api_key && !elevenLabsApiKeyInput.trim())}

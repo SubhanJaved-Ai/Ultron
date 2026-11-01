@@ -389,6 +389,41 @@ def get_elevenlabs_api_key() -> str:
     return ""
 
 
+def save_cloud_api_key(key_name: str, key_val: str) -> None:
+    """Save cloud API keys (Gemini, Anthropic, OpenAI, ElevenLabs) to env and cloud-keys.env."""
+    import os
+    clean_name = key_name.strip().upper()
+    clean_val = (key_val or "").strip().strip("'\"")
+    if clean_val:
+        os.environ[clean_name] = clean_val
+    else:
+        os.environ.pop(clean_name, None)
+
+    env_file = paths.get_config_dir() / "cloud-keys.env"
+    lines = []
+    found = False
+    if env_file.is_file():
+        try:
+            for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, _ = line.split("=", 1)
+                    if k.strip().upper() == clean_name:
+                        if clean_val:
+                            lines.append(f"{clean_name}={clean_val}")
+                        found = True
+                        continue
+                lines.append(raw_line)
+        except Exception:
+            lines = []
+
+    if clean_val and not found:
+        lines.append(f"{clean_name}={clean_val}")
+
+    env_file.parent.mkdir(parents=True, exist_ok=True)
+    env_file.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
+
+
 def save_elevenlabs_api_key(key: str) -> None:
     """Save ElevenLabs API key server-side into environment and cloud-keys.env."""
     import os

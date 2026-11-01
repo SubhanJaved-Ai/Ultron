@@ -2003,9 +2003,11 @@ async def get_hologram_config() -> dict:
 
         el_key = ""
 
-    gemini_key = _cfg_os.environ.get("GEMINI_API_KEY", "")
+    gemini_key = str(_cfg_os.environ.get("GEMINI_API_KEY", "") or getattr(ultron_brain, "_api_key", "") or "")
 
-    openai_key = _cfg_os.environ.get("OPENAI_API_KEY", "") or getattr(ultron_brain, "openai_api_key", "")
+    openai_key = str(_cfg_os.environ.get("OPENAI_API_KEY", "") or getattr(ultron_brain, "openai_api_key", "") or "")
+
+    anthropic_key = str(_cfg_os.environ.get("ANTHROPIC_API_KEY", "") or getattr(ultron_brain, "anthropic_api_key", "") or "")
 
     brain_status = ultron_brain.get_status()
 
@@ -2033,11 +2035,17 @@ async def get_hologram_config() -> dict:
 
         "gemini_key_configured": brain_status["gemini_configured"],
 
-        "gemini_key_masked": ("AIzaSy****" + gemini_key[-4:]) if len(gemini_key) > 10 else "",
+        "gemini_key_masked": ("AIza****" + gemini_key[-4:]) if len(gemini_key) > 8 else ("****" + gemini_key[-4:] if gemini_key else ""),
 
         "openai_key_configured": brain_status["openai_configured"],
 
         "openai_key_masked": ("sk-****" + openai_key[-4:]) if len(openai_key) > 8 else "",
+
+        "anthropic_key_configured": brain_status.get("anthropic_configured", False),
+
+        "anthropic_key_masked": ("sk-ant-****" + anthropic_key[-4:]) if len(anthropic_key) > 10 else "",
+
+        "anthropic_model": brain_status.get("anthropic_model", "claude-3-5-sonnet-20241022"),
 
         "active_engine": brain_status["active_engine"],
 
@@ -2125,31 +2133,35 @@ async def update_hologram_config(payload: dict) -> dict:
 
         brain_updates["ollama_model"] = payload["ollama_model"]
 
+    from openjarvis.core.user_preferences import save_cloud_api_key
+
     if "openai_api_key" in payload and str(payload["openai_api_key"]).strip():
 
-        op_key = str(payload["openai_api_key"]).strip()
+        op_key = str(payload["openai_api_key"]).strip().strip("'\"")
 
-        _cfg_os.environ["OPENAI_API_KEY"] = op_key
+        save_cloud_api_key("OPENAI_API_KEY", op_key)
 
         brain_updates["openai_api_key"] = op_key
 
     if "gemini_api_key" in payload and str(payload["gemini_api_key"]).strip():
 
-        g_key = str(payload["gemini_api_key"]).strip()
+        g_key = str(payload["gemini_api_key"]).strip().strip("'\"")
 
-        _cfg_os.environ["GEMINI_API_KEY"] = g_key
+        save_cloud_api_key("GEMINI_API_KEY", g_key)
 
         brain_updates["gemini_api_key"] = g_key
 
-        try:
+    if "anthropic_api_key" in payload and str(payload["anthropic_api_key"]).strip():
 
-            from openjarvis.core.credentials import save_credential
+        a_key = str(payload["anthropic_api_key"]).strip().strip("'\"")
 
-            save_credential("gemini", "GEMINI_API_KEY", g_key)
+        save_cloud_api_key("ANTHROPIC_API_KEY", a_key)
 
-        except Exception:
+        brain_updates["anthropic_api_key"] = a_key
 
-            pass
+    if "anthropic_model" in payload and str(payload["anthropic_model"]).strip():
+
+        brain_updates["anthropic_model"] = str(payload["anthropic_model"]).strip()
 
 
 

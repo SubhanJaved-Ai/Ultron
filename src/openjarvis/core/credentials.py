@@ -33,6 +33,10 @@ def _default_path() -> Path:
 
 
 TOOL_CREDENTIALS: dict[str, list[str]] = {
+    "gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+    "anthropic": ["ANTHROPIC_API_KEY"],
+    "openai": ["OPENAI_API_KEY"],
+    "elevenlabs": ["ELEVENLABS_API_KEY", "ELEVEN_API_KEY"],
     "web_search": ["TAVILY_API_KEY", "YOUDOTCOM_API_KEY", "SERPLY_API_KEY"],
     "get_weather": ["OPENWEATHERMAP_API_KEY"],
     "image_generate": ["OPENAI_API_KEY"],

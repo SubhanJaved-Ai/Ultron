@@ -31,3 +31,4 @@ echo   - API Swagger:  http://localhost:8000/docs
 echo =======================================================
 echo Press any key when you want to exit this launcher window...
 pause >nul
+

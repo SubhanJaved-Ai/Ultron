@@ -483,6 +483,8 @@ class UltronBrain:
         self.openai_api_key: str = os.environ.get("OPENAI_API_KEY", "")
 
         self.openai_model: str = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        self.anthropic_api_key: str = os.environ.get("ANTHROPIC_API_KEY", "")
+        self.anthropic_model: str = os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
 
         self.last_engine: str = 'offline_local_rules'
 
@@ -491,120 +493,84 @@ class UltronBrain:
 
 
     def configure(self, updates: dict) -> dict:
-
         """Dynamically hot-reconfigure LLM provider and credentials."""
-
         if "llm_provider" in updates and updates["llm_provider"]:
-
             self.provider = str(updates["llm_provider"]).strip().lower()
-
             os.environ["ULTRON_LLM_PROVIDER"] = self.provider
 
         if "ollama_url" in updates and updates["ollama_url"]:
-
             self.ollama_url = str(updates["ollama_url"]).strip().rstrip("/")
-
             os.environ["OLLAMA_BASE_URL"] = self.ollama_url
 
         if "ollama_model" in updates and updates["ollama_model"]:
-
             self.ollama_model = str(updates["ollama_model"]).strip()
-
             os.environ["OLLAMA_MODEL"] = self.ollama_model
 
         if "openai_api_key" in updates and updates["openai_api_key"]:
-
-            self.openai_api_key = str(updates["openai_api_key"]).strip()
-
+            self.openai_api_key = str(updates["openai_api_key"]).strip().strip("'\"")
             os.environ["OPENAI_API_KEY"] = self.openai_api_key
 
         if "openai_model" in updates and updates["openai_model"]:
-
             self.openai_model = str(updates["openai_model"]).strip()
-
             os.environ["OPENAI_MODEL"] = self.openai_model
 
+        if "anthropic_api_key" in updates and updates["anthropic_api_key"]:
+            self.anthropic_api_key = str(updates["anthropic_api_key"]).strip().strip("'\"")
+            os.environ["ANTHROPIC_API_KEY"] = self.anthropic_api_key
+
+        if "anthropic_model" in updates and updates["anthropic_model"]:
+            self.anthropic_model = str(updates["anthropic_model"]).strip()
+            os.environ["ANTHROPIC_MODEL"] = self.anthropic_model
+
         if "gemini_api_key" in updates and updates["gemini_api_key"]:
-
-            self._api_key = str(updates["gemini_api_key"]).strip()
-
+            self._api_key = str(updates["gemini_api_key"]).strip().strip("'\"")
             os.environ["GEMINI_API_KEY"] = self._api_key
-
             self._init_client()
 
         return self.get_status()
 
-
-
     def check_ollama_status(self) -> bool:
-
         """Verify local Ollama connectivity."""
-
         import httpx
-
         try:
-
             with httpx.Client(timeout=1.5) as client:
-
                 res = client.get(f"{self.ollama_url}/api/version")
-
                 return res.status_code == 200
-
         except Exception:
-
             return False
 
-
-
     def get_status(self) -> dict:
-
-        """Return full live status across all 3 providers."""
-
+        """Return full live status across all 4 providers."""
         ollama_ok = self.check_ollama_status()
-
-        gemini_ok = self._client is not None or bool(os.environ.get("GEMINI_API_KEY", "").startswith("AIzaSy"))
-
-        openai_ok = bool(self.openai_api_key or os.environ.get("OPENAI_API_KEY", "").startswith("sk-"))
-
-
+        g_raw = (self._api_key or os.environ.get("GEMINI_API_KEY", "") or _resolve_api_key()).strip().strip("'\"")
+        gemini_ok = bool(self._client is not None or (g_raw and len(g_raw) >= 16))
+        o_raw = (self.openai_api_key or os.environ.get("OPENAI_API_KEY", "")).strip().strip("'\"")
+        openai_ok = bool(o_raw and len(o_raw) >= 16)
+        a_raw = (self.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY", "")).strip().strip("'\"")
+        anthropic_ok = bool(a_raw and len(a_raw) >= 16)
 
         active_label = "offline_local_rules"
-
         if self.provider == "ollama":
-
             active_label = f"ollama ({self.ollama_model})" if ollama_ok else "ollama (offline - fallback active)"
-
         elif self.provider == "openai":
-
             active_label = f"openai ({self.openai_model})" if openai_ok else "openai (no key - fallback active)"
-
+        elif self.provider == "anthropic":
+            active_label = f"anthropic ({self.anthropic_model})" if anthropic_ok else "anthropic (no key - fallback active)"
         elif self.provider == "gemini":
-
-            active_label = "gemini-3.8-flash" if gemini_ok else "gemini (no key - fallback active)"
-
-
+            active_label = "gemini-2.5-flash" if gemini_ok else "gemini (no key - fallback active)"
 
         return {
-
             "provider": self.provider,
-
             "ollama_url": self.ollama_url,
-
             "ollama_model": self.ollama_model,
-
             "ollama_connected": ollama_ok,
-
             "gemini_configured": gemini_ok,
-
             "openai_configured": openai_ok,
-
+            "anthropic_configured": anthropic_ok,
+            "anthropic_model": self.anthropic_model,
             "active_engine": active_label,
-
             "last_engine": self.last_engine,
-
         }
-
-
 
     def _generate_ollama(
 
@@ -760,9 +726,59 @@ class UltronBrain:
 
 
 
+    def _generate_anthropic(
+        self, query: str, system_instruction: str, history: Optional[List[Dict[str, Any]]] = None
+    ) -> Optional[str]:
+        """Generate response via Anthropic Messages API."""
+        import httpx
+
+        api_key = (self.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY", "")).strip().strip("'\"")
+        if not api_key:
+            return None
+
+        url = "https://api.anthropic.com/v1/messages"
+        messages = []
+        if history and isinstance(history, list):
+            for m in history[-8:]:
+                r = "user" if m.get("role") in ("user", "human") else "assistant"
+                c = str(m.get("content") or m.get("text") or "").strip()
+                if c:
+                    messages.append({"role": r, "content": c})
+        messages.append({"role": "user", "content": query})
+
+        payload = {
+            "model": self.anthropic_model or "claude-3-5-sonnet-20241022",
+            "messages": messages,
+            "system": system_instruction,
+            "max_tokens": 1024,
+            "temperature": 0.7,
+        }
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                res = client.post(url, json=payload, headers=headers)
+                if res.status_code == 200:
+                    data = res.json()
+                    content_blocks = data.get("content", [])
+                    if content_blocks and isinstance(content_blocks, list):
+                        reply_text = "".join(b.get("text", "") for b in content_blocks if b.get("type") == "text").strip()
+                        if reply_text:
+                            self.last_engine = f"anthropic ({self.anthropic_model})"
+                            return reply_text
+                else:
+                    logger.warning("Anthropic API returned status %s: %s", res.status_code, res.text[:200])
+        except Exception as exc:
+            logger.warning("Anthropic dispatch failed: %s", exc)
+        return None
+
     def _init_client(self) -> None:
 
-        api_key = self._api_key or _resolve_api_key()
+        api_key = (self._api_key or _resolve_api_key() or "").strip().strip("'\"")
 
         if not api_key:
 
@@ -772,15 +788,17 @@ class UltronBrain:
 
             )
 
+            self._client = None
+
             return
 
 
 
-        if not api_key.startswith("AIzaSy"):
+        if len(api_key) < 16:
 
             logger.warning(
 
-                "GEMINI_API_KEY is not a valid Google GenAI API key format (must start with AIzaSy); UltronBrain will use smart local reasoning."
+                "GEMINI_API_KEY appears invalid (length < 16); UltronBrain will use smart local reasoning."
 
             )
 
@@ -1064,8 +1082,18 @@ class UltronBrain:
         if any(k in q for k in ("how are you", "how're you", "how are you doing", "how do you do")):
             return f"All core cognitive systems are operational and performing at peak efficiency{addr_suffix}. How may I assist you today?"
 
-        if any(q.startswith(k) or q == k for k in ("hello", "hi", "hey", "greetings", "good morning", "good afternoon", "good evening")):
+        # Strict pure greeting check: if query has substantive text after greeting, process the query!
+        import re as _re_greeting
+        _stripped_greeting = _re_greeting.sub(
+            r"^(hello|hi|hey|greetings|good morning|good afternoon|good evening)\s*(ultron|jarvis|commander|assistant)?[\s,\.\!\?]*",
+            "",
+            q,
+            flags=_re_greeting.IGNORECASE,
+        ).strip()
+        if not _stripped_greeting:
             return f"Hello{addr_suffix}. I am online, listening, and ready for your directive."
+        if q != _stripped_greeting:
+            q = _stripped_greeting
 
         if any(k in q for k in ("what can you do", "what are your capabilities", "your features", "how can you help")):
             return f"I can execute multi-step DAG tasks, orchestrate autonomous agents, write and test code, search memory, and manage desktop operations{addr_suffix}. Assign me any directive to begin."

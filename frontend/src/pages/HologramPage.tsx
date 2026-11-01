@@ -16,6 +16,7 @@ import {
   Sparkles,
   Server,
   Zap,
+  Bot,
 } from 'lucide-react';
 import { getBase } from '../lib/api';
 import { useAppStore } from '../lib/store';
@@ -26,7 +27,7 @@ interface ConfigState {
   model_id: string;
   elevenlabs_key_configured: boolean;
   elevenlabs_key_masked: string;
-  llm_provider?: 'gemini' | 'ollama' | 'openai';
+  llm_provider?: 'gemini' | 'ollama' | 'openai' | 'anthropic';
   ollama_url?: string;
   ollama_model?: string;
   ollama_connected?: boolean;
@@ -34,6 +35,9 @@ interface ConfigState {
   gemini_key_masked: string;
   openai_key_configured?: boolean;
   openai_key_masked?: string;
+  anthropic_key_configured?: boolean;
+  anthropic_key_masked?: string;
+  anthropic_model?: string;
   active_engine?: string;
   brain_engine?: string;
 }
@@ -66,12 +70,14 @@ export function HologramPage() {
   const [voiceId, setVoiceId] = useState('');
 
   // Multi-Provider Brain settings
-  const [provider, setProvider] = useState<'gemini' | 'ollama' | 'openai'>('gemini');
+  const [provider, setProvider] = useState<'gemini' | 'ollama' | 'openai' | 'anthropic'>('gemini');
   const [geminiKey, setGeminiKey] = useState('');
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
   const [openaiKey, setOpenaiKey] = useState('');
   const [openaiModel, setOpenaiModel] = useState('gpt-4o-mini');
+  const [anthropicKey, setAnthropicKey] = useState('');
+  const [anthropicModel, setAnthropicModel] = useState('claude-3-5-sonnet-20241022');
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
@@ -142,9 +148,10 @@ export function HologramPage() {
         const data: ConfigState = await res.json();
         setConfig(data);
         if (data.voice_id) setVoiceId(data.voice_id);
-        if (data.llm_provider) setProvider(data.llm_provider);
+        if (data.llm_provider) setProvider(data.llm_provider as any);
         if (data.ollama_url) setOllamaUrl(data.ollama_url);
         if (data.ollama_model) setOllamaModel(data.ollama_model);
+        if (data.anthropic_model) setAnthropicModel(data.anthropic_model);
       }
     } catch (e) {}
   };
@@ -166,11 +173,13 @@ export function HologramPage() {
         ollama_url: ollamaUrl.trim(),
         ollama_model: ollamaModel.trim(),
         openai_model: openaiModel.trim(),
+        anthropic_model: anthropicModel.trim(),
       };
       if (elevenKey.trim()) payload.elevenlabs_api_key = elevenKey.trim();
       if (voiceId.trim()) payload.elevenlabs_voice_id = voiceId.trim();
       if (geminiKey.trim()) payload.gemini_api_key = geminiKey.trim();
       if (openaiKey.trim()) payload.openai_api_key = openaiKey.trim();
+      if (anthropicKey.trim()) payload.anthropic_api_key = anthropicKey.trim();
 
       const res = await fetch(`${apiBase}/api/hologram/config`, {
         method: 'POST',
@@ -183,6 +192,7 @@ export function HologramPage() {
         setElevenKey('');
         setGeminiKey('');
         setOpenaiKey('');
+        setAnthropicKey('');
         await loadConfig();
       } else {
         setSaveError('Failed to save configuration. Please try again.');
@@ -251,6 +261,28 @@ export function HologramPage() {
       );
     }
 
+    if (activeProv === 'anthropic') {
+      const isOk = config?.anthropic_key_configured;
+      return (
+        <div
+          onClick={handleOpenDrawer}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono cursor-pointer transition-all border ${
+            isOk
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.15)]'
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.15)]'
+          }`}
+          title={
+            isOk
+              ? 'Anthropic Claude Active. Click to configure.'
+              : 'Anthropic Key Missing; Local Heuristic Fallback Active. Click to configure.'
+          }
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${isOk ? 'bg-amber-400 animate-pulse' : 'bg-amber-400'}`} />
+          <span>{isOk ? 'Claude 3.5 Sonnet' : 'Anthropic (No Key)'}</span>
+        </div>
+      );
+    }
+
     // Default: Gemini
     const isOk = config?.gemini_key_configured;
     return (
@@ -289,7 +321,7 @@ export function HologramPage() {
             <span>Chat</span>
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pr-14">
             <span className="w-2 h-2 rounded-full animate-ping bg-cyan-400" />
             <span
               className="text-xs font-semibold uppercase tracking-wider font-mono text-cyan-600 dark:text-cyan-400"
@@ -413,12 +445,12 @@ export function HologramPage() {
                   </span>
                 </div>
 
-                {/* 3-Tab Segmented Provider Selector */}
-                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-800">
+                {/* 4-Tab Segmented Provider Selector */}
+                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-800">
                   <button
                     type="button"
                     onClick={() => setProvider('gemini')}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md font-medium text-xs transition-all ${
+                    className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-md font-medium text-xs transition-all ${
                       provider === 'gemini'
                         ? 'bg-white dark:bg-zinc-800 text-cyan-600 dark:text-cyan-300 shadow-sm font-semibold'
                         : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
@@ -430,21 +462,21 @@ export function HologramPage() {
 
                   <button
                     type="button"
-                    onClick={() => setProvider('ollama')}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md font-medium text-xs transition-all ${
-                      provider === 'ollama'
-                        ? 'bg-white dark:bg-zinc-800 text-sky-600 dark:text-sky-300 shadow-sm font-semibold'
+                    onClick={() => setProvider('anthropic')}
+                    className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-md font-medium text-xs transition-all ${
+                      provider === 'anthropic'
+                        ? 'bg-white dark:bg-zinc-800 text-amber-600 dark:text-amber-300 shadow-sm font-semibold'
                         : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
                     }`}
                   >
-                    <Server size={12} className={provider === 'ollama' ? 'text-sky-400' : ''} />
-                    <span>Ollama (Local)</span>
+                    <Bot size={12} className={provider === 'anthropic' ? 'text-amber-400' : ''} />
+                    <span>Claude</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setProvider('openai')}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md font-medium text-xs transition-all ${
+                    className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-md font-medium text-xs transition-all ${
                       provider === 'openai'
                         ? 'bg-white dark:bg-zinc-800 text-purple-600 dark:text-purple-300 shadow-sm font-semibold'
                         : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
@@ -453,7 +485,86 @@ export function HologramPage() {
                     <Zap size={12} className={provider === 'openai' ? 'text-purple-400' : ''} />
                     <span>OpenAI</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setProvider('ollama')}
+                    className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-md font-medium text-xs transition-all ${
+                      provider === 'ollama'
+                        ? 'bg-white dark:bg-zinc-800 text-sky-600 dark:text-sky-300 shadow-sm font-semibold'
+                        : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    <Server size={12} className={provider === 'ollama' ? 'text-sky-400' : ''} />
+                    <span>Ollama</span>
+                  </button>
                 </div>
+
+                                {/* Sub-panel: Anthropic */}
+                {provider === 'anthropic' && (
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 dark:text-zinc-400">Claude Status:</span>
+                      <span
+                        className={`font-mono text-[11px] ${
+                          config?.anthropic_key_configured
+                            ? 'text-emerald-500 font-semibold'
+                            : 'text-amber-500 dark:text-amber-400'
+                        }`}
+                      >
+                        {config?.anthropic_key_configured
+                          ? config.anthropic_key_masked || 'Configured (Claude 3.5 Sonnet)'
+                          : 'Key Missing (Smart Local Fallback Active)'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 dark:text-zinc-400 mb-1">
+                        Anthropic API Key
+                      </label>
+                      <input
+                        type="password"
+                        value={anthropicKey}
+                        onChange={(e) => setAnthropicKey(e.target.value)}
+                        placeholder={
+                          config?.anthropic_key_configured
+                            ? 'Enter new key to replace'
+                            : 'sk-ant-...'
+                        }
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 focus:outline-none focus:border-cyan-500 text-slate-800 dark:text-zinc-200 font-mono text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 dark:text-zinc-400 mb-1">
+                        Model Name
+                      </label>
+                      <input
+                        type="text"
+                        value={anthropicModel}
+                        onChange={(e) => setAnthropicModel(e.target.value)}
+                        placeholder="claude-3-5-sonnet-20241022"
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 focus:outline-none focus:border-cyan-500 text-slate-800 dark:text-zinc-200 font-mono text-xs"
+                      />
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-haiku-20240307'].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setAnthropicModel(m)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono border transition-all ${
+                              anthropicModel === m
+                                ? 'bg-amber-500/20 border-amber-400 text-amber-600 dark:text-amber-300 font-semibold'
+                                : 'bg-slate-100 dark:bg-zinc-800 border-slate-300 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                            }`}
+                          >
+                            {m.replace('-20241022', '').replace('-20240307', '')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Sub-panel: Gemini */}
                 {provider === 'gemini' && (

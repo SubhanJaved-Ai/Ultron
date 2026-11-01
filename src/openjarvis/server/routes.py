@@ -1396,6 +1396,8 @@ async def list_models(request: Request) -> ModelListResponse:
 
     def _resolve_owned_by(mid: str) -> str:
         lower = mid.lower()
+        if getattr(engine, "engine_id", "") == "gemini":
+            return "gemini"
         if lower.startswith("gemini") or lower.startswith("gemma"):
             return "google"
         if lower.startswith("claude"):
@@ -1645,24 +1647,25 @@ async def save_cloud_key_endpoint(request: Request):
     lines = [f"{k}={v}" for k, v in current_keys.items()]
     keys_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    # Bi-directional sync: persist to workspace root .env immediately
-    try:
-        from pathlib import Path
-        env_file = Path(".env")
-        env_lines = []
-        found = False
-        if env_file.exists():
-            for raw_l in env_file.read_text(encoding="utf-8").splitlines():
-                if raw_l.startswith(f"{k_name}="):
-                    env_lines.append(f"{k_name}={k_val}")
-                    found = True
-                else:
-                    env_lines.append(raw_l)
-        if not found and k_name and k_val:
-            env_lines.append(f"{k_name}={k_val}")
-        env_file.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
-    except Exception:
-        pass
+    # Bi-directional sync: persist to workspace root .env immediately (skip during tests)
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
+        try:
+            from pathlib import Path
+            env_file = Path(".env")
+            env_lines = []
+            found = False
+            if env_file.exists():
+                for raw_l in env_file.read_text(encoding="utf-8").splitlines():
+                    if raw_l.startswith(f"{k_name}="):
+                        env_lines.append(f"{k_name}={k_val}")
+                        found = True
+                    else:
+                        env_lines.append(raw_l)
+            if not found and k_name and k_val:
+                env_lines.append(f"{k_name}={k_val}")
+            env_file.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+        except Exception:
+            pass
 
     try:
         from openjarvis.server.llm_client import ultron_brain
@@ -1706,6 +1709,12 @@ async def delete_cloud_key_endpoint(key_name: str, request: Request):
 
     try:
         from openjarvis.server.llm_client import ultron_brain
+        if k_name == "ANTHROPIC_API_KEY":
+            ultron_brain.anthropic_api_key = None
+        elif k_name in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+            ultron_brain._api_key = None
+        elif k_name == "OPENAI_API_KEY":
+            ultron_brain.openai_api_key = None
         ultron_brain._init_client()
     except Exception:
         pass

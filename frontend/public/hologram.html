@@ -6113,6 +6113,9 @@
 
               clearTimeout(silenceTimer);
 
+              const isWakeOnly = /^\s*(hey|okay|ok|hi|hello)?\s*(ultron|oltron|alton|ultra)\s*(please)?\s*$/i.test(currentSpeech);
+              const debounceMs = isWakeOnly ? 2200 : 1800;
+
               silenceTimer = setTimeout(() => {
 
                 if (appState.operationalState === 'SPEAKING') return;
@@ -6197,7 +6200,7 @@
 
                 handleUserSubmission(directive);
 
-              }, 750);
+              }, debounceMs);
 
             }
 

@@ -6115,6 +6115,9 @@
 
               clearTimeout(silenceTimer);
 
+              const isWakeOnly = /^\s*(hey|okay|ok|hi|hello)?\s*(ultron|oltron|alton|ultra)\s*(please)?\s*$/i.test(currentSpeech);
+              const debounceMs = isWakeOnly ? 2200 : 1800;
+
               silenceTimer = setTimeout(() => {
 
                 // Echo Cancellation Gate & Barge-In
@@ -6217,7 +6220,7 @@
 
                 handleUserSubmission(directive);
 
-              }, 750);
+              }, debounceMs);
 
             }
 

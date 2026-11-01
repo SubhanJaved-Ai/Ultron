@@ -1621,7 +1621,7 @@ class TestModelsEndpoint:
 
     def test_cloud_keys_endpoints_and_model_exposure(self, client, tmp_path):
         """Test GET /v1/cloud/keys, POST /v1/cloud/keys, and cloud model exposure."""
-        with patch.dict(os.environ, {}, clear=False):
+        with patch("openjarvis.server.routes.get_config_dir", return_value=tmp_path), patch("openjarvis.server.cloud_router._CLOUD_ENV_FILE", tmp_path / "cloud-keys.env"), patch.dict(os.environ, {}, clear=False):
             # Save Gemini key
             resp = client.post("/v1/cloud/keys", json={"key_name": "GEMINI_API_KEY", "key_value": "test-gemini-key"})
             assert resp.status_code == 200

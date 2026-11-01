@@ -76,71 +76,40 @@ def _read_key_from_file(file_path: Path) -> str:
 
 def _resolve_api_key(env_path: Optional[Path] = None) -> str:
 
-    """Resolve Gemini/Google API key from process env or config files."""
+    """Resolve Gemini/Google API key from process env, cloud-keys.env, or config files."""
 
-    # 1. Environment variable (OS, CI, Container, Launcher) - highest precedence
-
+    # 1. Environment variable (if valid length >= 16)
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-
-    if key and key.strip():
-
+    if key and len(key.strip()) >= 16:
         return key.strip()
 
+    # 2. Centralized cloud config directory (cloud-keys.env) - preferred over repo files
+    config_dir = get_config_dir()
+    for config_candidate in (config_dir / "cloud-keys.env", config_dir / ".env"):
+        val = _read_key_from_file(config_candidate)
+        if val and len(val.strip()) >= 16:
+            return val.strip()
 
-
-    # 2. Explicit or resolved workspace/project .env
-
+    # 3. Explicit or resolved workspace/project .env (fallback)
     candidates: list[Path] = []
-
     if env_path is not None:
-
         candidates.append(Path(env_path))
-
     else:
-
-        # Check OPENJARVIS_WORKSPACE env if specified
-
         ws_env = os.environ.get("OPENJARVIS_WORKSPACE")
-
         if ws_env:
-
             candidates.append(Path(ws_env) / ".env")
-
-
-
-        # In source checkout, resolve project root dynamically
-
         src_root = _find_source_root()
-
         if src_root is not None:
-
             candidates.append(src_root / ".env")
 
-
-
     for candidate in candidates:
-
         val = _read_key_from_file(candidate)
+        if val and len(val.strip()) >= 16:
+            return val.strip()
 
-        if val:
-
-            return val
-
-
-
-    # 3. User config directory (cloud-keys.env and .env)
-
-    config_dir = get_config_dir()
-
-    for config_candidate in (config_dir / "cloud-keys.env", config_dir / ".env"):
-
-        val = _read_key_from_file(config_candidate)
-
-        if val:
-
-            return val
-
-
+    # Final fallback if a shorter key was in env (e.g. testing)
+    if key and key.strip():
+        return key.strip()
 
     return ""
 
@@ -506,25 +475,40 @@ class UltronBrain:
             self.ollama_model = str(updates["ollama_model"]).strip()
             os.environ["OLLAMA_MODEL"] = self.ollama_model
 
-        if "openai_api_key" in updates and updates["openai_api_key"]:
-            self.openai_api_key = str(updates["openai_api_key"]).strip().strip("'\"")
-            os.environ["OPENAI_API_KEY"] = self.openai_api_key
+        if "openai_api_key" in updates:
+            val = str(updates["openai_api_key"] or "").strip().strip("'\"")
+            if val:
+                self.openai_api_key = val
+                os.environ["OPENAI_API_KEY"] = self.openai_api_key
+            else:
+                self.openai_api_key = None
+                os.environ.pop("OPENAI_API_KEY", None)
 
         if "openai_model" in updates and updates["openai_model"]:
             self.openai_model = str(updates["openai_model"]).strip()
             os.environ["OPENAI_MODEL"] = self.openai_model
 
-        if "anthropic_api_key" in updates and updates["anthropic_api_key"]:
-            self.anthropic_api_key = str(updates["anthropic_api_key"]).strip().strip("'\"")
-            os.environ["ANTHROPIC_API_KEY"] = self.anthropic_api_key
+        if "anthropic_api_key" in updates:
+            val = str(updates["anthropic_api_key"] or "").strip().strip("'\"")
+            if val:
+                self.anthropic_api_key = val
+                os.environ["ANTHROPIC_API_KEY"] = self.anthropic_api_key
+            else:
+                self.anthropic_api_key = None
+                os.environ.pop("ANTHROPIC_API_KEY", None)
 
         if "anthropic_model" in updates and updates["anthropic_model"]:
             self.anthropic_model = str(updates["anthropic_model"]).strip()
             os.environ["ANTHROPIC_MODEL"] = self.anthropic_model
 
-        if "gemini_api_key" in updates and updates["gemini_api_key"]:
-            self._api_key = str(updates["gemini_api_key"]).strip().strip("'\"")
-            os.environ["GEMINI_API_KEY"] = self._api_key
+        if "gemini_api_key" in updates:
+            val = str(updates["gemini_api_key"] or "").strip().strip("'\"")
+            if val:
+                self._api_key = val
+                os.environ["GEMINI_API_KEY"] = self._api_key
+            else:
+                self._api_key = None
+                os.environ.pop("GEMINI_API_KEY", None)
             self._init_client()
 
         return self.get_status()
@@ -814,7 +798,7 @@ class UltronBrain:
 
 
 
-            self._client = genai.Client(api_key=api_key)
+            self._client = genai.Client(api_key=api_key, http_options={"timeout": 15000, "retry_options": {"attempts": 1}})
 
             logger.info(
 
@@ -961,21 +945,11 @@ class UltronBrain:
         if self._client is not None:
 
             models_to_try = [
-
-                "gemini-flash-lite-latest",
-
-                "gemini-2.5-flash-lite",
-
-                "gemini-3.1-flash-lite",
-
-                "gemini-3.5-flash-lite",
-
-                "gemini-flash-latest",
-
                 "gemini-3.5-flash",
-
                 "gemini-3.8-flash",
-
+                "gemini-3.5-flash-lite",
+                "gemini-2.5-flash",
+                "gemini-flash-latest",
             ]
 
 
@@ -1048,7 +1022,7 @@ class UltronBrain:
 
                     err_str = str(exc)
 
-                    if "401" in err_str or "UNAUTHENTICATED" in err_str or "ACCESS_TOKEN_TYPE_UNSUPPORTED" in err_str:
+                    if "401" in err_str or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "UNAUTHENTICATED" in err_str or "ACCESS_TOKEN_TYPE_UNSUPPORTED" in err_str:
 
                         logger.warning("Gemini API key unauthenticated (401); stopping further model retries.")
 

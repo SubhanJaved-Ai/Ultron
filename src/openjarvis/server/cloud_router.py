@@ -95,14 +95,14 @@ _LOCAL_HF_ORGS = (
 def _load_keys() -> dict[str, str]:
     """Read available cloud keys every call so live updates are picked up."""
     keys: dict[str, str] = {}
-    # File first, then fall back to process environment
-    if _CLOUD_ENV_FILE.exists():
+    file_present = _CLOUD_ENV_FILE.exists()
+    if file_present:
         for raw in _CLOUD_ENV_FILE.read_text().splitlines():
             line = raw.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 keys[k.strip()] = v.strip()
-    # Process env can override (e.g. during testing)
+    # Process env can override during testing or supply keys when file is absent
     for name in (
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
@@ -114,7 +114,8 @@ def _load_keys() -> dict[str, str]:
     ):
         val = os.environ.get(name)
         if val:
-            keys[name] = val
+            if not file_present or os.environ.get("PYTEST_CURRENT_TEST") or name in keys:
+                keys[name] = val
     return keys
 
 
@@ -219,6 +220,8 @@ async def _stream_openai(
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+    if provider == "google":
+        headers["x-goog-api-key"] = api_key
 
     limiter = get_resource_limiter()
     est_input = max(10, sum(len(m.content or "") for m in messages) // 4)
@@ -269,13 +272,13 @@ async def _stream_openai(
                                     payload.pop("stream_options", None)
                                     continue
 
-                                # Automatic migration if deprecated Gemini 2.5 is requested
+                                # Automatic migration if deprecated Gemini model is requested
                                 if (
                                     resp.status_code == 404
                                     and provider == "google"
-                                    and "gemini-2.5" in str(payload.get("model", ""))
+                                    and ("gemini-2." in str(payload.get("model", "")) or "flash-lite" in str(payload.get("model", "")))
                                 ):
-                                    logger.warning("Gemini 2.5 is deprecated by Google (404), auto-migrating to gemini-3.5-flash")
+                                    logger.warning("Requested Gemini model is deprecated by Google (404), auto-migrating to gemini-3.5-flash")
                                     payload["model"] = "gemini-3.5-flash"
                                     continue
 

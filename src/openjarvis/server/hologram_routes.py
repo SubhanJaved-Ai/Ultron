@@ -1688,52 +1688,42 @@ async def handle_directive(request: Request, payload: dict) -> dict:
 
 
 
-        # 1. Conversational & General Chat Fast-Path FIRST (0ms latency, zero fake desktop action intercept)
+        # 1. Check for pure conversational greetings & wellness checks
+        import re as _re_dir
+        # Strip leading greeting / wake words if present (e.g. "Hi Ultron, check CPU" -> "check CPU")
+        clean_dir = _re_dir.sub(
+            r"^(?:hey|hi|hello|greetings|good\s+(?:morning|afternoon|evening))\s*(?:ultron|jarvis)?\s*[,.:;?!-]*\s*",
+            "",
+            directive,
+            flags=_re_dir.IGNORECASE,
+        ).strip()
 
-        q_lower = directive.lower().strip()
+        # Pure greeting: user literally just said "hi", "hello", "hey", or "ultron" with no further content
+        is_pure_greeting = clean_dir == "" or clean_dir.lower() in ("ultron", "jarvis", "please")
 
-        is_greeting_or_wellness = (
-
-            any(w in q_lower for w in (
-
-                'how are you', 'how are you doing', 'how r u', 'how do you feel', 'how\'s it going', 'how are things',
-
-                'who are you', 'what are you', 'what can you do', 'who made you', 'are you ready',
-
-                'hello', 'hi', 'hey', 'greetings', 'good morning', 'good evening', 'good afternoon',
-
-                'what\'s up', 'whats up', 'nice to meet you', 'thank you', 'thanks', 'tell me a joke',
-
-                'can you hear me', 'are you there', 'are you listening', 'chat with me', 'talk to me'
-
-            ))
-
-            or q_lower in ('ultron', 'hey ultron', 'hi ultron', 'hello ultron', 'ok ultron', 'okay ultron', 'hello', 'hi', 'hey', 'greetings')
-
+        # Conversational questions: strictly check for pure conversational questions (not compound commands)
+        pure_conversational_phrases = (
+            "how are you", "how are you doing", "how r u", "how do you feel", "how's it going", "how are things",
+            "who are you", "what are you", "what can you do", "who made you", "are you ready",
+            "what's up", "whats up", "nice to meet you", "thank you", "thanks", "tell me a joke",
+            "can you hear me", "are you there", "are you listening", "chat with me", "talk to me",
         )
-
-
+        is_conversational_q = any(clean_dir.lower().rstrip("?.! ") == p for p in pure_conversational_phrases)
+        is_greeting_or_wellness = is_pure_greeting or is_conversational_q
 
         if is_greeting_or_wellness:
-
             reply = await asyncio.to_thread(
-
-                ultron_brain.generate_response, directive, history=_session_hist
-
+                ultron_brain.generate_response, (clean_dir if clean_dir else directive), history=_session_hist
             )
-
-            _append_to_history(effective_session_id, 'assistant', reply)
-
-            last_eng = getattr(ultron_brain, 'last_engine', 'offline_local_rules')
-
-            return {'reply': reply, 'status': 'brain_executed', 'brain_engine': last_eng, 'is_cloud_llm': (last_eng.startswith('gemini') or last_eng.startswith('openai')), 'is_local_llm': last_eng.startswith('ollama'), 'active_session_until': _ACTIVE_SESSION_UNTIL.get(effective_session_id, 0.0)}
-
-
+            _append_to_history(effective_session_id, "assistant", reply)
+            last_eng = getattr(ultron_brain, "last_engine", "offline_local_rules")
+            return {"reply": reply, "status": "brain_executed", "brain_engine": last_eng, "is_cloud_llm": (last_eng.startswith("gemini") or last_eng.startswith("openai")), "is_local_llm": last_eng.startswith("ollama"), "active_session_until": _ACTIVE_SESSION_UNTIL.get(effective_session_id, 0.0)}
 
         # 2. Real-time native OS, desktop, browser & application action execution
-
-        real_action = execute_real_system_action(directive, user_addr=user_addr)
-
+        action_query = clean_dir if clean_dir else directive
+        real_action = execute_real_system_action(action_query, user_addr=user_addr)
+        if real_action is None and action_query != directive:
+            real_action = execute_real_system_action(directive, user_addr=user_addr)
         if real_action is not None:
 
             return real_action

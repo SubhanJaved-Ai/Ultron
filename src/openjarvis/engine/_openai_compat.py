@@ -100,6 +100,13 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         resolved_key = api_key or os.environ.get(f"{env_prefix}_API_KEY")
         if not resolved_key and env_prefix == "GEMINI":
             resolved_key = os.environ.get("GOOGLE_API_KEY")
+        if not resolved_key and env_prefix == "GEMINI":
+            try:
+                from openjarvis.server.cloud_router import _load_keys
+                keys = _load_keys()
+                resolved_key = keys.get("GEMINI_API_KEY") or keys.get("GOOGLE_API_KEY")
+            except Exception:
+                pass
         if resolved_key:
             resolved_key = resolved_key.strip().strip("'\"").strip()
         self._api_key = resolved_key or None

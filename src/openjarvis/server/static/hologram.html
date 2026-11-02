@@ -4841,8 +4841,6 @@
         if (appState.voiceSynthEnabled) {
 
           try {
-            window.lastTtsText = fullText;
-            window._currentSpeakingText = fullText;
 
             const ttsAudio = new Audio(`/api/tts?text=${encodeURIComponent(fullText)}`);
 
@@ -6120,25 +6118,7 @@
 
               silenceTimer = setTimeout(() => {
 
-                // Echo Cancellation Gate & Barge-In
-                if (appState.operationalState === 'SPEAKING') {
-                  // If transcript echoes Ultron's own spoken output, drop it
-                  if (window.lastTtsText && lowerSpeech.includes(window.lastTtsText.toLowerCase().slice(0, 18))) {
-                    return; // Echo cancellation gate: dropped acoustic feedback
-                  }
-                  // If distinct user directive while speaking: Barge-In!
-                  if (currentSpeech.length > 2) {
-                    if (activeAudioElement) {
-                      try { activeAudioElement.pause(); activeAudioElement = null; } catch (e) {}
-                    }
-                    if ('speechSynthesis' in window) {
-                      try { window.speechSynthesis.cancel(); } catch (e) {}
-                    }
-                    setOperationalState('LISTENING');
-                  } else {
-                    return;
-                  }
-                }
+                if (appState.operationalState === 'SPEAKING') return;
 
 
 

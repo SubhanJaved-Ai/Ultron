@@ -31,6 +31,13 @@ from openjarvis.intelligence.model_catalog import resolve_model_id_for_engine
 logger = logging.getLogger(__name__)
 
 RETRYABLE_STATUS_CODES = (429, 502, 503, 504)
+_GEMINI_FALLBACKS = (
+    "gemini-flash-lite-latest",
+    "gemini-3.5-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3.5-flash",
+)
 
 
 def _parse_retry_after(header_val: str | None) -> float | None:
@@ -117,6 +124,8 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         # the bounded request timeout is applied to streaming reads, not just
         # the synchronous methods (a wedged token read fails at ``timeout``
         # rather than hanging the caller for the httpx default).
+        if self.engine_id == "gemini" and timeout >= 60.0:
+            timeout = 25.0
         self._timeout = timeout
         self._headers = headers
         # Injection seam for tests: an ``httpx.MockTransport`` swapped in here lets
@@ -134,8 +143,11 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
 
     def _resolve_model_id(self, model: str) -> str:
         resolved = resolve_model_id_for_engine(model, self.engine_id)
-        if self.engine_id == "gemini" and not resolved.startswith("models/"):
-            return f"models/{resolved}"
+        if self.engine_id == "gemini":
+            clean = resolved.replace("models/", "")
+            if any(k in clean for k in ("gemini-2.5", "gemini-2.0", "gemini-1.5", "gemini-3.8")):
+                return "gemini-flash-lite-latest"
+            return clean
         return resolved
 
     def generate(
@@ -171,6 +183,7 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         url = f"{self._api_prefix}/chat/completions"
         attempt = 0
         max_retries = 3
+        tried_models: set[str] = {payload.get("model", "")}
         while True:
             try:
                 resp = self._client.post(url, json=payload)
@@ -178,6 +191,20 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                     payload.pop("tools", None)
                     payload.pop("tool_choice", None)
                     resp = self._client.post(url, json=payload)
+                if not resp.is_success and self.engine_id == "gemini":
+                    cur_m = payload.get("model", "")
+                    next_m = next((fb for fb in _GEMINI_FALLBACKS if fb != cur_m and fb not in tried_models), None)
+                    if next_m:
+                        tried_models.add(next_m)
+                        logger.warning(
+                            "Gemini model %s failed (HTTP %d); auto-falling back to %s",
+                            cur_m,
+                            resp.status_code,
+                            next_m,
+                        )
+                        payload["model"] = next_m
+                        attempt = 0
+                        continue
                 if resp.status_code in RETRYABLE_STATUS_CODES and attempt < max_retries:
                     err_txt = resp.text.lower()
                     if resp.status_code == 429 and ("quota" in err_txt or "resource_exhausted" in err_txt):
@@ -202,6 +229,20 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                 resp.raise_for_status()
                 break
             except (httpx.ConnectError, httpx.TimeoutException) as exc:
+                if self.engine_id == "gemini":
+                    cur_m = payload.get("model", "")
+                    next_m = next((fb for fb in _GEMINI_FALLBACKS if fb != cur_m and fb not in tried_models), None)
+                    if next_m:
+                        tried_models.add(next_m)
+                        logger.warning(
+                            "Gemini model %s error (%s); auto-falling back to %s",
+                            cur_m,
+                            exc,
+                            next_m,
+                        )
+                        payload["model"] = next_m
+                        attempt = 0
+                        continue
                 if attempt < max_retries:
                     delay = _compute_retry_delay(attempt)
                     logger.warning(
@@ -310,6 +351,7 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         attempt = 0
         max_retries = 3
         yielded_any_token = False
+        tried_models: set[str] = {payload.get("model", "")}
 
         while True:
             try:
@@ -329,6 +371,20 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                         # Load the (short) error body before touching ``.text``:
                         # a streaming response is otherwise unread.
                         await resp.aread()
+                        if self.engine_id == "gemini" and not yielded_any_token:
+                            cur_m = payload.get("model", "")
+                            next_m = next((fb for fb in _GEMINI_FALLBACKS if fb != cur_m and fb not in tried_models), None)
+                            if next_m:
+                                tried_models.add(next_m)
+                                logger.warning(
+                                    "Gemini stream model %s failed (HTTP %d); auto-falling back to %s",
+                                    cur_m,
+                                    resp.status_code,
+                                    next_m,
+                                )
+                                payload["model"] = next_m
+                                attempt = 0
+                                continue
                         if (
                             not yielded_any_token
                             and attempt < max_retries
@@ -370,6 +426,20 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                             yield content
                 break
             except STREAM_TRANSPORT_ERRORS as exc:
+                if self.engine_id == "gemini" and not yielded_any_token:
+                    cur_m = payload.get("model", "")
+                    next_m = next((fb for fb in _GEMINI_FALLBACKS if fb != cur_m and fb not in tried_models), None)
+                    if next_m:
+                        tried_models.add(next_m)
+                        logger.warning(
+                            "Gemini stream model %s connection error (%s); auto-falling back to %s",
+                            cur_m,
+                            exc,
+                            next_m,
+                        )
+                        payload["model"] = next_m
+                        attempt = 0
+                        continue
                 # A wedged upstream read trips ``timeout`` (ReadTimeout) and is mapped
                 # here, so the request fails cleanly at the configured bound instead
                 # of hanging indefinitely (see STREAM_TRANSPORT_ERRORS for why the
@@ -415,6 +485,7 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
         attempt = 0
         max_retries = 3
         yielded_any = False
+        tried_models: set[str] = {payload.get("model", "")}
 
         while True:
             try:
@@ -428,6 +499,20 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                     # a silent EMPTY stream instead of a clean engine error.
                     if not resp.is_success:
                         await resp.aread()
+                        if self.engine_id == "gemini" and not yielded_any:
+                            cur_m = payload.get("model", "")
+                            next_m = next((fb for fb in _GEMINI_FALLBACKS if fb != cur_m and fb not in tried_models), None)
+                            if next_m:
+                                tried_models.add(next_m)
+                                logger.warning(
+                                    "Gemini stream_full model %s failed (HTTP %d); auto-falling back to %s",
+                                    cur_m,
+                                    resp.status_code,
+                                    next_m,
+                                )
+                                payload["model"] = next_m
+                                attempt = 0
+                                continue
                         if (
                             not yielded_any
                             and attempt < max_retries
@@ -474,6 +559,20 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                             )
                 break
             except STREAM_TRANSPORT_ERRORS as exc:
+                if self.engine_id == "gemini" and not yielded_any:
+                    cur_m = payload.get("model", "")
+                    next_m = next((fb for fb in _GEMINI_FALLBACKS if fb != cur_m and fb not in tried_models), None)
+                    if next_m:
+                        tried_models.add(next_m)
+                        logger.warning(
+                            "Gemini stream_full model %s connection error (%s); auto-falling back to %s",
+                            cur_m,
+                            exc,
+                            next_m,
+                        )
+                        payload["model"] = next_m
+                        attempt = 0
+                        continue
                 # See ``stream``: transport failures (incl. a mid-stream server
                 # disconnect) map to a clean error; the set is kept narrow so
                 # cancellation still propagates.
@@ -508,6 +607,8 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                 self._host,
                 exc,
             )
+            if self.engine_id == "gemini":
+                return list(_GEMINI_FALLBACKS)
             return []
         data = resp.json()
         models = [m["id"] for m in data.get("data", [])]
@@ -518,6 +619,17 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                 short = m[len("models/") :]
                 if short not in normalized:
                     normalized.append(short)
+
+        if self.engine_id == "gemini":
+            ordered: list[str] = []
+            for p in _GEMINI_FALLBACKS:
+                if p in normalized and p not in ordered:
+                    ordered.append(p)
+            for m in normalized:
+                if m not in ordered:
+                    ordered.append(m)
+            return ordered
+
         return normalized
 
     def health(self) -> bool:

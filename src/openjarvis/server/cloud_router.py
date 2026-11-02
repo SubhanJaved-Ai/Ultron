@@ -272,15 +272,19 @@ async def _stream_openai(
                                     payload.pop("stream_options", None)
                                     continue
 
-                                # Automatic migration if deprecated Gemini model is requested
+                                # Automatic migration if deprecated or overloaded Gemini model is requested
                                 if (
-                                    resp.status_code == 404
-                                    and provider == "google"
-                                    and ("gemini-2." in str(payload.get("model", "")) or "flash-lite" in str(payload.get("model", "")))
+                                    provider == "google"
+                                    and resp.status_code in (404, 429, 503)
+                                    and not yielded_any_token
                                 ):
-                                    logger.warning("Requested Gemini model is deprecated by Google (404), auto-migrating to gemini-3.5-flash")
-                                    payload["model"] = "gemini-3.5-flash"
-                                    continue
+                                    cur_m = str(payload.get("model", ""))
+                                    fb_models = ["gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-3-flash-preview"]
+                                    next_fb = next((f for f in fb_models if f != cur_m), None)
+                                    if next_fb:
+                                        logger.warning("Gemini model %s returned HTTP %d; auto-migrating to %s", cur_m, resp.status_code, next_fb)
+                                        payload["model"] = next_fb
+                                        continue
 
                                 if (
                                     not yielded_any_token

@@ -1304,12 +1304,20 @@ async def list_models(request: Request) -> ModelListResponse:
     model_ids = [
         m
         for m in all_ids
-        if m != "jarvis-v2" and not is_embed_only_model(m)
+        if m != "jarvis-v2"
+        and not is_embed_only_model(m)
+        and not any(d in m for d in ("gemini-2.5", "gemini-2.0", "gemini-1.5", "gemini-3.8"))
     ]
     if not model_ids:
         try:
             local_ids = await asyncio.wait_for(list_local_models(), timeout=0.8)
-            model_ids = [m for m in local_ids if m != "jarvis-v2" and not is_embed_only_model(m)]
+            model_ids = [
+                m
+                for m in local_ids
+                if m != "jarvis-v2"
+                and not is_embed_only_model(m)
+                and not any(d in m for d in ("gemini-2.5", "gemini-2.0", "gemini-1.5", "gemini-3.8"))
+            ]
         except Exception:
             model_ids = []
 
@@ -1320,19 +1328,16 @@ async def list_models(request: Request) -> ModelListResponse:
     gemini_key = cloud_keys.get("GEMINI_API_KEY") or cloud_keys.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if _is_valid_key("GEMINI_API_KEY", gemini_key):
         all_gemini = [
-            "gemini-3.5-flash",
-            "gemini-3.8-flash",
-            "gemini-3.7-flash",
-            "gemini-3.6-flash",
+            "gemini-flash-lite-latest",
             "gemini-3.5-flash-lite",
             "gemini-3-flash-preview",
-            "gemini-3.1-pro-preview",
             "gemini-3.1-flash-lite-preview",
+            "gemini-3.5-flash",
+            "gemini-3.8-flash",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
             "gemini-flash-latest",
-            "gemini-flash-lite-latest",
             "gemini-pro-latest",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro",
             "gemini-4-argon",
             "antigravity-preview-latest",
             "deep-research-preview-04-2026",
@@ -1352,7 +1357,7 @@ async def list_models(request: Request) -> ModelListResponse:
                             mn = item.get("name", "").replace("models/", "")
                             methods = item.get("supportedGenerationMethods", [])
                             if "generateContent" in methods and not any(x in mn for x in ["tts", "image", "embed", "clip", "transcribe", "robotics"]):
-                                if mn not in all_gemini and "gemini-2.5" not in mn:
+                                if mn not in all_gemini and not any(d in mn for d in ("gemini-2.5", "gemini-2.0", "gemini-1.5")):
                                     fetched.append(mn)
                         _CACHED_DYNAMIC_GEMINI = fetched
                         _LAST_GEMINI_FETCH = now

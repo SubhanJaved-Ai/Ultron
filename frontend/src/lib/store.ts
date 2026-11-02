@@ -574,11 +574,12 @@ export const useAppStore = create<AppState>((set, get) => {
           (state.settings.defaultModel &&
             chatModels.some((m) => m.id === state.settings.defaultModel) &&
             state.settings.defaultModel) ||
-          chatModels.find((m) => m.id === 'gemini-3.5-flash')?.id ||
-          chatModels.find((m) => m.id === 'gemini-3.8-flash')?.id ||
-          chatModels.find((m) => m.id === 'gemini-3-flash-preview')?.id ||
-          chatModels.find((m) => m.id === 'gemini-flash-latest')?.id ||
           chatModels.find((m) => m.id === 'gemini-flash-lite-latest')?.id ||
+          chatModels.find((m) => m.id === 'gemini-3.5-flash-lite')?.id ||
+          chatModels.find((m) => m.id === 'gemini-3-flash-preview')?.id ||
+          chatModels.find((m) => m.id === 'gemini-3.1-flash-lite-preview')?.id ||
+          chatModels.find((m) => m.id === 'gemini-3.5-flash')?.id ||
+          chatModels.find((m) => m.id === 'gemini-flash-latest')?.id ||
           chatModels.find((m) => m.id.startsWith('gemini'))?.id ||
           chatModels.find((m) => m.id === 'claude-3-7-sonnet')?.id ||
           chatModels.find((m) => m.id === 'claude-3-5-sonnet')?.id ||
@@ -591,7 +592,10 @@ export const useAppStore = create<AppState>((set, get) => {
         const currentIsBad =
           !!state.selectedModel && isEmbedOnlyModel(state.selectedModel);
         const currentIsDeprecated =
-          state.selectedModel === 'gemini-2.5-flash' || state.selectedModel === 'gemini-2.5-pro';
+          !state.selectedModel ||
+          state.selectedModel.includes('gemini-2.') ||
+          state.selectedModel.includes('gemini-1.') ||
+          state.selectedModel.includes('gemini-3.8');
         const currentMissing =
           !!state.selectedModel &&
           !models.some((m) => m.id === state.selectedModel);
@@ -627,9 +631,9 @@ export const useAppStore = create<AppState>((set, get) => {
         const shouldSync =
           !!modelStr &&
           (!state.selectedModel ||
-            (info.engine === 'gemini' &&
-              (state.selectedModel === 'gemini-2.5-pro' ||
-                state.selectedModel === 'gemini-2.5-flash')));
+            state.selectedModel.includes('gemini-2.') ||
+            state.selectedModel.includes('gemini-1.') ||
+            state.selectedModel.includes('gemini-3.8'));
 
         return {
           serverInfo: sanitizedInfo,
